@@ -3,7 +3,7 @@
 #include <libloaderapi.h>
 #include <stdexcept>
 
-namespace J2534
+namespace j2534
 {
 	template<typename FuncT>
 	void LoadFunction(HINSTANCE hDLL, FuncT &func, const std::string& name)
@@ -63,7 +63,7 @@ namespace J2534
 		return static_cast<J2534_ERROR_CODE>(_PassThruDisconnect(ChannelID));
 	}
 
-	J2534_ERROR_CODE J2534::PassThruReadMsgs(unsigned long ChannelID, std::vector<PASSTHRU_MSG>& msgs, unsigned long Timeout)
+	J2534_ERROR_CODE J2534::PassThruReadMsgs(unsigned long ChannelID, std::vector<PASSTHRU_MSG>& msgs, unsigned long Timeout) const
 	{
 		unsigned long numMsgs{msgs.size()};
 		const auto result = static_cast<J2534_ERROR_CODE>(_PassThruReadMsgs(ChannelID , msgs.data(), &numMsgs, Timeout));
@@ -71,42 +71,43 @@ namespace J2534
 		return result;
 	}
 
-	J2534_ERROR_CODE J2534::PassThruWriteMsgs(unsigned long ChannelID, const std::vector<PASSTHRU_MSG>& msgs, unsigned long& numMsgs, unsigned long Timeout)
+	J2534_ERROR_CODE J2534::PassThruWriteMsgs(unsigned long ChannelID, const std::vector<PASSTHRU_MSG>& msgs,
+		unsigned long& numMsgs, unsigned long Timeout) const
 	{
 		numMsgs = msgs.size();
 		return static_cast<J2534_ERROR_CODE>(_PassThruWriteMsgs(ChannelID, const_cast<PASSTHRU_MSG*>(msgs.data()), &numMsgs, Timeout));
 	}
 
 	J2534_ERROR_CODE J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG& msg,
-		unsigned long& msgID, unsigned long TimeInterval)
+		unsigned long& msgID, unsigned long TimeInterval) const
 	{
 		return static_cast<J2534_ERROR_CODE>(_PassThruStartPeriodicMsg(ChannelID, const_cast<PASSTHRU_MSG *>(&msg), &msgID, TimeInterval));
 	}
 
-	J2534_ERROR_CODE J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID)
+	J2534_ERROR_CODE J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID) const
 	{
 		return static_cast<J2534_ERROR_CODE>(_PassThruStopPeriodicMsg(ChannelID, MsgID));
 	}
 
 	J2534_ERROR_CODE J2534::PassThruStartMsgFilter(unsigned long ChannelID,
-		unsigned long FilterType, const PASSTHRU_MSG& maskMsg, const PASSTHRU_MSG& patternMsg,
-		const PASSTHRU_MSG& flowControlMsg, unsigned long& msgID)
+		unsigned long FilterType, PASSTHRU_MSG* maskMsg, PASSTHRU_MSG* patternMsg,
+		PASSTHRU_MSG* flowControlMsg, unsigned long& msgID) const
 	{
-		return static_cast<J2534_ERROR_CODE>(_PassThruStartMsgFilter(ChannelID, FilterType, const_cast<PASSTHRU_MSG*>(&maskMsg),
-			const_cast<PASSTHRU_MSG*>(&patternMsg), const_cast<PASSTHRU_MSG*>(&flowControlMsg), &msgID));
+		return static_cast<J2534_ERROR_CODE>(_PassThruStartMsgFilter(ChannelID, FilterType, maskMsg,
+			patternMsg, flowControlMsg, &msgID));
 	}
 
-	J2534_ERROR_CODE J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
+	J2534_ERROR_CODE J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID) const
 	{
 		return static_cast<J2534_ERROR_CODE>(_PassThruStopMsgFilter(ChannelID, MsgID));
 	}
 
-	J2534_ERROR_CODE J2534::PassThruSetProgrammingVoltage(unsigned long Pin, unsigned long Voltage)
+	J2534_ERROR_CODE J2534::PassThruSetProgrammingVoltage(unsigned long Pin, unsigned long Voltage) const
 	{
 		return static_cast<J2534_ERROR_CODE>(_PassThruSetProgrammingVoltage(_deviceId, Pin, Voltage));
 	}
 
-	J2534_ERROR_CODE J2534::PassThruReadVersion(std::string& firmwareVersion, std::string& dllVersion, std::string& apiVersion)
+	J2534_ERROR_CODE J2534::PassThruReadVersion(std::string& firmwareVersion, std::string& dllVersion, std::string& apiVersion) const
 	{
 		char *pFirmaweVersion = nullptr, *pDllVersion = nullptr, *pApiVersion = nullptr;
 		const auto result = static_cast<J2534_ERROR_CODE>(_PassThruReadVersion(_deviceId, pFirmaweVersion, pDllVersion, pApiVersion));
@@ -118,7 +119,7 @@ namespace J2534
 		return result;
 	}
 
-	J2534_ERROR_CODE J2534::PassThruGetLastError(std::string& errorDescription)
+	J2534_ERROR_CODE J2534::PassThruGetLastError(std::string& errorDescription) const
 	{
 		char* pErrorDescription = nullptr;
 		const auto result = static_cast<J2534_ERROR_CODE>(_PassThruGetLastError(pErrorDescription));
@@ -129,9 +130,9 @@ namespace J2534
 	}
 
 	J2534_ERROR_CODE J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID,
-		const std::vector<uint8_t>& input, std::vector<uint8_t>& output)
+		const void* input, void* output) const
 	{
-		return static_cast<J2534_ERROR_CODE>(_PassThruIoctl(ChannelID, IoctlID, const_cast<uint8_t*>(input.data()), output.data()));
+		return static_cast<J2534_ERROR_CODE>(_PassThruIoctl(ChannelID, IoctlID, const_cast<void*>(input), output));
 	}
 
-} // namespace J2534
+} // namespace j2534

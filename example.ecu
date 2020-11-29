@@ -1,0 +1,3 @@
+Name            ,  Address, Size, Bitmask,       Unit, S, I,           A,       B, Comment
+wped_w          , 0x302D9A,    2,  0x0000, %         , 0, 0,    0.003052,       0, Pedal Position
+nmot_w          ,   0xF410,    2,  0x0000, rpm       , 0, 0,        0.25,       0, Engine Speed

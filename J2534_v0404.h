@@ -17,16 +17,20 @@
 /**************************/
 /* ProtocolID definitions */
 /**************************/
-#define J1850VPW						1
-#define J1850PWM						2
-#define ISO9141							3
-#define ISO14230						4
-#define CAN							5
-#define ISO15765						6
-#define SCI_A_ENGINE						7
-#define SCI_A_TRANS						8
-#define SCI_B_ENGINE						9
-#define SCI_B_TRANS						10
+enum Protocol_ID
+{
+	J1850VPW     = 0x1,
+	J1850PWM     = 0x2,
+	ISO9141      = 0x3,
+	ISO14230     = 0x4,
+	CAN          = 0x5,
+	ISO15765     = 0x6,
+	SCI_A_ENGINE = 0x7,
+	SCI_A_TRANS  = 0x8,
+	SCI_B_ENGINE = 0x9,
+	SCI_B_TRANS  = 0xA,
+	CAN_XON_XOFF = 0x10000001
+};
 
 // J2534-2 Pin Switched ProtocolIDs
 #define J1850VPW_PS			/*-2*/			0x8000 // Not supported
@@ -228,34 +232,34 @@
 /* Error IDs */
 /*************/
 enum J2534_ERROR_CODE {
-STATUS_NOERROR =						0x00,
-ERR_NOT_SUPPORTED =						0x01,
-ERR_INVALID_CHANNEL_ID =				0x02,
-ERR_INVALID_PROTOCOL_ID =				0x03,
-ERR_NULL_PARAMETER =					0x04,
-ERR_INVALID_IOCTL_VALUE = 				0x05,
-ERR_INVALID_FLAGS =						0x06,
-ERR_FAILED =							0x07,
-ERR_DEVICE_NOT_CONNECTED =				0x08,
-ERR_TIMEOUT =							0x09,
-ERR_INVALID_MSG =						0x0A,
-ERR_INVALID_TIME_INTERVAL =				0x0B,
-ERR_EXCEEDED_LIMIT =					0x0C,
-ERR_INVALID_MSG_ID =					0x0D,
-ERR_DEVICE_IN_USE =						0x0E,
-ERR_INVALID_IOCTL_ID =					0x0F,
-ERR_BUFFER_EMPTY =						0x10,
-ERR_BUFFER_FULL =						0x11,
-ERR_BUFFER_OVERFLOW =					0x12,
-ERR_PIN_INVALID =						0x13,
-ERR_CHANNEL_IN_USE =					0x14,
-ERR_MSG_PROTOCOL_ID =					0x15,
-ERR_INVALID_FILTER_ID =					0x16,
-ERR_NO_FLOW_CONTROL =					0x17,
-ERR_NOT_UNIQUE =						0x18,
-ERR_INVALID_BAUDRATE =					0x19,
-ERR_INVALID_DEVICE_ID =					0x1A,
-ERR_NULLPARAMETER =		/*v2*/			ERR_NULL_PARAMETER
+	STATUS_NOERROR =						0x00,
+	ERR_NOT_SUPPORTED =						0x01,
+	ERR_INVALID_CHANNEL_ID =				0x02,
+	ERR_INVALID_PROTOCOL_ID =				0x03,
+	ERR_NULL_PARAMETER =					0x04,
+	ERR_INVALID_IOCTL_VALUE = 				0x05,
+	ERR_INVALID_FLAGS =						0x06,
+	ERR_FAILED =							0x07,
+	ERR_DEVICE_NOT_CONNECTED =				0x08,
+	ERR_TIMEOUT =							0x09,
+	ERR_INVALID_MSG =						0x0A,
+	ERR_INVALID_TIME_INTERVAL =				0x0B,
+	ERR_EXCEEDED_LIMIT =					0x0C,
+	ERR_INVALID_MSG_ID =					0x0D,
+	ERR_DEVICE_IN_USE =						0x0E,
+	ERR_INVALID_IOCTL_ID =					0x0F,
+	ERR_BUFFER_EMPTY =						0x10,
+	ERR_BUFFER_FULL =						0x11,
+	ERR_BUFFER_OVERFLOW =					0x12,
+	ERR_PIN_INVALID =						0x13,
+	ERR_CHANNEL_IN_USE =					0x14,
+	ERR_MSG_PROTOCOL_ID =					0x15,
+	ERR_INVALID_FILTER_ID =					0x16,
+	ERR_NO_FLOW_CONTROL =					0x17,
+	ERR_NOT_UNIQUE =						0x18,
+	ERR_INVALID_BAUDRATE =					0x19,
+	ERR_INVALID_DEVICE_ID =					0x1A,
+	ERR_NULLPARAMETER =		/*v2*/			ERR_NULL_PARAMETER
 };
 
 
@@ -290,17 +294,18 @@ ERR_NULLPARAMETER =		/*v2*/			ERR_NULL_PARAMETER
 /*******************************/
 /* PassThruConnect definitions */
 /*******************************/
-#define CAN_29BIT_ID						0x00000100
-#define ISO9141_NO_CHECKSUM					0x00000200
-#define NO_CHECKSUM				/*v2*/      0x00000200
-#define CAN_ID_BOTH						    0x00000800
-#define ISO9141_K_LINE_ONLY					0x00001000
-#define SNIFF_MODE			    /*DT*/		0x10000000 //DT - J1850PWM, J1850VPW, ISO9141
-#define LISTEN_ONLY_DT      	/*DT*/		0x10000000 //DT - listen only mode CAN
-#define ISO9141_FORD_HEADER		/*DT*/		0x20000000 //DT
-#define ISO9141_NO_CHECKSUM_DT		/*DT*/	0x40000000 //compat with CarDAQ2534
-#define J1708_NO_CHECKSUM_DT		/*DT*/	0x40000000 //DT
-
+enum J2534CONNECTFLAG
+{
+	NONE = 0x0000,
+	CAN_29BIT_ID = 0x0100,
+	ISO9141_NO_CHECKSUM = 0x0200,
+	CAN_ID_BOTH = 0x0800,
+	ISO9141_K_LINE_ONLY = 0x1000,
+	DT_ISO9141_LISTEN_L_LINE = 0x08000000,
+	SNIFF_MODE = 0x10000000,                    //Drewtech only
+	ISO9141_FORD_HEADER = 0x20000000,           //Drewtech only
+	ISO9141_NO_CHECKSUM_DT = 0x40000000         //Drewtech only
+};
 
 /************************/
 /* RxStatus definitions */

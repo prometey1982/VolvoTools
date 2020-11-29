@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace J2534
+namespace j2534
 {
 
 	J2534Channel::J2534Channel(J2534& j2534, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate)
@@ -18,40 +18,49 @@ namespace J2534
 		_j2534.PassThruDisconnect(_channelID);
 	}
 
-	J2534_ERROR_CODE J2534Channel::readMsgs(std::vector<PASSTHRU_MSG> msgs, unsigned long Timeout)
+	J2534_ERROR_CODE J2534Channel::readMsgs(std::vector<PASSTHRU_MSG> msgs, unsigned long Timeout) const
 	{
 		return _j2534.PassThruReadMsgs(_channelID, msgs, Timeout);
 	}
 
-	J2534_ERROR_CODE J2534Channel::writeMsgs(const std::vector<PASSTHRU_MSG> msgs, unsigned long& numMsgs, unsigned long Timeout)
+	J2534_ERROR_CODE J2534Channel::writeMsgs(const std::vector<PASSTHRU_MSG> msgs, unsigned long& numMsgs, unsigned long Timeout) const
 	{
 		return _j2534.PassThruWriteMsgs(_channelID, msgs, numMsgs, Timeout);
 	}
 
-	J2534_ERROR_CODE J2534Channel::startPeriodicMsg(const PASSTHRU_MSG& msg, unsigned long& msgID, unsigned long TimeInterval)
+	J2534_ERROR_CODE J2534Channel::startPeriodicMsg(const PASSTHRU_MSG& msg, unsigned long& msgID, unsigned long TimeInterval) const
 	{
 		return _j2534.PassThruStartPeriodicMsg(_channelID, msg, msgID, TimeInterval);
 	}
 
-	J2534_ERROR_CODE J2534Channel::stopPeriodicMsg(unsigned long MsgID)
+	J2534_ERROR_CODE J2534Channel::stopPeriodicMsg(unsigned long MsgID) const
 	{
 		return _j2534.PassThruStopPeriodicMsg(_channelID, MsgID);
 	}
 
-	J2534_ERROR_CODE J2534Channel::startMsgFilter(unsigned long FilterType, const PASSTHRU_MSG& maskMsg, const PASSTHRU_MSG& patternMsg,
-		const PASSTHRU_MSG& flowControlMsg, unsigned long& msgID)
+	J2534_ERROR_CODE J2534Channel::startMsgFilter(unsigned long FilterType, PASSTHRU_MSG* maskMsg, PASSTHRU_MSG* patternMsg,
+		PASSTHRU_MSG* flowControlMsg, unsigned long& msgID) const
 	{
 		return _j2534.PassThruStartMsgFilter(_channelID, FilterType, maskMsg, patternMsg, flowControlMsg, msgID);
 	}
 
-	J2534_ERROR_CODE J2534Channel::stopMsgFilter(unsigned long MsgID)
+	J2534_ERROR_CODE J2534Channel::stopMsgFilter(unsigned long MsgID) const
 	{
 		return _j2534.PassThruStopMsgFilter(_channelID, MsgID);
 	}
 
-	J2534_ERROR_CODE J2534Channel::passThruIoctl(unsigned long IoctlID, const std::vector<uint8_t>& input, std::vector<uint8_t>& output)
+	J2534_ERROR_CODE J2534Channel::passThruIoctl(unsigned long IoctlID, const void* input, void* output) const
 	{
 		return _j2534.PassThruIoctl(_channelID, IoctlID, input, output);
 	}
 
-} // namespace J2534
+	J2534_ERROR_CODE J2534Channel::setConfig(const std::vector<SCONFIG>& config) const
+	{
+		std::vector<uint8_t> output;
+		SCONFIG_LIST configList;
+		configList.NumOfParams = config.size();
+		configList.ConfigPtr = const_cast<SCONFIG*>(config.data());
+		return passThruIoctl(SET_CONFIG, &configList);
+	}
+
+} // namespace j2534

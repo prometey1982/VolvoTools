@@ -27,6 +27,15 @@
     <ClCompile Include="Registry\Registry\src\Registry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="LogParameter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LogParameters.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="J2534_v0404.h">
@@ -39,6 +48,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Registry\Registry\include\Registry.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LogParameter.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LogParameters.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Logger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

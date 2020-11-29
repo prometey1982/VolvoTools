@@ -142,6 +142,9 @@
   <ItemGroup>
     <ClCompile Include="J2534.cpp" />
     <ClCompile Include="J2534Channel.cpp" />
+    <ClCompile Include="Logger.cpp" />
+    <ClCompile Include="LogParameter.cpp" />
+    <ClCompile Include="LogParameters.cpp" />
     <ClCompile Include="Registry\Registry\src\Registry.cpp" />
     <ClCompile Include="VolvoLogger.cpp" />
   </ItemGroup>
@@ -149,6 +152,9 @@
     <ClInclude Include="J2534.hpp" />
     <ClInclude Include="J2534Channel.hpp" />
     <ClInclude Include="J2534_v0404.h" />
+    <ClInclude Include="Logger.h" />
+    <ClInclude Include="LogParameter.hpp" />
+    <ClInclude Include="LogParameters.hpp" />
     <ClInclude Include="Registry\Registry\include\Registry.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
