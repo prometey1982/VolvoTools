@@ -27,6 +27,8 @@ namespace logger
 
 	private:
 		std::unique_ptr<j2534::J2534Channel> openChannel(unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate);
+		std::unique_ptr<j2534::J2534Channel> openBridgeChannel();
+		void startXonXoffMessageFiltering(j2534::J2534Channel& channel, unsigned long Flags);
 
 	private:
 		j2534::J2534& _j2534;

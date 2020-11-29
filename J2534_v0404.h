@@ -128,6 +128,11 @@ enum Protocol_ID
 #define DT_WRITE_DIO			/*DT*/			0x20000002 // AVIT only
 #define DT_ANALOG_IGNORE_CAL	/*DT*/			0x20000003 // AVIT only
 
+// Volvo DiCE
+#define CAN_XON_XOFF_FILTER						0x20000001
+#define CAN_XON_XOFF_FILTER_ACTIVE				0x20000002
+
+
 
 /*******************************/
 /* Configuration Parameter IDs */

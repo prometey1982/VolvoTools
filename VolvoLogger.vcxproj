@@ -140,6 +140,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="CEMCanMessage.cpp" />
     <ClCompile Include="J2534.cpp" />
     <ClCompile Include="J2534Channel.cpp" />
     <ClCompile Include="Logger.cpp" />
@@ -149,6 +150,7 @@
     <ClCompile Include="VolvoLogger.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CEMCanMessage.hpp" />
     <ClInclude Include="J2534.hpp" />
     <ClInclude Include="J2534Channel.hpp" />
     <ClInclude Include="J2534_v0404.h" />
