@@ -10,8 +10,8 @@ namespace j2534
 		explicit J2534Channel(J2534& j2534, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate);
 		~J2534Channel();
 
-		J2534_ERROR_CODE readMsgs(std::vector<PASSTHRU_MSG> msgs, unsigned long Timeout) const;
-		J2534_ERROR_CODE writeMsgs(const std::vector<PASSTHRU_MSG> msgs, unsigned long& numMsgs, unsigned long Timeout) const;
+		J2534_ERROR_CODE readMsgs(std::vector<PASSTHRU_MSG>& msgs, unsigned long Timeout = 1000) const;
+		J2534_ERROR_CODE writeMsgs(const std::vector<PASSTHRU_MSG>& msgs, unsigned long& numMsgs, unsigned long Timeout = 1000) const;
 		J2534_ERROR_CODE startPeriodicMsg(const PASSTHRU_MSG& msg, unsigned long& msgID, unsigned long TimeInterval) const;
 		J2534_ERROR_CODE stopPeriodicMsg(unsigned long MsgID) const;
 		J2534_ERROR_CODE startMsgFilter(unsigned long FilterType, PASSTHRU_MSG* maskMsg, PASSTHRU_MSG* patternMsg,

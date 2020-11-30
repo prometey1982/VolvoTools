@@ -68,4 +68,14 @@ namespace logger
 		return _description;
 	}
 
+	double LogParameter::formatValue(uint32_t value) const
+	{
+		if (_isInverseConversion) {
+			return _factor / (value - _offset);
+		}
+		else {
+			return value * _factor - _offset;
+		}
+	}
+
 } // namespace logger

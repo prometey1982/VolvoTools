@@ -1,3 +1,5 @@
-Name            ,  Address, Size, Bitmask,       Unit, S, I,           A,       B, Comment
-wped_w          , 0x302D9A,    2,  0x0000, %         , 0, 0,    0.003052,       0, Pedal Position
-nmot_w          ,   0xF410,    2,  0x0000, rpm       , 0, 0,        0.25,       0, Engine Speed
+Name            ,  Address, Size, Bitmask, Unit      , Signed, I,      Factor,  Offset, Comment
+wped_w          , 0x302D9A,    2,  0x0000, %         ,      0, 0,    0.003052,       0, Pedal Position
+nmot_w          ,   0xF410,    2,  0x0000, rpm       ,      0, 0,        0.25,       0, Engine Speed
+vfzg_w          ,   0xA9AC,    2,  0x0000, KMH       ,      0, 0,   0.0078125,       0, Vehicle Speed
+ps_w            ,   0xF476,    2,  0x0000, mBar      ,      0, 0,   0.0390625,       0, Manifold Boost Pressure

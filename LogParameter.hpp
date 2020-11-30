@@ -24,6 +24,7 @@ namespace logger
 		double factor() const;
 		double offset() const;
 		const std::string& description() const;
+		double formatValue(uint32_t value) const;
 
 	private:
 		std::string _name;

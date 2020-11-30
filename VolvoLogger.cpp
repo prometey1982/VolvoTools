@@ -42,6 +42,8 @@ int main()
         j2534.PassThruOpen(deviceName);
         logger::Logger logger(j2534);
         logger.start(params, L"123.csv");
+        getchar();
+        logger.stop();
         j2534.PassThruClose();
     }
     return 0;

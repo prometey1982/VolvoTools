@@ -4,6 +4,8 @@
 #include "CEMCanMessage.hpp"
 
 #include <algorithm>
+#include <chrono>
+#include <fstream>
 
 namespace logger
 {
@@ -21,12 +23,12 @@ namespace logger
 		return CEMCanMessage(request);
 	}
 
-	static CEMCanMessage makeRegisterAddrRequest(uint32_t addr, uint8_t dataLength)
+	static CEMCanMessage makeRegisterAddrRequest(uint32_t addr, size_t dataLength)
 	{
 		uint8_t byte1 = (addr & 0xFF0000) >> 16;
 		uint8_t byte2 = (addr & 0xFF00) >> 8;
 		uint8_t byte3 = (addr & 0xFF);
-		return makeCanMessage(ECM, { 0xAA, 0x50, byte1, byte2, byte3, dataLength });
+		return makeCanMessage(ECM, { 0xAA, 0x50, byte1, byte2, byte3, static_cast<uint8_t>(dataLength) });
 	}
 
 	static const CEMCanMessage requestMemory{ makeCanMessage(ECM, { 0xA6, 0xF0, 0x00, 0x01 }) };
@@ -83,12 +85,22 @@ namespace logger
 
 		_parameters = parameters;
 
-		unsigned long baudrate = 500000;
+		const unsigned long baudrate = 500000;
+		const unsigned long protocolId = CAN_XON_XOFF;
+		const unsigned long flags = CAN_29BIT_ID;
 
-		_channel1 = openChannel(CAN_XON_XOFF, CAN_29BIT_ID, baudrate);
-		_channel2 = openChannel(CAN_XON_XOFF, CAN_29BIT_ID | 0x20000000, 125000);
+		_channel1 = openChannel(protocolId, flags, baudrate);
+		_channel2 = openChannel(protocolId, flags | 0x20000000, 125000);
 		if (baudrate != 500000)
 			_channel3 = openBridgeChannel();
+
+		registerParameters(protocolId, flags);
+
+		_stopped = false;
+
+		_loggingThread = std::thread([this, savePath, protocolId, flags]() {
+			logFunction(protocolId, flags, savePath);
+		});
 	}
 
 	void Logger::stop()
@@ -161,6 +173,87 @@ namespace logger
 
 		channel.passThruIoctl(CAN_XON_XOFF_FILTER, msgs.data());
 		channel.passThruIoctl(CAN_XON_XOFF_FILTER_ACTIVE, nullptr);
+	}
+
+	void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags)
+	{
+		for (const auto parameter : _parameters.parameters()) {
+			const auto registerParameterRequest{ makeRegisterAddrRequest(parameter.addr(), parameter.size()) };
+			unsigned long numMsgs;
+			_channel1->writeMsgs({ registerParameterRequest.toPassThruMsg(ProtocolID, Flags) }, numMsgs);
+			if (numMsgs == 0) {
+				throw std::runtime_error("Request to the ECU wasn't send");
+			}
+			std::vector<PASSTHRU_MSG> result(1);
+			_channel1->readMsgs(result);
+			if (result.empty()) {
+				throw std::runtime_error("ECU didn't response intime");
+			}
+			for (const auto msg : result) {
+				if (msg.Data[6] != 0xEA)
+					throw std::runtime_error("Can't register memory addr");
+			}
+		}
+	}
+
+	void Logger::logFunction(unsigned long protocolId, unsigned int flags, const std::wstring& savePath)
+	{
+		std::ofstream outputStream(savePath);
+		outputStream << "Time (sec),";
+		const auto startTimepoint{ std::chrono::steady_clock::now() };
+		unsigned long numberOfCanMessages{ 0 };
+		{
+			std::unique_lock<std::mutex> lock{ _mutex };
+			numberOfCanMessages = _parameters.getNumberOfCanMessages();
+			for (const auto& param : _parameters.parameters()) {
+				outputStream << param.name() << "(" << param.unit() << "),";
+			}
+			outputStream << std::endl;
+		}
+		std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
+		const std::vector<PASSTHRU_MSG> requstMemoryMessage{ requestMemory.toPassThruMsg(protocolId, flags) };
+		for (size_t timeoffset = 0;; timeoffset += 50) {
+			{
+				std::unique_lock<std::mutex> lock{ _mutex };
+				if (_stopped)
+					break;
+			}
+			unsigned long writtenCount = 1;
+			_channel1->writeMsgs(requstMemoryMessage, writtenCount);
+			if (writtenCount > 0) {
+				logMessages.resize(numberOfCanMessages);
+				_channel1->readMsgs(logMessages);
+
+				const auto now{ std::chrono::steady_clock::now() };
+
+				outputStream << ((std::chrono::duration_cast<std::chrono::milliseconds>(now - startTimepoint)).count() / 1000.0) << ",";
+
+				size_t paramIndex = 0;
+				size_t paramOffset = 0;
+				uint16_t value = 0;
+				for (const auto& msg : logMessages) {
+					size_t msgOffset = 5;
+					if (msg.Data[4] == 143 && msg.Data[5] == 122 && msg.Data[6] == 230 && msg.Data[7] == 240 && msg.Data[8] == 0)
+						msgOffset = 9;
+					for (size_t i = msgOffset; i < 12; ++i) {
+						const auto& param = _parameters.parameters()[paramIndex];
+						value += msg.Data[i] << ((param.size() - paramOffset - 1) * 8);
+						++paramOffset;
+						if (paramOffset >= param.size()) {
+							outputStream << param.formatValue(value) << ",";
+							++paramIndex;
+							paramOffset = 0;
+							value = 0;
+						}
+						if (paramIndex >= _parameters.parameters().size())
+							break;
+					}
+				}
+				outputStream << std::endl;
+			}
+			std::unique_lock<std::mutex> lock{ _mutex };
+			_cond.wait_until(lock, startTimepoint + std::chrono::milliseconds(timeoffset));
+		}
 	}
 
 } // namespace logger

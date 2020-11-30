@@ -18,6 +18,7 @@ namespace logger
 		const LogParameters& operator=(const LogParameters& rhs);
 
 		const std::vector<LogParameter>& parameters() const;
+		unsigned long getNumberOfCanMessages() const;
 
 	private:
 		std::vector<LogParameter> _parameters;

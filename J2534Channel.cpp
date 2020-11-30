@@ -18,12 +18,12 @@ namespace j2534
 		_j2534.PassThruDisconnect(_channelID);
 	}
 
-	J2534_ERROR_CODE J2534Channel::readMsgs(std::vector<PASSTHRU_MSG> msgs, unsigned long Timeout) const
+	J2534_ERROR_CODE J2534Channel::readMsgs(std::vector<PASSTHRU_MSG>& msgs, unsigned long Timeout) const
 	{
 		return _j2534.PassThruReadMsgs(_channelID, msgs, Timeout);
 	}
 
-	J2534_ERROR_CODE J2534Channel::writeMsgs(const std::vector<PASSTHRU_MSG> msgs, unsigned long& numMsgs, unsigned long Timeout) const
+	J2534_ERROR_CODE J2534Channel::writeMsgs(const std::vector<PASSTHRU_MSG>& msgs, unsigned long& numMsgs, unsigned long Timeout) const
 	{
 		return _j2534.PassThruWriteMsgs(_channelID, msgs, numMsgs, Timeout);
 	}

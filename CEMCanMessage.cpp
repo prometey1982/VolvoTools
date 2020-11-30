@@ -28,4 +28,17 @@ namespace logger
 		return _data;
 	}
 
+	PASSTHRU_MSG CEMCanMessage::toPassThruMsg(unsigned long ProtocolID, unsigned long Flags) const
+	{
+		PASSTHRU_MSG result;
+		result.ProtocolID = ProtocolID;
+		result.RxStatus = 0;
+		result.TxFlags = Flags;
+		result.Timestamp = 0;
+		result.ExtraDataIndex = 0;
+		result.DataSize = _data.size();
+		std::copy(_data.begin(), _data.end(), result.Data);
+		return result;
+	}
+
 } // namespace logger
