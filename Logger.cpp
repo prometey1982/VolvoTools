@@ -76,7 +76,7 @@ namespace logger
 		stop();
 	}
 
-	void Logger::start(const LogParameters& parameters, const std::wstring& savePath)
+	void Logger::start(unsigned long baudrate, const LogParameters& parameters, const std::wstring& savePath)
 	{
 		std::unique_lock<std::mutex> lock{ _mutex };
 		if (!_stopped) {
@@ -85,12 +85,11 @@ namespace logger
 
 		_parameters = parameters;
 
-		const unsigned long baudrate = 500000;
 		const unsigned long protocolId = CAN_XON_XOFF;
 		const unsigned long flags = CAN_29BIT_ID;
 
 		_channel1 = openChannel(protocolId, flags, baudrate);
-		_channel2 = openChannel(protocolId, flags | 0x20000000, 125000);
+//		_channel2 = openChannel(protocolId, flags | 0x20000000, 125000);
 		if (baudrate != 500000)
 			_channel3 = openBridgeChannel();
 
@@ -113,7 +112,7 @@ namespace logger
 			_loggingThread.join();
 
 		_channel1.reset();
-		_channel2.reset();
+//		_channel2.reset();
 		_channel3.reset();
 	}
 

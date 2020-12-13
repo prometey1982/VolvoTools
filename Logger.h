@@ -22,7 +22,7 @@ namespace logger
 		explicit Logger(j2534::J2534& j2534);
 		~Logger();
 
-		void start(const LogParameters& parameters, const std::wstring& savePath);
+		void start(unsigned long baudrate, const LogParameters& parameters, const std::wstring& savePath);
 		void stop();
 
 	private:
@@ -42,7 +42,7 @@ namespace logger
 		bool _stopped;
 
 		std::unique_ptr<j2534::J2534Channel> _channel1;
-		std::unique_ptr<j2534::J2534Channel> _channel2;
+//		std::unique_ptr<j2534::J2534Channel> _channel2;
 		std::unique_ptr<j2534::J2534Channel> _channel3;
 	};
 

@@ -1,6 +1,6 @@
 #include "J2534.hpp"
 
-#include <libloaderapi.h>
+//#include <libloaderapi.h>
 #include <stdexcept>
 
 namespace j2534
