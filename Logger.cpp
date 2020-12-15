@@ -69,7 +69,7 @@ Logger::Logger(j2534::J2534 &j2534)
 Logger::~Logger() { stop(); }
 
 void Logger::start(unsigned long baudrate, const LogParameters &parameters,
-                   const std::wstring &savePath) {
+                   const std::string &savePath) {
   std::unique_lock<std::mutex> lock{_mutex};
   if (!_stopped) {
     throw std::runtime_error("Logging already started");
@@ -194,7 +194,7 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
 }
 
 void Logger::logFunction(unsigned long protocolId, unsigned int flags,
-                         const std::wstring &savePath) {
+                         const std::string &savePath) {
   std::ofstream outputStream(savePath);
   outputStream << "Time (sec),";
   const auto startTimepoint{std::chrono::steady_clock::now()};

@@ -5,12 +5,16 @@
 #include "J2534.hpp"
 #include "LogParameters.hpp"
 #include "Logger.h"
+#include "LoggerApplication.hpp"
 
-#include <Registry.hpp>
+#include "Registry.hpp"
 #include <boost/program_options.hpp>
 #include <codecvt>
+#include <conio.h>
 #include <iostream>
 #include <locale>
+#include <memory>
+#include <thread>
 
 using namespace m4x1m1l14n::Registry;
 
@@ -41,8 +45,7 @@ bool processRegistry(const std::string &keyName, std::string &libraryPath,
 std::pair<std::string, std::string> getLibraryParams() {
   std::string libraryPath;
   std::string deviceName;
-  const std::string rootKeyName{
-      TEXT("Software\\Wow6432Node\\PassThruSupport.04.04")};
+  const std::string rootKeyName{TEXT("Software\\PassThruSupport.04.04")};
   const auto key = LocalMachine->Open(rootKeyName);
   key->EnumerateSubKeys(
       [&rootKeyName, &libraryPath, &deviceName](const auto &subKeyName) {
@@ -76,7 +79,15 @@ bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
   }
 }
 
+BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
+  logger::LoggerApplication::instance().stop();
+  return TRUE;
+}
+
 int main(int argc, const char *argv[]) {
+  if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
+    throw std::runtime_error("Can't set console control hander");
+  }
   unsigned long baudrate = 0;
   std::string paramsFilePath;
   std::string outputPath;
@@ -84,14 +95,17 @@ int main(int argc, const char *argv[]) {
     const auto libraryParams{getLibraryParams()};
     if (!libraryParams.first.empty()) {
       try {
-        j2534::J2534 j2534(libraryParams.first);
-        j2534.PassThruOpen(libraryParams.second);
-        logger::Logger logger(j2534);
+        std::unique_ptr<j2534::J2534> j2534{
+            std::make_unique<j2534::J2534>(libraryParams.first)};
+        j2534->PassThruOpen(libraryParams.second);
         logger::LogParameters params{paramsFilePath};
-        logger.start(baudrate, params, toWstring(outputPath));
-        getchar();
-        logger.stop();
-        j2534.PassThruClose();
+        logger::LoggerApplication::instance();
+        logger::LoggerApplication::instance().start(baudrate, std::move(j2534),
+                                                    params, outputPath);
+        while (logger::LoggerApplication::instance().isStarted()) {
+          std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+        logger::LoggerApplication::instance().stop();
       } catch (const std::exception &ex) {
         std::cout << ex.what() << std::endl;
       } catch (const char *ex) {

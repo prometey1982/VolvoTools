@@ -20,7 +20,7 @@ public:
   ~Logger();
 
   void start(unsigned long baudrate, const LogParameters &parameters,
-             const std::wstring &savePath);
+             const std::string &savePath);
   void stop();
 
 private:
@@ -33,7 +33,7 @@ private:
   void registerParameters(unsigned long ProtocolID, unsigned long Flags);
 
   void logFunction(unsigned long protocolId, unsigned int flags,
-                   const std::wstring &savePath);
+                   const std::string &savePath);
 
 private:
   j2534::J2534 &_j2534;
