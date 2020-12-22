@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <vector>
 
-#include "J2534_v0404.h"
+#include "../j2534/J2534_v0404.h"
 
-namespace logger {
+namespace common {
 
 class CEMCanMessage {
 public:
@@ -20,4 +20,4 @@ private:
   const std::vector<uint8_t> _data;
 };
 
-} // namespace logger
+} // namespace common

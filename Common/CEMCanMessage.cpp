@@ -2,7 +2,7 @@
 
 #include <stdexcept>
 
-namespace logger {
+namespace common {
 static std::vector<uint8_t>
 generateCemMessage(const std::vector<uint8_t> &data) {
   // Fill begin of the message with CEM message ID.
@@ -35,4 +35,4 @@ PASSTHRU_MSG CEMCanMessage::toPassThruMsg(unsigned long ProtocolID,
   return result;
 }
 
-} // namespace logger
+} // namespace common

@@ -1,59 +1,61 @@
-// VolvoLogger.cpp : This file contains the 'main' function. Program execution
-// begins and ends there.
-//
-
-#include "J2534.hpp"
+#include "../Common/Util.hpp"
+#include "../j2534/J2534.hpp"
 #include "LogParameters.hpp"
 #include "Logger.h"
 #include "LoggerApplication.hpp"
 
-#include "Registry.hpp"
 #include <boost/program_options.hpp>
-#include <codecvt>
-#include <conio.h>
+#include <fstream>
 #include <iostream>
-#include <locale>
 #include <memory>
 #include <thread>
 
-using namespace m4x1m1l14n::Registry;
-
-std::wstring toWstring(const std::string &str) {
-  using convert_type = std::codecvt_utf8<wchar_t>;
-  std::wstring_convert<convert_type, wchar_t> converter;
-  return converter.from_bytes(str);
-}
-
-std::string toString(const std::wstring &str) {
-  using convert_type = std::codecvt_utf8<wchar_t>;
-  std::wstring_convert<convert_type, wchar_t> converter;
-  return converter.to_bytes(str);
-}
-
-bool processRegistry(const std::string &keyName, std::string &libraryPath,
-                     std::string &deviceName) {
-  const auto key = LocalMachine->Open(keyName);
-  const auto canXonXoff{key->GetInt32(TEXT("CAN_XON_XOFF"))};
-  if (canXonXoff > 0) {
-    libraryPath = key->GetString(TEXT("FunctionLibrary"));
-    deviceName = key->GetString(TEXT("Name"));
-    return false;
+class FileLogWriter final : public logger::LoggerCallback {
+public:
+  FileLogWriter(const std::string &outputPath,
+                const logger::LogParameters &parameters)
+      : _outputStream{outputPath} {
+    _outputStream << "Time (sec),";
+    const auto startTimepoint{std::chrono::steady_clock::now()};
+    unsigned long numberOfCanMessages{0};
+    numberOfCanMessages = parameters.getNumberOfCanMessages();
+    for (const auto &param : parameters.parameters()) {
+      _outputStream << param.name() << "(" << param.unit() << "),";
+    }
+    _outputStream << std::endl;
   }
-  return true;
-}
 
-std::pair<std::string, std::string> getLibraryParams() {
-  std::string libraryPath;
-  std::string deviceName;
-  const std::string rootKeyName{TEXT("Software\\PassThruSupport.04.04")};
-  const auto key = LocalMachine->Open(rootKeyName);
-  key->EnumerateSubKeys(
-      [&rootKeyName, &libraryPath, &deviceName](const auto &subKeyName) {
-        return processRegistry(rootKeyName + TEXT("\\") + subKeyName,
-                               libraryPath, deviceName);
-      });
-  return {libraryPath, deviceName};
-}
+  void OnLogMessage(std::chrono::milliseconds timePoint,
+                    const std::vector<double> &values) {
+    _outputStream << (timePoint.count() / 1000.0) << ",";
+
+    for (const auto value : values) {
+      _outputStream << value << ",";
+    }
+    _outputStream << std::endl;
+  }
+
+private:
+  std::ofstream _outputStream;
+};
+
+class ConsoleLogWriter final : public logger::LoggerCallback {
+public:
+  explicit ConsoleLogWriter(size_t printLimit) : _printLimit{printLimit} {}
+
+  void OnLogMessage(std::chrono::milliseconds timePoint,
+                    const std::vector<double> &values) {
+    std::cout << (timePoint.count() / 1000.0) << ",";
+
+    for (size_t i = 0; i < _printLimit && i < values.size(); ++i) {
+      std::cout << values[i] << ",";
+    }
+    std::cout << std::endl;
+  }
+
+private:
+  const size_t _printLimit;
+};
 
 bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
                    std::string &paramsFilePath, std::string &outputPath) {
@@ -92,16 +94,18 @@ int main(int argc, const char *argv[]) {
   std::string paramsFilePath;
   std::string outputPath;
   if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath)) {
-    const auto libraryParams{getLibraryParams()};
+    const auto libraryParams{common::getLibraryParams()};
     if (!libraryParams.first.empty()) {
       try {
         std::unique_ptr<j2534::J2534> j2534{
             std::make_unique<j2534::J2534>(libraryParams.first)};
         j2534->PassThruOpen(libraryParams.second);
         logger::LogParameters params{paramsFilePath};
-        logger::LoggerApplication::instance();
-        logger::LoggerApplication::instance().start(baudrate, std::move(j2534),
-                                                    params, outputPath);
+        FileLogWriter fileLogWriter(outputPath, params);
+        ConsoleLogWriter consoleLogWriter{5};
+        logger::LoggerApplication::instance().start(
+            baudrate, std::move(j2534), params,
+            {&fileLogWriter, &consoleLogWriter});
         while (logger::LoggerApplication::instance().isStarted()) {
           std::this_thread::sleep_for(std::chrono::seconds(1));
         }

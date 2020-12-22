@@ -6,3 +6,14 @@
 /Debug
 /Release
 /.vs/VolvoLogger/v16
+.vs
+/Common/Release
+/Common/Debug
+/j2534/Release
+/j2534/Debug
+/VolvoLogger/Release
+/VolvoLogger/Debug
+/VolvoFlasher/Release
+/VolvoFlasher/Debug
+*.user
+*.VC.db

@@ -1,0 +1,32 @@
+Name            ,  Address, Size, Bitmask, Unit      , Signed, I,      Factor,  Offset, Comment
+wped_w          , 0x302D9A,    2,  0x0000, %         ,      0, 0,    0.003052,       0, Pedal Position
+nmot_w          ,   0xF410,    2,  0x0000, rpm       ,      0, 0,        0.25,       0, Engine Speed
+vfzg_w          ,   0xA9AC,    2,  0x0000, KMH       ,      0, 0,   0.0078125,       0, Vehicle Speed
+ps_w            ,   0xF476,    2,  0x0000, mBar      ,      0, 0,   0.0390625,       0, Manifold Boost Pressure
+pvdkds_w        ,   0xF464,    2,  0x0000, mBar      ,      0, 0,   0.0390625,       0, Actual Boost Pressure
+plsol_w         , 0x302BE8,    2,  0x0000, mBar      ,      0, 0,   0.0390625,       0, Desired Boost Pressure
+lamsoni_w       , 0x302726,    2,  0x0000, Lambda    ,      0, 0, 0.000244141,       0, Lambda Actual Value
+lamsons_w       , 0x30293E,    2,  0x0000, Lambda    ,      0, 0, 0.000244141,       0, Lambda Target Value
+lambts_w        , 0x30535A,    2,  0x0000, Lambda    ,      0, 0, 0.000244141,       0, Lambda BTS Value
+lamfa_w         , 0x30539C,    2,  0x0000, Lambda    ,      0, 0, 0.000244141,       0, Lambda LAMFAW Value
+lditv_w         , 0x3058E2,    2,  0x0000, %         ,      0, 0,       0.005,       0, BoostPID-I-Result
+ldtvm           , 0x3018C3,    1,  0x0000, %         ,      0, 0,    0.390625,       0, Boost Controller Duty Cycle
+rl_w            ,   0xF47A,    2,  0x0000, %         ,      0, 0,   0.0234375,       0, Actual Load
+rlsol_w         , 0x3024F0,    2,  0x0000, %         ,      0, 0,   0.0234375,       0, Requested Load
+rlmax_w         , 0x3058F4,    2,  0x0000, %         ,      0, 0,   0.0234375,       0, Max Load
+miopt_w         , 0x3024C4,    2,  0x0000, %         ,      0, 0, 0.001525879,       0, Optimum Indicated Torque
+mifa_w          , 0x30244A,    2,  0x0000, %         ,      0, 0, 0.001525879,       0, Desired Engine Torque
+zwout           ,   0xF33A,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Ignition Angle Output
+zwist           ,   0xF338,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Actual Ignition Angle
+mshfm_w         ,   0xF388,    2,  0x0000, kg/h      ,      0, 0,         0.1,       0, Mass Air Flow
+tevfakge_w      , 0x302968,    2,  0x0000, ms        ,      0, 0,      0.0032,       0, FKKVS Axis Injection Time Bank 1
+fr_w            , 0x30281E,    2,  0x0000, %         ,      0, 0, 0.000030518,       0, Lambda Control (Fuel Trim)
+wdkba           , 0x301865,    1,  0x0000, %         ,      0, 0,    0.392157,       0, Throttle Angle
+tabgbts_w       , 0x30535E,    2,  0x0000, Deg C     ,      0, 0,  0.01953125,     -50, Modelled EGT
+tans            , 0x301702,    1,  0x0000, Deg C     ,      0, 0,        0.75,     -48, Intake Air Temperature
+wkrma           ,   0xF3F9,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Average Knock Retard
+dwkrz_0         , 0x301633,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Cylinder 1 Knock Retard
+dwkrz_1         , 0x301634,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Cylinder 2 Knock Retard
+dwkrz_2         , 0x301635,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Cylinder 3 Knock Retard
+dwkrz_3         , 0x301636,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Cylinder 4 Knock Retard
+dwkrz_4         , 0x301637,    1,  0x0000, Deg BTDC  ,      0, 0,        0.75,       0, Cylinder 5 Knock Retard

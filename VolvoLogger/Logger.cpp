@@ -1,7 +1,7 @@
 #include "Logger.h"
 
-#include "CEMCanMessage.hpp"
-#include "J2534Channel.hpp"
+#include "../common/CEMCanMessage.hpp"
+#include "../j2534/J2534Channel.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -10,15 +10,16 @@
 namespace logger {
 enum ECUType { ECM = 0x7A, DEM = 0x1A, TCM = 0xE6 };
 
-static CEMCanMessage makeCanMessage(ECUType ecuType,
-                                    std::vector<uint8_t> request) {
+static common::CEMCanMessage makeCanMessage(ECUType ecuType,
+                                            std::vector<uint8_t> request) {
   const uint8_t requestLength = 0xC8 + 1 + request.size();
   request.insert(request.begin(), ecuType);
   request.insert(request.begin(), requestLength);
-  return CEMCanMessage(request);
+  return common::CEMCanMessage(request);
 }
 
-static CEMCanMessage makeRegisterAddrRequest(uint32_t addr, size_t dataLength) {
+static common::CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
+                                                     size_t dataLength) {
   uint8_t byte1 = (addr & 0xFF0000) >> 16;
   uint8_t byte2 = (addr & 0xFF00) >> 8;
   uint8_t byte3 = (addr & 0xFF);
@@ -26,9 +27,9 @@ static CEMCanMessage makeRegisterAddrRequest(uint32_t addr, size_t dataLength) {
       ECM, {0xAA, 0x50, byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
 }
 
-static const CEMCanMessage requestMemory{
+static const common::CEMCanMessage requestMemory{
     makeCanMessage(ECM, {0xA6, 0xF0, 0x00, 0x01})};
-static const CEMCanMessage unregisterAllMemoryRequest{
+static const common::CEMCanMessage unregisterAllMemoryRequest{
     makeCanMessage(ECM, {0xAA, 0x00})};
 
 static PASSTHRU_MSG makePassThruMsg(unsigned long ProtocolID,
@@ -68,8 +69,18 @@ Logger::Logger(j2534::J2534 &j2534)
 
 Logger::~Logger() { stop(); }
 
-void Logger::start(unsigned long baudrate, const LogParameters &parameters,
-                   const std::string &savePath) {
+void Logger::registerCallback(LoggerCallback &callback) {
+  std::unique_lock<std::mutex> lock{_callbackMutex};
+  _callbacks.push_back(&callback);
+}
+
+void Logger::unregisterCallback(LoggerCallback &callback) {
+  std::unique_lock<std::mutex> lock{_callbackMutex};
+  _callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
+                   _callbacks.end());
+}
+
+void Logger::start(unsigned long baudrate, const LogParameters &parameters) {
   std::unique_lock<std::mutex> lock{_mutex};
   if (!_stopped) {
     throw std::runtime_error("Logging already started");
@@ -89,9 +100,10 @@ void Logger::start(unsigned long baudrate, const LogParameters &parameters,
 
   _stopped = false;
 
-  _loggingThread = std::thread([this, savePath, protocolId, flags]() {
-    logFunction(protocolId, flags, savePath);
-  });
+  _callbackThread = std::thread([this]() { callbackFunction(); });
+
+  _loggingThread = std::thread(
+      [this, protocolId, flags]() { logFunction(protocolId, flags); });
 }
 
 void Logger::stop() {
@@ -101,6 +113,14 @@ void Logger::stop() {
   }
   if (_loggingThread.joinable())
     _loggingThread.join();
+
+  {
+    std::unique_lock<std::mutex> lock{_callbackMutex};
+    _callbackCond.notify_all();
+  }
+
+  if (_callbackThread.joinable())
+    _callbackThread.join();
 
   _channel1.reset();
   //		_channel2.reset();
@@ -193,19 +213,12 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
   }
 }
 
-void Logger::logFunction(unsigned long protocolId, unsigned int flags,
-                         const std::string &savePath) {
-  std::ofstream outputStream(savePath);
-  outputStream << "Time (sec),";
+void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
   const auto startTimepoint{std::chrono::steady_clock::now()};
   unsigned long numberOfCanMessages{0};
   {
     std::unique_lock<std::mutex> lock{_mutex};
     numberOfCanMessages = _parameters.getNumberOfCanMessages();
-    for (const auto &param : _parameters.parameters()) {
-      outputStream << param.name() << "(" << param.unit() << "),";
-    }
-    outputStream << std::endl;
   }
   std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
@@ -224,11 +237,8 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags,
 
       const auto now{std::chrono::steady_clock::now()};
 
-      outputStream << ((std::chrono::duration_cast<std::chrono::milliseconds>(
-                            now - startTimepoint))
-                           .count() /
-                       1000.0)
-                   << ",";
+      std::vector<uint32_t> logRecord;
+      logRecord.reserve(_parameters.parameters().size());
 
       size_t paramIndex = 0;
       size_t paramOffset = 0;
@@ -243,7 +253,7 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags,
           value += msg.Data[i] << ((param.size() - paramOffset - 1) * 8);
           ++paramOffset;
           if (paramOffset >= param.size()) {
-            outputStream << param.formatValue(value) << ",";
+            logRecord.push_back(value);
             ++paramIndex;
             paramOffset = 0;
             value = 0;
@@ -252,11 +262,46 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags,
             break;
         }
       }
-      outputStream << std::endl;
+      pushRecord(
+          LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now - startTimepoint),
+                    std::move(logRecord)));
     }
     std::unique_lock<std::mutex> lock{_mutex};
     _cond.wait_until(lock,
                      startTimepoint + std::chrono::milliseconds(timeoffset));
+  }
+}
+
+void Logger::pushRecord(Logger::LogRecord &&record) {
+  std::unique_lock<std::mutex> lock{_callbackMutex};
+  _loggedRecords.emplace_back(std::move(record));
+  _callbackCond.notify_all();
+}
+
+void Logger::callbackFunction() {
+  for (;;) {
+    LogRecord logRecord;
+    {
+      std::unique_lock<std::mutex> lock{_callbackMutex};
+      _callbackCond.wait(
+          lock, [this] { return _stopped || !_loggedRecords.empty(); });
+      if (_stopped)
+        break;
+      logRecord = _loggedRecords.front();
+      _loggedRecords.pop_front();
+    }
+    std::vector<double> formattedValues(logRecord.values.size());
+    for (size_t i = 0; i < logRecord.values.size(); ++i) {
+      formattedValues[i] =
+          _parameters.parameters()[i].formatValue(logRecord.values[i]);
+    }
+    {
+      std::unique_lock<std::mutex> lock{_callbackMutex};
+      for (const auto callback : _callbacks) {
+        callback->OnLogMessage(logRecord.timePoint, formattedValues);
+      }
+    }
   }
 }
 
