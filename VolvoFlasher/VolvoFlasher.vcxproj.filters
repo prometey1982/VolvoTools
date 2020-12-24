@@ -18,5 +18,13 @@
     <ClCompile Include="VolvoFlasher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Flasher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Flasher.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

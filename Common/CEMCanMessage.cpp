@@ -17,6 +17,14 @@ generateCemMessage(const std::vector<uint8_t> &data) {
   return result;
 }
 
+CEMCanMessage CEMCanMessage::makeCanMessage(common::ECUType ecuType,
+                                            std::vector<uint8_t> request) {
+  const uint8_t requestLength = 0xC8 + 1 + request.size();
+  request.insert(request.begin(), ecuType);
+  request.insert(request.begin(), requestLength);
+  return CEMCanMessage(request);
+}
+
 CEMCanMessage::CEMCanMessage(const std::vector<uint8_t> &data)
     : _data{generateCemMessage(data)} {}
 

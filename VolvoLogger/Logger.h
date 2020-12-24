@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../j2534/J2534.hpp"
 #include "LogParameters.hpp"
 
 #include <chrono>
@@ -12,8 +11,9 @@
 #include <vector>
 
 namespace j2534 {
+class J2534;
 class J2534Channel;
-}
+} // namespace j2534
 
 namespace logger {
 
@@ -38,12 +38,6 @@ public:
   void stop();
 
 private:
-  std::unique_ptr<j2534::J2534Channel> openChannel(unsigned long ProtocolID,
-                                                   unsigned long Flags,
-                                                   unsigned long Baudrate);
-  std::unique_ptr<j2534::J2534Channel> openBridgeChannel();
-  void startXonXoffMessageFiltering(j2534::J2534Channel &channel,
-                                    unsigned long Flags);
   void registerParameters(unsigned long ProtocolID, unsigned long Flags);
 
   void logFunction(unsigned long protocolId, unsigned int flags);
