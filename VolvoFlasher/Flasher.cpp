@@ -23,7 +23,7 @@ void Flasher::unregisterCallback(FlasherCallback &callback) {
 }
 
 void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
-//    _thre
+  _flasherThread = std::thread([this, bin] { flasherFunction(bin); });
 }
 
 void Flasher::stop() {}

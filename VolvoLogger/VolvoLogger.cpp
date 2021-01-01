@@ -6,6 +6,7 @@
 
 #include <boost/program_options.hpp>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <thread>
@@ -48,7 +49,7 @@ public:
     std::cout << (timePoint.count() / 1000.0) << ",";
 
     for (size_t i = 0; i < _printLimit && i < values.size(); ++i) {
-      std::cout << values[i] << ",";
+      std::cout << std::setprecision(2) << values[i] << ",";
     }
     std::cout << std::endl;
   }

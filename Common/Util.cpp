@@ -115,8 +115,8 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534& j2534, unsigned l
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-  startXonXoffMessageFiltering(*channel, Flags);
-  startXonXoffMessageFiltering(*channel, 0);
+//  startXonXoffMessageFiltering(*channel, Flags);
+//  startXonXoffMessageFiltering(*channel, 0);
   return std::move(channel);
 }
 

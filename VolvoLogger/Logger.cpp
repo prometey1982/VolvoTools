@@ -1,7 +1,8 @@
 #include "Logger.h"
 
-#include "../common/CEMCanMessage.hpp"
-#include "../common/Util.hpp"
+#include "../Common/CEMCanMessage.hpp"
+#include "../Common/CanMessages.hpp"
+#include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
 #include "../j2534/J2534Channel.hpp"
 
@@ -16,14 +17,9 @@ static common::CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
   const uint8_t byte1 = (addr & 0xFF0000) >> 16;
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
-  return common::CEMCanMessage::makeCanMessage(common::ECM, {0xAA, 0x50, byte1, byte2, byte3,
+  return common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xAA, 0x50, byte1, byte2, byte3,
                                       static_cast<uint8_t>(dataLength)});
 }
-
-static const common::CEMCanMessage requestMemory{
-    common::CEMCanMessage::makeCanMessage(common::ECM, {0xA6, 0xF0, 0x00, 0x01})};
-static const common::CEMCanMessage unregisterAllMemoryRequest{
-    common::CEMCanMessage::makeCanMessage(common::ECM, {0xAA, 0x00})};
 
 Logger::Logger(j2534::J2534 &j2534)
     : _j2534{j2534}, _loggingThread{}, _stopped{true} {}
@@ -119,8 +115,8 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
   }
   std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
-      requestMemory.toPassThruMsg(protocolId, flags)};
-  for (size_t timeoffset = 0;; timeoffset += 50) {
+      common::requestMemory.toPassThruMsg(protocolId, flags)};
+  for (size_t timeoffset = 0;; timeoffset += 20) {
     {
       std::unique_lock<std::mutex> lock{_mutex};
       if (_stopped)

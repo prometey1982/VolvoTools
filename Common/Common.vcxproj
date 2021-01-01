@@ -19,6 +19,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CanMessages.hpp" />
     <ClInclude Include="CEMCanMessage.hpp" />
     <ClInclude Include="Util.hpp" />
   </ItemGroup>

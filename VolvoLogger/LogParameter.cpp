@@ -34,9 +34,9 @@ const std::string &LogParameter::description() const { return _description; }
 
 double LogParameter::formatValue(uint32_t value) const {
   if (_isInverseConversion) {
-    return _factor / (value - _offset);
+    return _factor / (value + _offset);
   } else {
-    return value * _factor - _offset;
+    return value * _factor + _offset;
   }
 }
 
