@@ -59,14 +59,15 @@ private:
 };
 
 bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
-                   std::string &paramsFilePath, std::string &outputPath) {
+                   std::string &paramsFilePath, std::string &outputPath, unsigned& printCount) {
   using namespace boost::program_options;
   options_description descr;
   descr.add_options()(
       "baudrate,b", value<unsigned long>()->default_value(500000),
       "CAN bus speed")("variables,v", value<std::string>()->required(),
                        "Path to memory variables")(
-      "output,o", value<std::string>()->required(), "Path to save logs");
+      "output,o", value<std::string>()->required(), "Path to save logs")(
+          "print,p", value<unsigned>()->default_value(5), "Number of variables which prints to console");
   command_line_parser parser{argc, argv};
   parser.options(descr);
   variables_map vm;
@@ -75,6 +76,7 @@ bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
     baudrate = vm["baudrate"].as<unsigned long>();
     paramsFilePath = vm["variables"].as<std::string>();
     outputPath = vm["output"].as<std::string>();
+    printCount = vm["print"].as<unsigned>();
     return true;
   } else {
     std::cout << descr;
@@ -94,7 +96,8 @@ int main(int argc, const char *argv[]) {
   unsigned long baudrate = 0;
   std::string paramsFilePath;
   std::string outputPath;
-  if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath)) {
+  unsigned printCount;
+  if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath, printCount)) {
     const auto libraryParams{common::getLibraryParams()};
     if (!libraryParams.first.empty()) {
       try {
@@ -103,7 +106,7 @@ int main(int argc, const char *argv[]) {
         j2534->PassThruOpen(libraryParams.second);
         logger::LogParameters params{paramsFilePath};
         FileLogWriter fileLogWriter(outputPath, params);
-        ConsoleLogWriter consoleLogWriter{5};
+        ConsoleLogWriter consoleLogWriter{printCount};
         logger::LoggerApplication::instance().start(
             baudrate, std::move(j2534), params,
             {&fileLogWriter, &consoleLogWriter});
