@@ -1,8 +1,10 @@
 #include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
+#include "../Common/CanMessages.hpp"
 
 #include <boost/program_options.hpp>
 #include <iostream>
+#include <fstream>
 
 bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
                    std::string & flashPath) {

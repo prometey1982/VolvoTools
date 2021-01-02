@@ -29,11 +29,28 @@ public:
   void registerCallback(FlasherCallback &callback);
   void unregisterCallback(FlasherCallback &callback);
 
-  void flash(unsigned long baudrate, const std::vector<uint8_t>& bin);
+  void flash(unsigned long baudrate, const std::vector<uint8_t> &bin);
   void stop();
 
 private:
-    void flasherFunction(const std::vector<uint8_t> bin);
+  void canGoToSleep(unsigned long protocolId, unsigned long flags);
+  void canWakeUp(unsigned long protocolId, unsigned long flags);
+
+  void writePreFlashMsgAndCheckAnswer(unsigned long protocolId,
+                                      unsigned long flags);
+  void writeBootloader(uint32_t writeOffset,
+                       const std::vector<uint8_t> &bootloader,
+                       unsigned long protocolId, unsigned long flags);
+  void writeChunk(const std::vector<uint8_t> &bin, uint32_t beginOffset,
+                  uint32_t endOffset, unsigned long protocolId,
+                  unsigned long flags);
+  void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
+                     unsigned long flags);
+  void writeFlashMe9(const std::vector<uint8_t> &bin, unsigned long protocolId,
+                     unsigned long flags);
+
+  void flasherFunction(const std::vector<uint8_t> bin, unsigned long protocolId,
+                       unsigned long flags);
 
 private:
   j2534::J2534 &_j2534;

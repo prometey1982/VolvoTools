@@ -2,17 +2,31 @@
 
 #include "CEMCanMessage.hpp"
 
+#include <vector>
+
 namespace common {
 
-static const CEMCanMessage requestVIN{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, {0xB9, 0xFB}) };
-static const CEMCanMessage requestMemory{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xA6, 0xF0, 0x00, 0x01}) };
-static const CEMCanMessage unregisterAllMemoryRequest{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xAA, 0x00}) };
-static const CEMCanMessage wakeUpCanRequest{
-    common::CEMCanMessage::makeCanMessage(0xFF, 0xC8) };
-static const CEMCanMessage goToSleepCanRequest{
-    common::CEMCanMessage::makeCanMessage(0xFF, 0x86) };
+struct CanMessages {
+  static CEMCanMessage createWriteOffsetMsg(uint32_t offset);
+  static std::vector<PASSTHRU_MSG>
+  createWriteDataMsgs(const std::vector<uint8_t> &bin,
+                      unsigned long protocolId, unsigned long flags);
+  static std::vector<PASSTHRU_MSG>
+  createWriteDataMsgs(const std::vector<uint8_t> &bin,
+                      size_t beginOffset, size_t endOffset,
+                      unsigned long protocolId, unsigned long flags);
+
+  static const CEMCanMessage wakeUpECM;
+  static const CEMCanMessage preFlashECMMsg;
+  static const CEMCanMessage restartECMMsg;
+  static const CEMCanMessage requestVIN;
+  static const CEMCanMessage requestMemory;
+  static const CEMCanMessage unregisterAllMemoryRequest;
+  static const CEMCanMessage wakeUpCanRequest;
+  static const CEMCanMessage goToSleepCanRequest;
+
+  static const std::vector<uint8_t> me7BootLoader;
+  static const std::vector<uint8_t> me9BootLoader;
+};
 
 } // namespace common
