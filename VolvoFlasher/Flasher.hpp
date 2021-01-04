@@ -32,6 +32,15 @@ public:
   void flash(unsigned long baudrate, const std::vector<uint8_t> &bin);
   void stop();
 
+  enum class State {
+      Initial,
+      InProgress,
+      Done,
+      Error
+  };
+
+  State getState() const;
+
 private:
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
   void canWakeUp(unsigned long protocolId, unsigned long flags);
@@ -52,12 +61,15 @@ private:
   void flasherFunction(const std::vector<uint8_t> bin, unsigned long protocolId,
                        unsigned long flags);
 
+  void setState(State newState);
+
 private:
   j2534::J2534 &_j2534;
   std::thread _flasherThread;
-  std::mutex _mutex;
+  mutable std::mutex _mutex;
   std::condition_variable _cond;
-  bool _stopped;
+
+  State _currentState;
 
   std::vector<FlasherCallback *> _callbacks;
 

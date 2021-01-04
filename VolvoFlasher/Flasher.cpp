@@ -9,7 +9,8 @@
 #include <algorithm>
 
 namespace flasher {
-Flasher::Flasher(j2534::J2534 &j2534) : _j2534{j2534} {}
+Flasher::Flasher(j2534::J2534 &j2534)
+    : _j2534{j2534}, _currentState{State::Initial} {}
 
 Flasher::~Flasher() { stop(); }
 
@@ -33,12 +34,19 @@ void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
   if (baudrate != 500000)
     _channel2 = common::openBridgeChannel(_j2534);
 
+  setState(State::InProgress);
+
   _flasherThread = std::thread([this, bin, protocolId, flags] {
     flasherFunction(bin, protocolId, flags);
   });
 }
 
 void Flasher::stop() {}
+
+Flasher::State Flasher::getState() const {
+  std::unique_lock<std::mutex> lock{_mutex};
+  return _currentState;
+}
 
 void Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   unsigned long channel1MsgId;
@@ -108,13 +116,13 @@ void Flasher::writeBootloader(uint32_t writeOffset,
 void Flasher::writeChunk(const std::vector<uint8_t> &bin, uint32_t beginOffset,
                          uint32_t endOffset, unsigned long protocolId,
                          unsigned long flags) {
-    auto binMsgs =
-        common::CanMessages::createWriteDataMsgs(bin, beginOffset, endOffset, protocolId, flags);
-    unsigned long numMsgs = 1;
-    _channel1->writeMsgs({ common::CanMessages::createWriteOffsetMsg(beginOffset)
-                              .toPassThruMsg(protocolId, flags) },
-        numMsgs);
-    _channel1->writeMsgs(binMsgs, numMsgs, 240000);
+  auto binMsgs = common::CanMessages::createWriteDataMsgs(
+      bin, beginOffset, endOffset, protocolId, flags);
+  unsigned long numMsgs = 1;
+  _channel1->writeMsgs({common::CanMessages::createWriteOffsetMsg(beginOffset)
+                            .toPassThruMsg(protocolId, flags)},
+                       numMsgs);
+  _channel1->writeMsgs(binMsgs, numMsgs, 240000);
 }
 
 void Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
@@ -125,8 +133,8 @@ void Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
 
 void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
-    writeChunk(bin, 0x20000, 0x90000, protocolId, flags);
-    writeChunk(bin, 0xA0000, 0x1F0000, protocolId, flags);
+  writeChunk(bin, 0x20000, 0x90000, protocolId, flags);
+  writeChunk(bin, 0xA0000, 0x1F0000, protocolId, flags);
 }
 
 void Flasher::flasherFunction(const std::vector<uint8_t> bin,
@@ -149,9 +157,16 @@ void Flasher::flasherFunction(const std::vector<uint8_t> bin,
       writeFlashMe7(bin, protocolId, flags);
     }
     canWakeUp(protocolId, flags);
+    setState(State::Done);
   } catch (...) {
     canWakeUp(protocolId, flags);
+    setState(State::Error);
   }
+}
+
+void Flasher::setState(State newState) {
+  std::unique_lock<std::mutex> lock{_mutex};
+  _currentState = newState;
 }
 
 } // namespace flasher
