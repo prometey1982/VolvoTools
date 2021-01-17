@@ -51,6 +51,7 @@ public:
 private:
   HINSTANCE _hDLL;
   unsigned long _deviceId;
+  bool _deviceOpened;
 
   PTOPEN _PassThruOpen;
   PTCLOSE _PassThruClose;

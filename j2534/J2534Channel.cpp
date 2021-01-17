@@ -55,9 +55,12 @@ J2534_ERROR_CODE J2534Channel::passThruIoctl(unsigned long IoctlID,
   return _j2534.PassThruIoctl(_channelID, IoctlID, input, output);
 }
 
+J2534_ERROR_CODE J2534Channel::clear() const {
+    return passThruIoctl(CLEAR_RX_BUFFER, nullptr, nullptr);
+}
+
 J2534_ERROR_CODE
 J2534Channel::setConfig(const std::vector<SCONFIG> &config) const {
-  std::vector<uint8_t> output;
   SCONFIG_LIST configList;
   configList.NumOfParams = config.size();
   configList.ConfigPtr = const_cast<SCONFIG *>(config.data());

@@ -5,34 +5,52 @@
 
 namespace common {
 
+/*static*/ CEMCanMessage CanMessages::setCurrentTime(uint8_t hours,
+                                                     uint8_t minutes) {
+  uint32_t value = minutes + hours * 60;
+  return CEMCanMessage::makeCanMessage(
+      common::ECUType::DIM,
+      {0xB0, 0x07, 0x01, 0xFF, static_cast<uint8_t>((value >> 8) & 0xFF),
+       static_cast<uint8_t>(value & 0xFF)});
+}
+
 /*static*/ CEMCanMessage CanMessages::createWriteOffsetMsg(uint32_t offset) {
 
-  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0x9C,
+  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0x9C, 0,
                                        offset >> 16, offset >> 8, offset);
 }
 
-/*static*/ std::vector<PASSTHRU_MSG>
-CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
-                                 unsigned long protocolId,
-                                 unsigned long flags) {
-  return createWriteDataMsgs(bin, 0, bin.size(), protocolId, flags);
+/*static*/ CEMCanMessage CanMessages::createReadOffsetMsg(uint32_t offset) {
+
+  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xB4, 0,
+                                       offset >> 16, offset >> 8, offset);
 }
 
-/*static*/ std::vector<PASSTHRU_MSG> CanMessages::createWriteDataMsgs(
-    const std::vector<uint8_t> &bin, size_t beginOffset,
-    size_t endOffset, unsigned long protocolId, unsigned long flags) {
-  std::vector<PASSTHRU_MSG> result;
+/*static*/ CEMCanMessages
+CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin) {
+  return createWriteDataMsgs(bin, 0, bin.size());
+}
+
+/*static*/ CEMCanMessages
+CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
+                                 size_t beginOffset, size_t endOffset) {
+  std::vector<std::vector<uint8_t>> result;
+  std::vector<uint8_t> intermediate_result;
+  intermediate_result.reserve(4128);
   const size_t chunkSize = 6u;
-  for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
+  for (size_t i = beginOffset, counter = 0; i < endOffset; i += chunkSize) {
     std::vector<uint8_t> payload{static_cast<uint8_t>(common::ECUType::ECM_ME),
                                  0xAE};
-    std::copy_n(bin.data() + i,
-                std::min(chunkSize, endOffset - i),
+    std::copy_n(bin.data() + i, std::min(chunkSize, endOffset - i),
                 std::back_inserter(payload));
-    result.emplace_back(
-        CEMCanMessage(payload).toPassThruMsg(protocolId, flags));
+    payload.resize(8);
+    result.emplace_back(std::move(payload));
   }
-  return result;
+  return CEMCanMessages(result);
+}
+
+/*static*/ CEMCanMessage CanMessages::clearDTCMsgs(ECUType ecuType) {
+  return CEMCanMessage::makeCanMessage(ecuType, 0xAF, 0x11);
 }
 
 const CEMCanMessage CanMessages::wakeUpECM{
@@ -53,6 +71,12 @@ const CEMCanMessage CanMessages::wakeUpCanRequest{
     common::CEMCanMessage::makeCanMessage(0xFF, 0xC8)};
 const CEMCanMessage CanMessages::goToSleepCanRequest{
     common::CEMCanMessage::makeCanMessage(0xFF, 0x86)};
+const CEMCanMessage CanMessages::afterBootloaderFlash{
+    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xA8)};
+const CEMCanMessage CanMessages::startTCMAdaptMsg{
+    common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50) };
+const CEMCanMessage CanMessages::testMemoryMsg{
+    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xF8) };
 
 const std::vector<uint8_t> CanMessages::me7BootLoader = {
     230, 244, 96,  2,   230, 245, 140, 248, 230, 246, 24,  249, 230, 247, 0,

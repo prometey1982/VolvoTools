@@ -80,24 +80,26 @@ makePassThruMsgs(unsigned long ProtocolID, unsigned long Flags,
   return result;
 }
 
-static void startXonXoffMessageFiltering(j2534::J2534Channel& channel,
-    unsigned long Flags) {
-    auto msgs{
-        makePassThruMsgs(CAN_XON_XOFF, Flags,
-                         {
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x00, 0x00},
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x01, 0x00},
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
-                             {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x02, 0x00},
-                         }) };
+static void startXonXoffMessageFiltering(j2534::J2534Channel &channel,
+                                         unsigned long Flags) {
+  auto msgs{
+      makePassThruMsgs(CAN_XON_XOFF, Flags,
+                       {
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x00, 0x00},
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x01, 0x00},
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xff, 0xff, 0x00},
+                           {0x00, 0x00, 0x00, 0x01, 0x00, 0xA9, 0x02, 0x00},
+                       })};
 
-    channel.passThruIoctl(CAN_XON_XOFF_FILTER, msgs.data());
-    channel.passThruIoctl(CAN_XON_XOFF_FILTER_ACTIVE, nullptr);
+  channel.passThruIoctl(CAN_XON_XOFF_FILTER, msgs.data());
+  unsigned long msgId = 0;
+  channel.passThruIoctl(CAN_XON_XOFF_FILTER_ACTIVE, &msgId);
 }
 
-std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534& j2534, unsigned long ProtocolID,
+std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
+                                                 unsigned long ProtocolID,
                                                  unsigned long Flags,
                                                  unsigned long Baudrate) {
   auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
@@ -115,33 +117,37 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534& j2534, unsigned l
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-//  startXonXoffMessageFiltering(*channel, Flags);
-//  startXonXoffMessageFiltering(*channel, 0);
+  startXonXoffMessageFiltering(*channel, Flags);
+  startXonXoffMessageFiltering(*channel, 0);
+  config.resize(1);
+  config[0].Parameter = CAN_XON_XOFF;
+  config[0].Value = 0;
+  channel->setConfig(config);
   return std::move(channel);
 }
 
-std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534& j2534) {
-    const unsigned long ProtocolId = ISO9141;
-    const unsigned long Flags = ISO9141_K_LINE_ONLY;
-    auto channel{
-        std::make_unique<j2534::J2534Channel>(j2534, ProtocolId, Flags, 10400) };
-    std::vector<SCONFIG> config(4);
-    config[0].Parameter = PARITY;
-    config[0].Value = 0;
-    config[1].Parameter = W0;
-    config[1].Value = 60;
-    config[2].Parameter = W1;
-    config[2].Value = 600;
-    config[3].Parameter = P4_MIN;
-    config[3].Value = 0;
-    channel->setConfig(config);
+std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534) {
+  const unsigned long ProtocolId = ISO9141;
+  const unsigned long Flags = ISO9141_K_LINE_ONLY;
+  auto channel{
+      std::make_unique<j2534::J2534Channel>(j2534, ProtocolId, Flags, 10400)};
+  std::vector<SCONFIG> config(4);
+  config[0].Parameter = PARITY;
+  config[0].Value = 0;
+  config[1].Parameter = W0;
+  config[1].Value = 60;
+  config[2].Parameter = W1;
+  config[2].Value = 600;
+  config[3].Parameter = P4_MIN;
+  config[3].Value = 0;
+  channel->setConfig(config);
 
-    PASSTHRU_MSG msg =
-        makePassThruMsg(ProtocolId, Flags, { 0x84, 0x40, 0x13, 0xb2, 0xf0, 0x03 });
-    unsigned long msgId;
-    channel->startPeriodicMsg(msg, msgId, 2000);
+  PASSTHRU_MSG msg =
+      makePassThruMsg(ProtocolId, Flags, {0x84, 0x40, 0x13, 0xb2, 0xf0, 0x03});
+  unsigned long msgId;
+  channel->startPeriodicMsg(msg, msgId, 2000);
 
-    return std::move(channel);
+  return std::move(channel);
 }
 
 } // namespace common

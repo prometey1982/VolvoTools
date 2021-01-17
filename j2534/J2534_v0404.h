@@ -13,6 +13,7 @@
 #ifndef __J2534_H
 #define __J2534_H
 
+#include <inttypes.h>
 
 /**************************/
 /* ProtocolID definitions */
@@ -307,6 +308,7 @@ enum J2534CONNECTFLAG
 	CAN_ID_BOTH = 0x0800,
 	ISO9141_K_LINE_ONLY = 0x1000,
 	DT_ISO9141_LISTEN_L_LINE = 0x08000000,
+	CAN_29BIT_CHANNEL2 = 0x20000000 | CAN_29BIT_ID,
 	SNIFF_MODE = 0x10000000,                    //Drewtech only
 	ISO9141_FORD_HEADER = 0x20000000,           //Drewtech only
 	ISO9141_NO_CHECKSUM_DT = 0x40000000         //Drewtech only
@@ -368,6 +370,28 @@ typedef struct
 } PASSTHRU_MSG;
 
 
+#if 1
+/********************/
+/* IOCTL Structures */
+/********************/
+typedef struct
+{
+	uint32_t Parameter;
+	uint32_t Value;
+} SCONFIG;
+
+typedef struct
+{
+	uint32_t NumOfParams;
+	SCONFIG *ConfigPtr;
+} SCONFIG_LIST;
+
+typedef struct
+{
+	unsigned long NumOfBytes;
+	unsigned char *BytePtr;
+} SBYTE_ARRAY;
+#else
 /********************/
 /* IOCTL Structures */
 /********************/
@@ -380,15 +404,15 @@ typedef struct
 typedef struct
 {
 	unsigned long NumOfParams;
-	SCONFIG *ConfigPtr;
+	SCONFIG* ConfigPtr;
 } SCONFIG_LIST;
 
 typedef struct
 {
 	unsigned long NumOfBytes;
-	unsigned char *BytePtr;
+	unsigned char* BytePtr;
 } SBYTE_ARRAY;
-
+#endif
 
 /************************/
 /* Function Definitions */

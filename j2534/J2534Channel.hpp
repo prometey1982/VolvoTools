@@ -26,6 +26,7 @@ public:
   J2534_ERROR_CODE stopMsgFilter(unsigned long MsgID) const;
   J2534_ERROR_CODE passThruIoctl(unsigned long IoctlID, const void *input,
                                  void *output = nullptr) const;
+  J2534_ERROR_CODE clear() const;
 
   J2534_ERROR_CODE setConfig(const std::vector<SCONFIG> &config) const;
 

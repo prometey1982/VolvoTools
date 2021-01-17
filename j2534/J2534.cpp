@@ -13,7 +13,7 @@ void LoadFunction(HINSTANCE hDLL, FuncT &func, const std::string &name) {
 }
 
 J2534::J2534(const std::string &path)
-    : _hDLL{LoadLibrary(path.c_str())}, _deviceId{0} {
+    : _hDLL{LoadLibrary(path.c_str())}, _deviceId{0}, _deviceOpened{false} {
   if (!_hDLL) {
     throw std::runtime_error("Can't load library");
   }
@@ -35,15 +35,23 @@ J2534::J2534(const std::string &path)
   LoadFunction(_hDLL, _PassThruIoctl, "PassThruIoctl");
 }
 
-J2534::~J2534() { FreeLibrary(_hDLL); }
+J2534::~J2534() {
+  if (_deviceOpened)
+    PassThruClose();
+  FreeLibrary(_hDLL);
+}
 
 J2534_ERROR_CODE J2534::PassThruOpen(const std::string &name) {
-  return static_cast<J2534_ERROR_CODE>(
+  const auto result = static_cast<J2534_ERROR_CODE>(
       _PassThruOpen(const_cast<char *>(name.c_str()), &_deviceId));
+  _deviceOpened = (result == STATUS_NOERROR);
+  return result;
 }
 
 J2534_ERROR_CODE J2534::PassThruClose() {
-  return static_cast<J2534_ERROR_CODE>(_PassThruClose(_deviceId));
+  const auto result = static_cast<J2534_ERROR_CODE>(_PassThruClose(_deviceId));
+  _deviceOpened = !(result == STATUS_NOERROR);
+  return result;
 }
 
 J2534_ERROR_CODE J2534::PassThruConnect(unsigned long ProtocolID,
@@ -61,7 +69,7 @@ J2534_ERROR_CODE J2534::PassThruDisconnect(unsigned long ChannelID) {
 J2534_ERROR_CODE J2534::PassThruReadMsgs(unsigned long ChannelID,
                                          std::vector<PASSTHRU_MSG> &msgs,
                                          unsigned long Timeout) const {
-  unsigned long numMsgs{msgs.size()};
+  unsigned long numMsgs{static_cast<unsigned long>(msgs.size())};
   const auto result = static_cast<J2534_ERROR_CODE>(
       _PassThruReadMsgs(ChannelID, msgs.data(), &numMsgs, Timeout));
   msgs.resize(numMsgs);

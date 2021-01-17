@@ -7,7 +7,7 @@
 
 namespace common {
 
-enum class ECUType: uint8_t {
+enum class ECUType : uint8_t {
   ADM = 0x0B,
   AEM = 0x52,
   AUD = 0x6D,
@@ -51,11 +51,23 @@ public:
 
   std::vector<uint8_t> data() const;
 
+  std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
+                                           unsigned long Flags) const;
   PASSTHRU_MSG toPassThruMsg(unsigned long ProtocolID,
                              unsigned long Flags) const;
 
 private:
   const std::vector<uint8_t> _data;
+};
+
+class CEMCanMessages {
+public:
+    explicit CEMCanMessages(const std::vector<std::vector<uint8_t>>& messages);
+    std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
+                                           unsigned long Flags) const;
+
+private:
+  std::vector<std::vector<uint8_t>> _messages;
 };
 
 } // namespace common

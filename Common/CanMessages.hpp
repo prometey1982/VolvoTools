@@ -7,14 +7,14 @@
 namespace common {
 
 struct CanMessages {
+  static CEMCanMessage setCurrentTime(uint8_t hours, uint8_t minutes);
   static CEMCanMessage createWriteOffsetMsg(uint32_t offset);
-  static std::vector<PASSTHRU_MSG>
-  createWriteDataMsgs(const std::vector<uint8_t> &bin,
-                      unsigned long protocolId, unsigned long flags);
-  static std::vector<PASSTHRU_MSG>
-  createWriteDataMsgs(const std::vector<uint8_t> &bin,
-                      size_t beginOffset, size_t endOffset,
-                      unsigned long protocolId, unsigned long flags);
+  static CEMCanMessage createReadOffsetMsg(uint32_t offset);
+  static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin);
+  static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin,
+                                            size_t beginOffset,
+                                            size_t endOffset);
+  static CEMCanMessage clearDTCMsgs(ECUType ecuType);
 
   static const CEMCanMessage wakeUpECM;
   static const CEMCanMessage preFlashECMMsg;
@@ -24,6 +24,9 @@ struct CanMessages {
   static const CEMCanMessage unregisterAllMemoryRequest;
   static const CEMCanMessage wakeUpCanRequest;
   static const CEMCanMessage goToSleepCanRequest;
+  static const CEMCanMessage afterBootloaderFlash;
+  static const CEMCanMessage startTCMAdaptMsg;
+  static const CEMCanMessage testMemoryMsg;
 
   static const std::vector<uint8_t> me7BootLoader;
   static const std::vector<uint8_t> me9BootLoader;
