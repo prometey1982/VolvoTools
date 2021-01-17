@@ -65,19 +65,6 @@ int main(int argc, const char *argv[]) {
   if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
     throw std::runtime_error("Can't set console control hander");
   }
-  // const auto msg = common::CanMessages::createWriteOffsetMsg(0x31C000);
-  // const auto now{ std::chrono::system_clock::now() };
-  // const auto time_t = std::chrono::system_clock::to_time_t(now);
-  // struct tm lt;
-  // localtime_s(&lt, &time_t);
-  // const auto msg = common::CanMessages::setCurrentTime(lt.tm_hour,
-  // lt.tm_min); writeBinToFile(common::CanMessages::me7BootLoader,
-  // "c:\\misc\\prometey_bootloader.bin"); std::fstream
-  // input("c:\\misc\\test.bin", std::ios::in | std::ios::binary);
-  // std::vector<uint8_t> bin{ std::istreambuf_iterator<char>(input), {} };
-  // writeBinToFile(bin, "c:\\misc\\prometey_bin.bin");
-  // return 0;
-
   unsigned long baudrate = 0;
   std::string flashPath;
   bool wakeup = false;
