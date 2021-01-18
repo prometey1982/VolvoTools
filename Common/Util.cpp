@@ -118,7 +118,6 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
   startXonXoffMessageFiltering(*channel, Flags);
-  startXonXoffMessageFiltering(*channel, 0);
   config.resize(1);
   config[0].Parameter = CAN_XON_XOFF;
   config[0].Value = 0;
