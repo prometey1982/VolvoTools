@@ -16,7 +16,7 @@ bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
   unsigned long msgsNum = 1;
   const auto error = channel.writeMsgs({msg}, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
-      throw std::runtime_error("write msgs error");
+    throw std::runtime_error("write msgs error");
   }
   std::vector<PASSTHRU_MSG> msgs(1);
   for (size_t i = 0; i < 50; ++i) {
@@ -35,7 +35,7 @@ bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
   unsigned long msgsNum = 1;
   const auto error = channel.writeMsgs({msg}, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
-      throw std::runtime_error("write msgs error");
+    throw std::runtime_error("write msgs error");
   }
   std::vector<PASSTHRU_MSG> msgs(1);
   channel.readMsgs(msgs, 10000);
@@ -93,17 +93,30 @@ void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  _channel2 =
+  auto channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
+  auto channel2 =
       common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+  std::unique_ptr<j2534::J2534Channel> channel3;
   if (baudrate != 500000)
-    _channel3 = common::openBridgeChannel(_j2534);
+    channel3 = common::openBridgeChannel(_j2534);
+  flash(std::move(channel1), std::move(channel2), std::move(channel3), bin);
+}
 
-  setState(State::InProgress);
+void Flasher::flash(std::unique_ptr<j2534::J2534Channel>&& channel1,
+    std::unique_ptr<j2534::J2534Channel>&& channel2,
+    std::unique_ptr<j2534::J2534Channel>&& channel3,
+    const std::vector<uint8_t>& bin) {
+    _channel1 = std::move(channel1);
+    _channel1 = std::move(channel2);
+    _channel1 = std::move(channel3);
 
-  _flasherThread = std::thread([this, bin, protocolId, flags] {
-    flasherFunction(bin, protocolId, flags);
-  });
+    setState(State::InProgress);
+
+    const unsigned long protocolId = CAN_XON_XOFF;
+    const unsigned long flags = CAN_29BIT_ID;
+    _flasherThread = std::thread([this, bin, protocolId, flags] {
+        flasherFunction(bin, protocolId, flags);
+        });
 }
 
 void Flasher::stop() {
@@ -166,11 +179,18 @@ void Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
 }
 
 void Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
-    for (const auto ecuType : {common::ECUType::ECM_ME, common::ECUType::TCM, common::ECUType::SRS}) {
-        unsigned long numMsgs = 1;
-        _channel1->writeMsgs(common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId, flags), numMsgs);
-        _channel2->writeMsgs(common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId, CAN_29BIT_CHANNEL2), numMsgs);
-    }
+  for (const auto ecuType :
+       {common::ECUType::ECM_ME, common::ECUType::TCM, common::ECUType::SRS}) {
+    unsigned long numMsgs = 1;
+    _channel1->writeMsgs(
+        common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId,
+                                                                  flags),
+        numMsgs);
+    _channel2->writeMsgs(
+        common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(
+            protocolId, CAN_29BIT_CHANNEL2),
+        numMsgs);
+  }
 }
 void Flasher::writePreFlashMsgAndCheckAnswer(unsigned long protocolId,
                                              unsigned long flags) {
@@ -235,7 +255,7 @@ void Flasher::writeChunk(const std::vector<uint8_t> &bin, uint32_t beginOffset,
   writeDataOffsetAndCheckAnswer(beginOffset, protocolId, flags);
   const auto error = _channel1->writeMsgs(binMsgs, numMsgs, 240000);
   if (error != STATUS_NOERROR) {
-      throw std::runtime_error("write msgs error");
+    throw std::runtime_error("write msgs error");
   }
   if (numMsgs != binMsgs.size())
     throw std::runtime_error("Binary writing failed");

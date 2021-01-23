@@ -21,15 +21,37 @@ std::string toString(const std::wstring &str) {
   return converter.to_bytes(str);
 }
 
+#ifdef UNICODE
+std::wstring toPlatformString(const std::string &str)
+{
+    return toWstring(str);
+}
+
+std::string fromPlatformString(const std::wstring &str)
+{
+    return toString(str);
+}
+#else
+std::string toPlatformString(const std::string &str)
+{
+    return str;
+}
+
+std::string fromPlatformString(const std::string &str)
+{
+    return str;
+}
+#endif
+
 using namespace m4x1m1l14n::Registry;
 
 static bool processRegistry(const std::string &keyName,
                             std::string &libraryPath, std::string &deviceName) {
-  const auto key = LocalMachine->Open(keyName);
+  const auto key = LocalMachine->Open(toPlatformString(keyName));
   const auto canXonXoff{key->GetInt32(TEXT("CAN_XON_XOFF"))};
   if (canXonXoff > 0) {
-    libraryPath = key->GetString(TEXT("FunctionLibrary"));
-    deviceName = key->GetString(TEXT("Name"));
+    libraryPath = fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
+    deviceName = fromPlatformString(key->GetString(TEXT("Name")));
     return false;
   }
   return true;
@@ -38,11 +60,11 @@ static bool processRegistry(const std::string &keyName,
 std::pair<std::string, std::string> getLibraryParams() {
   std::string libraryPath;
   std::string deviceName;
-  const std::string rootKeyName{TEXT("Software\\PassThruSupport.04.04")};
-  const auto key = LocalMachine->Open(rootKeyName);
+  const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
+  const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
   key->EnumerateSubKeys(
       [&rootKeyName, &libraryPath, &deviceName](const auto &subKeyName) {
-        return processRegistry(rootKeyName + TEXT("\\") + subKeyName,
+        return processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
                                libraryPath, deviceName);
       });
   return {libraryPath, deviceName};

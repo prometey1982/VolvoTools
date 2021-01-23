@@ -35,6 +35,10 @@ public:
   void unregisterCallback(FlasherCallback &callback);
 
   void flash(unsigned long baudrate, const std::vector<uint8_t> &bin);
+  void flash(std::unique_ptr<j2534::J2534Channel>&& channel1,
+             std::unique_ptr<j2534::J2534Channel>&& channel2,
+             std::unique_ptr<j2534::J2534Channel>&& channel3,
+             const std::vector<uint8_t> &bin);
   void stop();
 
   enum class State { Initial, InProgress, Done, Error };

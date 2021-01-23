@@ -38,7 +38,7 @@ CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
   std::vector<uint8_t> intermediate_result;
   intermediate_result.reserve(4128);
   const size_t chunkSize = 6u;
-  for (size_t i = beginOffset, counter = 0; i < endOffset; i += chunkSize) {
+  for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
     std::vector<uint8_t> payload{static_cast<uint8_t>(common::ECUType::ECM_ME),
                                  0xAE};
     std::copy_n(bin.data() + i, std::min(chunkSize, endOffset - i),

@@ -1,6 +1,5 @@
 #include "J2534.hpp"
 
-//#include <libloaderapi.h>
 #include <stdexcept>
 
 namespace j2534 {
@@ -13,7 +12,7 @@ void LoadFunction(HINSTANCE hDLL, FuncT &func, const std::string &name) {
 }
 
 J2534::J2534(const std::string &path)
-    : _hDLL{LoadLibrary(path.c_str())}, _deviceId{0}, _deviceOpened{false} {
+    : _hDLL{LoadLibraryA(path.c_str())}, _deviceId{0}, _deviceOpened{false} {
   if (!_hDLL) {
     throw std::runtime_error("Can't load library");
   }
