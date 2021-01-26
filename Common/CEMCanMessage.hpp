@@ -62,8 +62,8 @@ private:
 
 class CEMCanMessages {
 public:
-    explicit CEMCanMessages(const std::vector<std::vector<uint8_t>>& messages);
-    std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
+  explicit CEMCanMessages(const std::vector<std::vector<uint8_t>> &messages);
+  std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
                                            unsigned long Flags) const;
 
 private:

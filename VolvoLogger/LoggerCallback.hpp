@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <chrono>
+#include <vector>
 
 namespace logger {
 
@@ -15,4 +15,4 @@ public:
   virtual void onStatusChanged(bool started) = 0;
 };
 
-}
+} // namespace logger

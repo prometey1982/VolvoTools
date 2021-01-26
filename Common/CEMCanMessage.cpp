@@ -56,7 +56,8 @@ PASSTHRU_MSG CEMCanMessage::toPassThruMsg(unsigned long ProtocolID,
   return ::toPassThruMsg(_data, ProtocolID, Flags);
 }
 
-CEMCanMessages::CEMCanMessages(const std::vector<std::vector<uint8_t>> &messages)
+CEMCanMessages::CEMCanMessages(
+    const std::vector<std::vector<uint8_t>> &messages)
     : _messages{messages} {}
 
 std::vector<PASSTHRU_MSG>
@@ -71,13 +72,13 @@ CEMCanMessages::toPassThruMsgs(unsigned long ProtocolID,
     std::copy(msg.begin(), msg.end(), std::back_inserter(buffer));
     emptyBuffer = false;
     if (buffer.size() >= 4100) {
-        result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
-        buffer = CEMMessagePrefix;
-        emptyBuffer = true;
+      result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
+      buffer = CEMMessagePrefix;
+      emptyBuffer = true;
     }
   }
   if (!emptyBuffer) {
-      result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
+    result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
   }
   return result;
 }

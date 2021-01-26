@@ -20,8 +20,7 @@ public:
   unsigned long getNumberOfCanMessages() const;
 
 private:
-  template<typename Reader>
-  void load(Reader& reader);
+  template <typename Reader> void load(Reader &reader);
 
 private:
   std::vector<LogParameter> _parameters;

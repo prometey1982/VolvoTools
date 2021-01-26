@@ -24,4 +24,4 @@ private:
   std::ofstream _outputStream;
 };
 
-}
+} // namespace logger

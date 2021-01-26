@@ -29,6 +29,6 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
                                                  unsigned long Flags,
                                                  unsigned long Baudrate);
 
-std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534& j2534);
+std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534);
 
 } // namespace common

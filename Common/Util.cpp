@@ -22,25 +22,15 @@ std::string toString(const std::wstring &str) {
 }
 
 #ifdef UNICODE
-std::wstring toPlatformString(const std::string &str)
-{
-    return toWstring(str);
-}
+std::wstring toPlatformString(const std::string &str) { return toWstring(str); }
 
-std::string fromPlatformString(const std::wstring &str)
-{
-    return toString(str);
+std::string fromPlatformString(const std::wstring &str) {
+  return toString(str);
 }
 #else
-std::string toPlatformString(const std::string &str)
-{
-    return str;
-}
+std::string toPlatformString(const std::string &str) { return str; }
 
-std::string fromPlatformString(const std::string &str)
-{
-    return str;
-}
+std::string fromPlatformString(const std::string &str) { return str; }
 #endif
 
 using namespace m4x1m1l14n::Registry;
@@ -62,11 +52,11 @@ std::pair<std::string, std::string> getLibraryParams() {
   std::string deviceName;
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
   const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
-  key->EnumerateSubKeys(
-      [&rootKeyName, &libraryPath, &deviceName](const auto &subKeyName) {
-        return processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
-                               libraryPath, deviceName);
-      });
+  key->EnumerateSubKeys([&rootKeyName, &libraryPath,
+                         &deviceName](const auto &subKeyName) {
+    return processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
+                           libraryPath, deviceName);
+  });
   return {libraryPath, deviceName};
 }
 

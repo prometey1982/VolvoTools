@@ -13,7 +13,6 @@
 
 namespace logger {
 
-
 Logger::Logger(j2534::J2534 &j2534)
     : _j2534{j2534}, _loggingThread{}, _stopped{true} {}
 
@@ -21,7 +20,8 @@ Logger::~Logger() { stop(); }
 
 void Logger::registerCallback(LoggerCallback &callback) {
   std::unique_lock<std::mutex> lock{_callbackMutex};
-  if (std::find(_callbacks.cbegin(), _callbacks.cend(), &callback) == _callbacks.cend()) {
+  if (std::find(_callbacks.cbegin(), _callbacks.cend(), &callback) ==
+      _callbacks.cend()) {
     _callbacks.push_back(&callback);
   }
 }
@@ -82,7 +82,8 @@ void Logger::stop() {
 void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
   for (const auto parameter : _parameters.parameters()) {
     const auto registerParameterRequest{
-        common::CanMessages::makeRegisterAddrRequest(parameter.addr(), parameter.size())};
+        common::CanMessages::makeRegisterAddrRequest(parameter.addr(),
+                                                     parameter.size())};
     unsigned long numMsgs;
     _channel1->writeMsgs(
         {registerParameterRequest.toPassThruMsg(ProtocolID, Flags)}, numMsgs);
@@ -102,12 +103,12 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
 }
 
 void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
-    {
-      std::unique_lock<std::mutex> lock{_callbackMutex};
-      for (const auto callback : _callbacks) {
-        callback->onStatusChanged(true);
-      }
+  {
+    std::unique_lock<std::mutex> lock{_callbackMutex};
+    for (const auto callback : _callbacks) {
+      callback->onStatusChanged(true);
     }
+  }
   const auto startTimepoint{std::chrono::steady_clock::now()};
   unsigned long numberOfCanMessages{0};
   {
@@ -171,7 +172,6 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
       callback->onStatusChanged(false);
     }
   }
-
 }
 
 void Logger::pushRecord(Logger::LogRecord &&record) {

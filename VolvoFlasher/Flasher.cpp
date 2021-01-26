@@ -102,21 +102,21 @@ void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
   flash(std::move(channel1), std::move(channel2), std::move(channel3), bin);
 }
 
-void Flasher::flash(std::unique_ptr<j2534::J2534Channel>&& channel1,
-    std::unique_ptr<j2534::J2534Channel>&& channel2,
-    std::unique_ptr<j2534::J2534Channel>&& channel3,
-    const std::vector<uint8_t>& bin) {
-    _channel1 = std::move(channel1);
-    _channel1 = std::move(channel2);
-    _channel1 = std::move(channel3);
+void Flasher::flash(std::unique_ptr<j2534::J2534Channel> &&channel1,
+                    std::unique_ptr<j2534::J2534Channel> &&channel2,
+                    std::unique_ptr<j2534::J2534Channel> &&channel3,
+                    const std::vector<uint8_t> &bin) {
+  _channel1 = std::move(channel1);
+  _channel1 = std::move(channel2);
+  _channel1 = std::move(channel3);
 
-    setState(State::InProgress);
+  setState(State::InProgress);
 
-    const unsigned long protocolId = CAN_XON_XOFF;
-    const unsigned long flags = CAN_29BIT_ID;
-    _flasherThread = std::thread([this, bin, protocolId, flags] {
-        flasherFunction(bin, protocolId, flags);
-        });
+  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long flags = CAN_29BIT_ID;
+  _flasherThread = std::thread([this, bin, protocolId, flags] {
+    flasherFunction(bin, protocolId, flags);
+  });
 }
 
 void Flasher::stop() {

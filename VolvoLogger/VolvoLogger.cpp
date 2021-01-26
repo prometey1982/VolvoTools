@@ -1,10 +1,10 @@
 #include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
+#include "FileLogWriter.hpp"
 #include "LogParameters.hpp"
 #include "Logger.h"
 #include "LoggerApplication.hpp"
 #include "LoggerCallback.hpp"
-#include "FileLogWriter.hpp"
 
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -12,7 +12,6 @@
 #include <iostream>
 #include <memory>
 #include <thread>
-
 
 class ConsoleLogWriter final : public logger::LoggerCallback {
 public:
@@ -35,15 +34,17 @@ private:
 };
 
 bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
-                   std::string &paramsFilePath, std::string &outputPath, unsigned& printCount) {
+                   std::string &paramsFilePath, std::string &outputPath,
+                   unsigned &printCount) {
   using namespace boost::program_options;
   options_description descr;
   descr.add_options()(
       "baudrate,b", value<unsigned long>()->default_value(500000),
       "CAN bus speed")("variables,v", value<std::string>()->required(),
                        "Path to memory variables")(
-      "output,o", value<std::string>()->required(), "Path to save logs")(
-          "print,p", value<unsigned>()->default_value(5), "Number of variables which prints to console");
+      "output,o", value<std::string>()->required(),
+      "Path to save logs")("print,p", value<unsigned>()->default_value(5),
+                           "Number of variables which prints to console");
   command_line_parser parser{argc, argv};
   parser.options(descr);
   variables_map vm;
@@ -73,7 +74,8 @@ int main(int argc, const char *argv[]) {
   std::string paramsFilePath;
   std::string outputPath;
   unsigned printCount;
-  if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath, printCount)) {
+  if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath,
+                    printCount)) {
     const auto libraryParams{common::getLibraryParams()};
     if (!libraryParams.first.empty()) {
       try {

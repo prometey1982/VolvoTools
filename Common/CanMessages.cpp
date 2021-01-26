@@ -53,13 +53,14 @@ CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
   return CEMCanMessage::makeCanMessage(ecuType, 0xAF, 0x11);
 }
 
-/*static*/ CEMCanMessage CanMessages::makeRegisterAddrRequest(uint32_t addr,
-                                                     size_t dataLength) {
+/*static*/ CEMCanMessage
+CanMessages::makeRegisterAddrRequest(uint32_t addr, size_t dataLength) {
   const uint8_t byte1 = (addr & 0xFF0000) >> 16;
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
-  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xAA, 0x50, byte1, byte2, byte3,
-                                      static_cast<uint8_t>(dataLength)});
+  return CEMCanMessage::makeCanMessage(
+      common::ECUType::ECM_ME,
+      {0xAA, 0x50, byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
 }
 
 const CEMCanMessage CanMessages::wakeUpECM{
@@ -83,9 +84,9 @@ const CEMCanMessage CanMessages::goToSleepCanRequest{
 const CEMCanMessage CanMessages::afterBootloaderFlash{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xA8)};
 const CEMCanMessage CanMessages::startTCMAdaptMsg{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50) };
+    common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50)};
 const CEMCanMessage CanMessages::testMemoryMsg{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xF8) };
+    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xF8)};
 
 const std::vector<uint8_t> CanMessages::me7BootLoader = {
     230, 244, 96,  2,   230, 245, 140, 248, 230, 246, 24,  249, 230, 247, 0,
