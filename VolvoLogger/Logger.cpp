@@ -5,6 +5,7 @@
 #include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
 #include "../j2534/J2534Channel.hpp"
+#include "LoggerCallback.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -12,14 +13,6 @@
 
 namespace logger {
 
-static common::CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
-                                                     size_t dataLength) {
-  const uint8_t byte1 = (addr & 0xFF0000) >> 16;
-  const uint8_t byte2 = (addr & 0xFF00) >> 8;
-  const uint8_t byte3 = (addr & 0xFF);
-  return common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xAA, 0x50, byte1, byte2, byte3,
-                                      static_cast<uint8_t>(dataLength)});
-}
 
 Logger::Logger(j2534::J2534 &j2534)
     : _j2534{j2534}, _loggingThread{}, _stopped{true} {}
@@ -28,7 +21,9 @@ Logger::~Logger() { stop(); }
 
 void Logger::registerCallback(LoggerCallback &callback) {
   std::unique_lock<std::mutex> lock{_callbackMutex};
-  _callbacks.push_back(&callback);
+  if (std::find(_callbacks.cbegin(), _callbacks.cend(), &callback) == _callbacks.cend()) {
+    _callbacks.push_back(&callback);
+  }
 }
 
 void Logger::unregisterCallback(LoggerCallback &callback) {
@@ -87,7 +82,7 @@ void Logger::stop() {
 void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
   for (const auto parameter : _parameters.parameters()) {
     const auto registerParameterRequest{
-        makeRegisterAddrRequest(parameter.addr(), parameter.size())};
+        common::CanMessages::makeRegisterAddrRequest(parameter.addr(), parameter.size())};
     unsigned long numMsgs;
     _channel1->writeMsgs(
         {registerParameterRequest.toPassThruMsg(ProtocolID, Flags)}, numMsgs);
@@ -107,6 +102,12 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
 }
 
 void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
+    {
+      std::unique_lock<std::mutex> lock{_callbackMutex};
+      for (const auto callback : _callbacks) {
+        callback->onStatusChanged(true);
+      }
+    }
   const auto startTimepoint{std::chrono::steady_clock::now()};
   unsigned long numberOfCanMessages{0};
   {
@@ -164,6 +165,13 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
     _cond.wait_until(lock,
                      startTimepoint + std::chrono::milliseconds(timeoffset));
   }
+  {
+    std::unique_lock<std::mutex> lock{_callbackMutex};
+    for (const auto callback : _callbacks) {
+      callback->onStatusChanged(false);
+    }
+  }
+
 }
 
 void Logger::pushRecord(Logger::LogRecord &&record) {
@@ -192,7 +200,7 @@ void Logger::callbackFunction() {
     {
       std::unique_lock<std::mutex> lock{_callbackMutex};
       for (const auto callback : _callbacks) {
-        callback->OnLogMessage(logRecord.timePoint, formattedValues);
+        callback->onLogMessage(logRecord.timePoint, formattedValues);
       }
     }
   }

@@ -12,10 +12,10 @@ namespace logger {
 }
 
 void LoggerApplication::start(unsigned long baudrate,
-                              std::unique_ptr<j2534::J2534> &&j2534,
+                              const std::shared_ptr<j2534::J2534> &j2534,
                               const LogParameters &params,
                               const std::vector<LoggerCallback *> &callbacks) {
-  _j2534 = std::move(j2534);
+  _j2534 = j2534;
   _logger = std::make_unique<Logger>(*_j2534);
   for (const auto &callback : callbacks) {
     _logger->registerCallback(*callback);

@@ -3,6 +3,8 @@
 #include "LogParameters.hpp"
 #include "Logger.h"
 #include "LoggerApplication.hpp"
+#include "LoggerCallback.hpp"
+#include "FileLogWriter.hpp"
 
 #include <boost/program_options.hpp>
 #include <fstream>
@@ -11,41 +13,13 @@
 #include <memory>
 #include <thread>
 
-class FileLogWriter final : public logger::LoggerCallback {
-public:
-  FileLogWriter(const std::string &outputPath,
-                const logger::LogParameters &parameters)
-      : _outputStream{outputPath} {
-    _outputStream << "Time (sec),";
-    const auto startTimepoint{std::chrono::steady_clock::now()};
-    unsigned long numberOfCanMessages{0};
-    numberOfCanMessages = parameters.getNumberOfCanMessages();
-    for (const auto &param : parameters.parameters()) {
-      _outputStream << param.name() << "(" << param.unit() << "),";
-    }
-    _outputStream << std::endl;
-  }
-
-  void OnLogMessage(std::chrono::milliseconds timePoint,
-                    const std::vector<double> &values) {
-    _outputStream << (timePoint.count() / 1000.0) << ",";
-
-    for (const auto value : values) {
-      _outputStream << value << ",";
-    }
-    _outputStream << std::endl;
-  }
-
-private:
-  std::ofstream _outputStream;
-};
 
 class ConsoleLogWriter final : public logger::LoggerCallback {
 public:
   explicit ConsoleLogWriter(size_t printLimit) : _printLimit{printLimit} {}
 
-  void OnLogMessage(std::chrono::milliseconds timePoint,
-                    const std::vector<double> &values) {
+  void onLogMessage(std::chrono::milliseconds timePoint,
+                    const std::vector<double> &values) override {
     std::cout << (timePoint.count() / 1000.0) << ",";
 
     for (size_t i = 0; i < _printLimit && i < values.size(); ++i) {
@@ -53,6 +27,8 @@ public:
     }
     std::cout << std::endl;
   }
+
+  void onStatusChanged(bool /*started*/) override {}
 
 private:
   const size_t _printLimit;
@@ -105,7 +81,7 @@ int main(int argc, const char *argv[]) {
             std::make_unique<j2534::J2534>(libraryParams.first)};
         j2534->PassThruOpen(libraryParams.second);
         logger::LogParameters params{paramsFilePath};
-        FileLogWriter fileLogWriter(outputPath, params);
+        logger::FileLogWriter fileLogWriter(outputPath, params);
         ConsoleLogWriter consoleLogWriter{printCount};
         logger::LoggerApplication::instance().start(
             baudrate, std::move(j2534), params,

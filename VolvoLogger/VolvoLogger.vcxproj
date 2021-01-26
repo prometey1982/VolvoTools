@@ -152,6 +152,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="FileLogWriter.cpp" />
     <ClCompile Include="Logger.cpp" />
     <ClCompile Include="LoggerApplication.cpp" />
     <ClCompile Include="LogParameter.cpp" />
@@ -159,8 +160,10 @@
     <ClCompile Include="VolvoLogger.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FileLogWriter.hpp" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="LoggerApplication.hpp" />
+    <ClInclude Include="LoggerCallback.hpp" />
     <ClInclude Include="LogParameter.hpp" />
     <ClInclude Include="LogParameters.hpp" />
   </ItemGroup>

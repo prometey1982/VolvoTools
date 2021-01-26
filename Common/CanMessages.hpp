@@ -15,6 +15,8 @@ struct CanMessages {
                                             size_t beginOffset,
                                             size_t endOffset);
   static CEMCanMessage clearDTCMsgs(ECUType ecuType);
+  static CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
+                                                       size_t dataLength);
 
   static const CEMCanMessage wakeUpECM;
   static const CEMCanMessage preFlashECMMsg;

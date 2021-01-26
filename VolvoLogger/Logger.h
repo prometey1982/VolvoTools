@@ -16,15 +16,7 @@ class J2534Channel;
 } // namespace j2534
 
 namespace logger {
-
-class LoggerCallback {
-public:
-  LoggerCallback() = default;
-  virtual ~LoggerCallback() = default;
-
-  virtual void OnLogMessage(std::chrono::milliseconds timePoint,
-                            const std::vector<double> &values) = 0;
-};
+class LoggerCallback;
 
 class Logger final {
 public:

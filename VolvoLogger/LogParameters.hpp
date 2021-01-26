@@ -11,12 +11,17 @@ class LogParameters final {
 public:
   LogParameters() = default;
   explicit LogParameters(const std::string &path);
-  LogParameters(const LogParameters &rhs);
+  explicit LogParameters(std::istream &stream);
+  LogParameters(const LogParameters &rhs) = default;
 
   const LogParameters &operator=(const LogParameters &rhs);
 
   const std::vector<LogParameter> &parameters() const;
   unsigned long getNumberOfCanMessages() const;
+
+private:
+  template<typename Reader>
+  void load(Reader& reader);
 
 private:
   std::vector<LogParameter> _parameters;

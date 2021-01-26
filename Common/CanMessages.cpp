@@ -53,6 +53,15 @@ CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
   return CEMCanMessage::makeCanMessage(ecuType, 0xAF, 0x11);
 }
 
+/*static*/ CEMCanMessage CanMessages::makeRegisterAddrRequest(uint32_t addr,
+                                                     size_t dataLength) {
+  const uint8_t byte1 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte2 = (addr & 0xFF00) >> 8;
+  const uint8_t byte3 = (addr & 0xFF);
+  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, {0xAA, 0x50, byte1, byte2, byte3,
+                                      static_cast<uint8_t>(dataLength)});
+}
+
 const CEMCanMessage CanMessages::wakeUpECM{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xC8)};
 const CEMCanMessage CanMessages::preFlashECMMsg{
