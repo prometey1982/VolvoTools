@@ -87,6 +87,8 @@ const CEMCanMessage CanMessages::startTCMAdaptMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50)};
 const CEMCanMessage CanMessages::testMemoryMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xF8)};
+const CEMCanMessage CanMessages::enableCommunicationMsg{
+    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, 0xD8)};
 
 const std::vector<uint8_t> CanMessages::me7BootLoader = {
     230, 244, 96,  2,   230, 245, 140, 248, 230, 246, 24,  249, 230, 247, 0,

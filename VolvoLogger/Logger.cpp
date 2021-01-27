@@ -80,6 +80,13 @@ void Logger::stop() {
 }
 
 void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
+  unsigned long numMsgs;
+  _channel1->writeMsgs(
+      common::CanMessages::unregisterAllMemoryRequest.toPassThruMsgs(ProtocolID,
+                                                                     Flags),
+      numMsgs);
+  std::vector<PASSTHRU_MSG> result(1);
+  _channel1->readMsgs(result);
   for (const auto parameter : _parameters.parameters()) {
     const auto registerParameterRequest{
         common::CanMessages::makeRegisterAddrRequest(parameter.addr(),
@@ -90,7 +97,7 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
     if (numMsgs == 0) {
       throw std::runtime_error("Request to the ECU wasn't send");
     }
-    std::vector<PASSTHRU_MSG> result(1);
+    result.resize(1);
     _channel1->readMsgs(result);
     if (result.empty()) {
       throw std::runtime_error("ECU didn't response intime");
