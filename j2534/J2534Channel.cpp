@@ -55,8 +55,12 @@ J2534_ERROR_CODE J2534Channel::passThruIoctl(unsigned long IoctlID,
   return _j2534.PassThruIoctl(_channelID, IoctlID, input, output);
 }
 
-J2534_ERROR_CODE J2534Channel::clear() const {
+J2534_ERROR_CODE J2534Channel::clearRx() const {
   return passThruIoctl(CLEAR_RX_BUFFER, nullptr, nullptr);
+}
+
+J2534_ERROR_CODE J2534Channel::clearTx() const {
+  return passThruIoctl(CLEAR_TX_BUFFER, nullptr, nullptr);
 }
 
 J2534_ERROR_CODE

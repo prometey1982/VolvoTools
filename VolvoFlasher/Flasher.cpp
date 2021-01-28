@@ -12,7 +12,7 @@
 namespace {
 bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
                                 uint8_t toCheck) {
-  channel.clear();
+  channel.clearRx();
   unsigned long msgsNum = 1;
   const auto error = channel.writeMsgs({msg}, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
