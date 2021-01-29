@@ -17,7 +17,8 @@ void FileLogWriter::open(const std::string &outputPath,
   unsigned long numberOfCanMessages{0};
   numberOfCanMessages = parameters.getNumberOfCanMessages();
   for (const auto &param : parameters.parameters()) {
-    _outputStream << param.name() << "(" << param.unit() << "),";
+    _outputStream << param.description() << "(" << param.unit() << ") "
+                  << param.name() << ",";
   }
   _outputStream << std::endl;
 }
