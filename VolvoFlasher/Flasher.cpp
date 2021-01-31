@@ -93,27 +93,10 @@ void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  auto channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  auto channel2 =
-      common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
-  std::unique_ptr<j2534::J2534Channel> channel3;
-  if (baudrate != 500000)
-    channel3 = common::openBridgeChannel(_j2534);
-  flash(std::move(channel1), std::move(channel2), std::move(channel3), bin);
-}
-
-void Flasher::flash(std::unique_ptr<j2534::J2534Channel> &&channel1,
-                    std::unique_ptr<j2534::J2534Channel> &&channel2,
-                    std::unique_ptr<j2534::J2534Channel> &&channel3,
-                    const std::vector<uint8_t> &bin) {
-  _channel1 = std::move(channel1);
-  _channel1 = std::move(channel2);
-  _channel1 = std::move(channel3);
+  openChannels(baudrate);
 
   setState(State::InProgress);
 
-  const unsigned long protocolId = CAN_XON_XOFF;
-  const unsigned long flags = CAN_29BIT_ID;
   _flasherThread = std::thread([this, bin, protocolId, flags] {
     flasherFunction(bin, protocolId, flags);
   });
@@ -133,6 +116,31 @@ void Flasher::stop() {
 Flasher::State Flasher::getState() const {
   std::unique_lock<std::mutex> lock{_mutex};
   return _currentState;
+}
+
+void Flasher::openChannels(unsigned long baudrate) {
+  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long flags = CAN_29BIT_ID;
+
+  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
+  _channel2 =
+      common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+  if (baudrate != 500000)
+    _channel3 = common::openBridgeChannel(_j2534);
+}
+
+void Flasher::selectAndWriteBootloader(bool isMe9, unsigned long protocolId,
+                                       unsigned long flags) {
+  unsigned long msgsNum = 1;
+  _channel1->writeMsgs(
+      common::CanMessages::wakeUpECM.toPassThruMsgs(protocolId, flags), msgsNum,
+      5000);
+  canGoToSleep(protocolId, flags);
+  writePreFlashMsgAndCheckAnswer(protocolId, flags);
+  uint32_t bootloaderOffset = (isMe9 ? 0x7F81D0 : 0x31C000);
+  const auto bootloader = (isMe9 ? common::CanMessages::me9BootLoader
+                                 : common::CanMessages::me7BootLoader);
+  writeBootloader(bootloaderOffset, bootloader, protocolId, flags);
 }
 
 void Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
@@ -298,17 +306,8 @@ void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
 void Flasher::flasherFunction(const std::vector<uint8_t> bin,
                               unsigned long protocolId, unsigned long flags) {
   try {
-    unsigned long msgsNum = 1;
-    _channel1->writeMsgs(
-        common::CanMessages::wakeUpECM.toPassThruMsgs(protocolId, flags),
-        msgsNum, 5000);
-    canGoToSleep(protocolId, flags);
-    writePreFlashMsgAndCheckAnswer(protocolId, flags);
     const bool isMe9 = (bin.size() == 0x200000);
-    uint32_t bootloaderOffset = (isMe9 ? 0x7F81D0 : 0x31C000);
-    const auto bootloader = (isMe9 ? common::CanMessages::me9BootLoader
-                                   : common::CanMessages::me7BootLoader);
-    writeBootloader(bootloaderOffset, bootloader, protocolId, flags);
+    selectAndWriteBootloader(isMe9, protocolId, flags);
     if (isMe9) {
       writeFlashMe9(bin, protocolId, flags);
     } else {

@@ -10,6 +10,7 @@ struct CanMessages {
   static CEMCanMessage setCurrentTime(uint8_t hours, uint8_t minutes);
   static CEMCanMessage createWriteOffsetMsg(uint32_t offset);
   static CEMCanMessage createReadOffsetMsg(uint32_t offset);
+  static CEMCanMessage createReadOffsetMsg2(uint32_t offset);
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin);
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin,
                                             size_t beginOffset,

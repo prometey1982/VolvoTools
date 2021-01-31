@@ -15,14 +15,17 @@ namespace common {
 }
 
 /*static*/ CEMCanMessage CanMessages::createWriteOffsetMsg(uint32_t offset) {
-
   return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0x9C, 0,
                                        offset >> 16, offset >> 8, offset);
 }
 
 /*static*/ CEMCanMessage CanMessages::createReadOffsetMsg(uint32_t offset) {
-
   return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xB4, 0,
+                                       offset >> 16, offset >> 8, offset);
+}
+
+/*static*/ CEMCanMessage CanMessages::createReadOffsetMsg2(uint32_t offset) {
+  return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xBC, 0,
                                        offset >> 16, offset >> 8, offset);
 }
 

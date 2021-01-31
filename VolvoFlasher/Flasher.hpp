@@ -24,7 +24,7 @@ public:
   virtual void OnMessage(const std::string &message) = 0;
 };
 
-class Flasher final {
+class Flasher {
 public:
   explicit Flasher(j2534::J2534 &j2534);
   ~Flasher();
@@ -35,19 +35,25 @@ public:
   void unregisterCallback(FlasherCallback &callback);
 
   void flash(unsigned long baudrate, const std::vector<uint8_t> &bin);
-  void flash(std::unique_ptr<j2534::J2534Channel> &&channel1,
-             std::unique_ptr<j2534::J2534Channel> &&channel2,
-             std::unique_ptr<j2534::J2534Channel> &&channel3,
-             const std::vector<uint8_t> &bin);
   void stop();
 
   enum class State { Initial, InProgress, Done, Error };
 
   State getState() const;
 
+protected:
+  void openChannels(unsigned long baudrate);
+
+  void selectAndWriteBootloader(bool isMe9, unsigned long protocolId,
+                                unsigned long flags);
+  void canWakeUp(unsigned long protocolId, unsigned long flags);
+
+  void setState(State newState);
+
+  void messageToCallbacks(const std::string &message);
+
 private:
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
-  void canWakeUp(unsigned long protocolId, unsigned long flags);
   void cleanErrors(unsigned long protocolId, unsigned long flags);
 
   void writePreFlashMsgAndCheckAnswer(unsigned long protocolId,
@@ -71,10 +77,6 @@ private:
   void flasherFunction(const std::vector<uint8_t> bin, unsigned long protocolId,
                        unsigned long flags);
 
-  void setState(State newState);
-
-  void messageToCallbacks(const std::string &message);
-
 #if 0
   template <typename... Args> void messageToCallbacks(Args... args) {
     std::stringstream ss;
@@ -86,13 +88,15 @@ private:
 
 private:
   j2534::J2534 &_j2534;
-  std::thread _flasherThread;
   mutable std::mutex _mutex;
   std::condition_variable _cond;
 
   State _currentState;
 
   std::vector<FlasherCallback *> _callbacks;
+
+protected:
+  std::thread _flasherThread;
 
   std::unique_ptr<j2534::J2534Channel> _channel1;
   std::unique_ptr<j2534::J2534Channel> _channel2;
