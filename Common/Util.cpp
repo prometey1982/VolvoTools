@@ -38,7 +38,12 @@ using namespace m4x1m1l14n::Registry;
 static bool processRegistry(const std::string &keyName,
                             std::string &libraryPath, std::string &deviceName) {
   const auto key = LocalMachine->Open(toPlatformString(keyName));
-  const auto canXonXoff{key->GetInt32(TEXT("CAN_XON_XOFF"))};
+  long canXonXoff = 0;
+  try {
+    canXonXoff = key->GetInt32(TEXT("CAN_XON_XOFF"));
+  } catch (...) {
+    return false;
+  }
   if (canXonXoff > 0) {
     libraryPath = fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
     deviceName = fromPlatformString(key->GetString(TEXT("Name")));
@@ -48,6 +53,7 @@ static bool processRegistry(const std::string &keyName,
 }
 
 std::pair<std::string, std::string> getLibraryParams() {
+  //  return {"C:\\Program Files (x86)\\DiCE\\Tools\\TSDiCE32.dll", ""};
   std::string libraryPath;
   std::string deviceName;
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};

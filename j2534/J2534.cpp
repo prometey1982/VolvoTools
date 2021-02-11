@@ -14,7 +14,7 @@ void LoadFunction(HINSTANCE hDLL, FuncT &func, const std::string &name) {
 J2534::J2534(const std::string &path)
     : _hDLL{LoadLibraryA(path.c_str())}, _deviceId{0}, _deviceOpened{false} {
   if (!_hDLL) {
-    throw std::runtime_error("Can't load library");
+    throw std::runtime_error("Can't load library '" + path + "'");
   }
 
   LoadFunction(_hDLL, _PassThruOpen, "PassThruOpen");
