@@ -1,5 +1,15 @@
 #include "LogParameter.hpp"
 
+namespace {
+double processSign(uint32_t value, bool isSigned) {
+  if (isSigned) {
+    return static_cast<int32_t>(value);
+  } else {
+    return value;
+  }
+}
+} // namespace
+
 namespace logger {
 LogParameter::LogParameter(const std::string &name, uint32_t addr, size_t size,
                            uint32_t bitmask, const std::string &unit,
@@ -34,9 +44,9 @@ const std::string &LogParameter::description() const { return _description; }
 
 double LogParameter::formatValue(uint32_t value) const {
   if (_isInverseConversion) {
-    return _factor / (value + _offset);
+    return _factor / (processSign(value, _isSigned) + _offset);
   } else {
-    return value * _factor + _offset;
+    return processSign(value, _isSigned) * _factor + _offset;
   }
 }
 
