@@ -29,7 +29,7 @@ struct CanMessages {
   static const CEMCanMessage goToSleepCanRequest;
   static const CEMCanMessage afterBootloaderFlash;
   static const CEMCanMessage startTCMAdaptMsg;
-  static const CEMCanMessage testMemoryMsg;
+  static const CEMCanMessage eraseMsg;
   static const CEMCanMessage enableCommunicationMsg;
 
   static const std::vector<uint8_t> me7BootLoader;

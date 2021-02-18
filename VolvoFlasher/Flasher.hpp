@@ -67,7 +67,7 @@ private:
   void writeChunk(const std::vector<uint8_t> &bin, uint32_t beginOffset,
                   uint32_t endOffset, unsigned long protocolId,
                   unsigned long flags);
-  void testMemory(uint32_t offset, unsigned long protocolId,
+  void eraseMemory(uint32_t offset, unsigned long protocolId,
                   unsigned long flags, uint8_t toCheck);
   void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
                      unsigned long flags);

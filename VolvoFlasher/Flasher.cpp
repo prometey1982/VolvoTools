@@ -277,28 +277,28 @@ void Flasher::writeChunk(const std::vector<uint8_t> &bin, uint32_t beginOffset,
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
 
-void Flasher::testMemory(uint32_t offset, unsigned long protocolId,
+void Flasher::eraseMemory(uint32_t offset, unsigned long protocolId,
                          unsigned long flags, uint8_t toCheck) {
   writeDataOffsetAndCheckAnswer(offset, protocolId, flags);
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::testMemoryMsg.toPassThruMsg(protocolId, flags),
+          common::CanMessages::eraseMsg.toPassThruMsg(protocolId, flags),
           toCheck))
-    throw std::runtime_error("Can't test memory addr");
+    throw std::runtime_error("Can't erase memory");
 }
 
 void Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
-  testMemory(0x8000, protocolId, flags, 0xF9);
+  eraseMemory(0x8000, protocolId, flags, 0xF9);
   std::this_thread::sleep_for(std::chrono::seconds(3));
-  testMemory(0x10000, protocolId, flags, 0xF9);
+  eraseMemory(0x10000, protocolId, flags, 0xF9);
   writeChunk(bin, 0x8000, 0xE000, protocolId, flags);
   writeChunk(bin, 0x10000, bin.size(), protocolId, flags);
 }
 
 void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
-  testMemory(0x20000, protocolId, flags, 0x0);
+  eraseMemory(0x20000, protocolId, flags, 0x0);
   writeChunk(bin, 0x20000, 0x90000, protocolId, flags);
   writeChunk(bin, 0xA0000, 0x1F0000, protocolId, flags);
 }

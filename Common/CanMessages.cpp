@@ -88,7 +88,7 @@ const CEMCanMessage CanMessages::afterBootloaderFlash{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xA8)};
 const CEMCanMessage CanMessages::startTCMAdaptMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50)};
-const CEMCanMessage CanMessages::testMemoryMsg{
+const CEMCanMessage CanMessages::eraseMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xF8)};
 const CEMCanMessage CanMessages::enableCommunicationMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, 0xD8)};
