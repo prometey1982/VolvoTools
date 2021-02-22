@@ -29,6 +29,13 @@ namespace common {
                                        offset >> 16, offset >> 8, offset);
 }
 
+/*static*/ CEMCanMessage
+CanMessages::createReadDataByOffsetMsg(common::ECUType ecuType,
+                                       uint32_t offset) {
+  return CEMCanMessage::makeCanMessage(ecuType, 0xA7, offset >> 16, offset >> 8,
+                                       offset);
+}
+
 /*static*/ CEMCanMessages
 CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin) {
   return createWriteDataMsgs(bin, 0, bin.size());
