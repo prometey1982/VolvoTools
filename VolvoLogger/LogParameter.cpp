@@ -50,6 +50,9 @@ double LogParameter::offset() const { return _offset; }
 const std::string &LogParameter::description() const { return _description; }
 
 double LogParameter::formatValue(uint32_t value) const {
+  if (_bitmask) {
+    value &= _bitmask;
+  }
   if (_isInverseConversion) {
     return _factor / (processSign(value, _isSigned, _size) + _offset);
   } else {
