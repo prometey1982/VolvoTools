@@ -125,7 +125,7 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
   std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
       common::CanMessages::requestMemory.toPassThruMsg(protocolId, flags)};
-  for (size_t timeoffset = 0;; timeoffset += 100) {
+  for (size_t timeoffset = 0;; timeoffset += 50) {
     {
       std::unique_lock<std::mutex> lock{_mutex};
       if (_stopped)

@@ -59,6 +59,13 @@ CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
   return CEMCanMessages(result);
 }
 
+/*static*/ CEMCanMessage CanMessages::createWriteDataByAddrMsg(uint32_t addr,
+                                                                  uint8_t data)
+{
+    return CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xBA,
+                                         addr >> 16, addr >> 8, addr, data);
+}
+
 /*static*/ CEMCanMessage CanMessages::clearDTCMsgs(ECUType ecuType) {
   return CEMCanMessage::makeCanMessage(ecuType, 0xAF, 0x11);
 }

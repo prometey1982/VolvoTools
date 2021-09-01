@@ -17,6 +17,7 @@ struct CanMessages {
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin,
                                             size_t beginOffset,
                                             size_t endOffset);
+  static CEMCanMessage createWriteDataByAddrMsg(uint32_t addr, uint8_t data);
   static CEMCanMessage clearDTCMsgs(ECUType ecuType);
   static CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
                                                size_t dataLength);
