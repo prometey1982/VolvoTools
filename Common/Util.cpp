@@ -51,8 +51,9 @@ static bool processRegistry(const std::string &keyName,
 }
 
 std::pair<std::string, std::string> getLibraryParams() {
-  std::string libraryPath;
-  std::string deviceName;
+  std::string libraryPath = "C:\\Program Files\\DiCE\\Tools\\TSDiCE32.dll";
+  std::string deviceName = "DiCE-206751";
+#if 1
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
   const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
   key->EnumerateSubKeys([&rootKeyName, &libraryPath,
@@ -60,6 +61,7 @@ std::pair<std::string, std::string> getLibraryParams() {
     return processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
                            libraryPath, deviceName);
   });
+#endif
   return {libraryPath, deviceName};
 }
 

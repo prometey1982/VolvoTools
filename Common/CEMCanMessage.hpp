@@ -39,6 +39,8 @@ enum class ECUType : uint8_t {
 
 class CEMCanMessage {
 public:
+  static ECUType getECUType(const uint8_t* const buffer);
+  static ECUType getECUType(const std::vector<uint8_t>& buffer);
   static CEMCanMessage makeCanMessage(ECUType ecuType,
                                       std::vector<uint8_t> request);
   template <typename... Args>
@@ -48,6 +50,7 @@ public:
   }
 
   explicit CEMCanMessage(const std::vector<uint8_t> &data);
+  explicit CEMCanMessage(const std::vector<uint8_t> &data, bool);
 
   std::vector<uint8_t> data() const;
 

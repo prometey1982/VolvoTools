@@ -13,10 +13,13 @@ struct CanMessages {
   static CEMCanMessage createReadOffsetMsg2(uint32_t offset);
   static CEMCanMessage createReadDataByOffsetMsg(common::ECUType ecuType,
                                                  uint32_t offset);
+  static CEMCanMessage createReadDataByAddrMsg(common::ECUType ecuType,
+                                               uint32_t addr, uint8_t size);
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin);
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin,
                                             size_t beginOffset,
                                             size_t endOffset);
+  static CEMCanMessage createReadTCMDataByAddr(uint32_t offset, size_t dataSize);
   static CEMCanMessage createWriteDataByAddrMsg(uint32_t addr, uint8_t data);
   static CEMCanMessage clearDTCMsgs(ECUType ecuType);
   static CEMCanMessage makeRegisterAddrRequest(uint32_t addr,

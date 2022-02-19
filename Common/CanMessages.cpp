@@ -33,7 +33,13 @@ namespace common {
 CanMessages::createReadDataByOffsetMsg(common::ECUType ecuType,
                                        uint32_t offset) {
   return CEMCanMessage::makeCanMessage(ecuType, 0xA7, offset >> 16, offset >> 8,
-                                       offset);
+                                       offset, 1);
+}
+
+/*static*/ CEMCanMessage
+CanMessages::createReadDataByAddrMsg(common::ECUType ecuType, uint32_t addr, uint8_t size) {
+    return CEMCanMessage::makeCanMessage(ecuType, 0xB4, 21, 34, addr >> 24, addr >> 16, addr >> 8,
+                                         addr, size);
 }
 
 /*static*/ CEMCanMessages
@@ -58,6 +64,15 @@ CanMessages::createWriteDataMsgs(const std::vector<uint8_t> &bin,
   }
   return CEMCanMessages(result);
 }
+
+/*static*/ CEMCanMessage CanMessages::createReadTCMDataByAddr(uint32_t offset,
+                                                               size_t dataSize)
+{
+    return CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB4, 0x21, 0x34,
+                                         offset >> 24, offset >> 16, offset >> 8, offset,
+                                         0xCF, dataSize);
+}
+
 
 /*static*/ CEMCanMessage CanMessages::createWriteDataByAddrMsg(uint32_t addr,
                                                                   uint8_t data)
