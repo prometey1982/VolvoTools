@@ -2,7 +2,7 @@
 #include "../j2534/J2534.hpp"
 #include "FileLogWriter.hpp"
 #include "LogParameters.hpp"
-#include "Logger.h"
+#include "Logger.hpp"
 #include "LoggerApplication.hpp"
 #include "LoggerCallback.hpp"
 

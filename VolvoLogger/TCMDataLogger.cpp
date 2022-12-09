@@ -105,7 +105,22 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
             logMessages.resize(1);
             _channel1->readMsgs(logMessages);
             if (!logMessages.empty()) {
-
+                auto logMessage = logMessages[0];
+                size_t msgOffset = 5;
+                if(_parameters.parameters()[i].size() == 1)
+                    logRecord.push_back(logMessage.Data[msgOffset]);
+                else if(_parameters.parameters()[i].size() == 2)
+                    logRecord.push_back(logMessage.Data[msgOffset + 1] << 8
+                                        + logMessage.Data[msgOffset]);
+                else if(_parameters.parameters()[i].size() == 3)
+                    logRecord.push_back(logMessage.Data[msgOffset + 2] << 16
+                                        + logMessage.Data[msgOffset + 1] << 8
+                                        + logMessage.Data[msgOffset]);
+                else if(_parameters.parameters()[i].size() == 4)
+                    logRecord.push_back(logMessage.Data[msgOffset + 3] << 24
+                                        + logMessage.Data[msgOffset + 2] << 16
+                                        + logMessage.Data[msgOffset + 1] << 8
+                                        + logMessage.Data[msgOffset]);
             }
         }
     }

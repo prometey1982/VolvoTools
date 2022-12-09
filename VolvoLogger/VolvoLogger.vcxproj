@@ -161,7 +161,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FileLogWriter.hpp" />
-    <ClInclude Include="Logger.h" />
+    <ClInclude Include="Logger.hpp" />
     <ClInclude Include="LoggerApplication.hpp" />
     <ClInclude Include="LoggerCallback.hpp" />
     <ClInclude Include="LogParameter.hpp" />

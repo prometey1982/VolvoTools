@@ -1,4 +1,4 @@
-#include "Logger.h"
+#include "Logger.hpp"
 
 #include "../Common/CEMCanMessage.hpp"
 #include "../Common/CanMessages.hpp"

@@ -1,6 +1,6 @@
 #include "LoggerApplication.hpp"
 #include "../j2534/J2534.hpp"
-#include "Logger.h"
+#include "Logger.hpp"
 
 #include <windows.h>
 

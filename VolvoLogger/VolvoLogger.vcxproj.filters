@@ -41,7 +41,7 @@
     <ClInclude Include="LogParameters.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Logger.h">
+    <ClInclude Include="Logger.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="LoggerApplication.hpp">
