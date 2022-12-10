@@ -44,7 +44,7 @@ void TCMDataLogger::start(unsigned long baudrate, const LogParameters &parameter
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  if (baudrate != 500000)
+//  if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 
   _stopped = false;
@@ -82,12 +82,14 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
       callback->onStatusChanged(true);
     }
   }
+  auto testerPresentMsg = common::CanMessages::enableCommunicationMsg;
+  unsigned long testerPresentMsgID;
+  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsg(protocolId, flags), testerPresentMsgID, 1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);
   const auto startTimepoint{std::chrono::steady_clock::now()};
   for(;;) {
-    _channel1->clearRx();
-    _channel1->clearTx();
+    logRecord.resize(_parameters.parameters().size());
     {
       std::unique_lock<std::mutex> lock{_mutex};
       if (_stopped)
@@ -102,28 +104,30 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
         unsigned long writtenCount = 1;
         _channel1->writeMsgs(message.toPassThruMsgs(protocolId, flags), writtenCount);
         if (writtenCount > 0) {
-            logMessages.resize(1);
+            logMessages.resize(2);
             _channel1->readMsgs(logMessages);
-            if (!logMessages.empty()) {
-                auto logMessage = logMessages[0];
-                size_t msgOffset = 5;
+            if (logMessages.size() >= 2) {
+                auto logMessage = logMessages[1];
+                const auto& data = logMessage.Data;
+                size_t msgOffset = 6;
                 if(_parameters.parameters()[i].size() == 1)
-                    logRecord.push_back(logMessage.Data[msgOffset]);
+                    logRecord[i] = common::encode(data[msgOffset]);
                 else if(_parameters.parameters()[i].size() == 2)
-                    logRecord.push_back(logMessage.Data[msgOffset + 1] << 8
-                                        + logMessage.Data[msgOffset]);
+                    logRecord[i] = common::encode(data[msgOffset + 1],
+                                                  data[msgOffset]);
                 else if(_parameters.parameters()[i].size() == 3)
-                    logRecord.push_back(logMessage.Data[msgOffset + 2] << 16
-                                        + logMessage.Data[msgOffset + 1] << 8
-                                        + logMessage.Data[msgOffset]);
+                    logRecord[i] = common::encode(data[msgOffset + 2],
+                                                  data[msgOffset + 1],
+                                                  data[msgOffset]);
                 else if(_parameters.parameters()[i].size() == 4)
-                    logRecord.push_back(logMessage.Data[msgOffset + 3] << 24
-                                        + logMessage.Data[msgOffset + 2] << 16
-                                        + logMessage.Data[msgOffset + 1] << 8
-                                        + logMessage.Data[msgOffset]);
+                    logRecord[i] = common::encode(data[msgOffset + 3],
+                                                  data[msgOffset + 2],
+                                                  data[msgOffset + 1],
+                                                  data[msgOffset]);
             }
         }
     }
+      if(!logRecord.empty())
       pushRecord(
           LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
                         now - startTimepoint),
@@ -135,6 +139,7 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
       callback->onStatusChanged(false);
     }
   }
+  _channel1->stopPeriodicMsg(testerPresentMsgID);
 }
 
 void TCMDataLogger::pushRecord(TCMDataLogger::LogRecord &&record) {
@@ -156,7 +161,7 @@ void TCMDataLogger::callbackFunction() {
       _loggedRecords.pop_front();
     }
     std::vector<double> formattedValues(logRecord.values.size());
-    for (size_t i = 0; i < logRecord.values.size(); ++i) {
+    for (size_t i = 0; i < logRecord.values.size() && i < _parameters.parameters().size(); ++i) {
       formattedValues[i] =
           _parameters.parameters()[i].formatValue(logRecord.values[i]);
     }

@@ -213,7 +213,7 @@ void Flasher::writeDataOffsetAndCheckAnswer(uint32_t writeOffset,
                                             unsigned long protocolId,
                                             unsigned long flags) {
   const auto writeOffsetMsg{
-      common::CanMessages::createWriteOffsetMsg(writeOffset)
+      common::CanMessages::createSetMemoryAddrMsg(writeOffset)
           .toPassThruMsg(protocolId, flags)};
   for (int i = 0; i < 10; ++i) {
     if (writeMessageAndCheckAnswer(*_channel1, writeOffsetMsg, 0x9C))
@@ -247,7 +247,7 @@ void Flasher::writeBootloader(uint32_t writeOffset,
   writeDataOffsetAndCheckAnswer(writeOffset, protocolId, flags);
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::restartECMMsg.toPassThruMsg(protocolId, flags),
+          common::CanMessages::jumpToECMMsg.toPassThruMsg(protocolId, flags),
           0xA0))
     throw std::runtime_error("Can't start bootloader");
 }

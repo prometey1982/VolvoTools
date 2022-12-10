@@ -8,7 +8,7 @@ namespace common {
 
 struct CanMessages {
   static CEMCanMessage setCurrentTime(uint8_t hours, uint8_t minutes);
-  static CEMCanMessage createWriteOffsetMsg(uint32_t offset);
+  static CEMCanMessage createSetMemoryAddrMsg(uint32_t offset);
   static CEMCanMessage createReadOffsetMsg(uint32_t offset);
   static CEMCanMessage createReadOffsetMsg2(uint32_t offset);
   static CEMCanMessage createReadDataByOffsetMsg(common::ECUType ecuType,
@@ -19,7 +19,7 @@ struct CanMessages {
   static CEMCanMessages createWriteDataMsgs(const std::vector<uint8_t> &bin,
                                             size_t beginOffset,
                                             size_t endOffset);
-  static CEMCanMessage createReadTCMDataByAddr(uint32_t offset, size_t dataSize);
+  static CEMCanMessage createReadTCMDataByAddr(uint32_t addr, size_t dataSize);
   static CEMCanMessage createWriteDataByAddrMsg(uint32_t addr, uint8_t data);
   static CEMCanMessage clearDTCMsgs(ECUType ecuType);
   static CEMCanMessage makeRegisterAddrRequest(uint32_t addr,
@@ -27,7 +27,7 @@ struct CanMessages {
 
   static const CEMCanMessage wakeUpECM;
   static const CEMCanMessage preFlashECMMsg;
-  static const CEMCanMessage restartECMMsg;
+  static const CEMCanMessage jumpToECMMsg;
   static const CEMCanMessage requestVIN;
   static const CEMCanMessage requestMemory;
   static const CEMCanMessage unregisterAllMemoryRequest;

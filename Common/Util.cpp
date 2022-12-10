@@ -21,6 +21,11 @@ std::string toString(const std::wstring &str) {
   return converter.to_bytes(str);
 }
 
+uint32_t encode(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4)
+{
+  return byte1 + (byte2 << 8) + (byte3 << 16) + (byte4 << 24);
+}
+
 #ifdef UNICODE
 std::wstring toPlatformString(const std::string &str) { return toWstring(str); }
 
@@ -134,7 +139,7 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-  startXonXoffMessageFiltering(*channel, Flags);
+//  startXonXoffMessageFiltering(*channel, Flags);
   config.resize(1);
   config[0].Parameter = CAN_XON_XOFF;
   config[0].Value = 0;

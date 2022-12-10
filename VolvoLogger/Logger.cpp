@@ -149,8 +149,9 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
       uint16_t value = 0;
       for (const auto &msg : logMessages) {
         size_t msgOffset = 5;
-        if (msg.Data[4] == 143 && msg.Data[5] == 122 && msg.Data[6] == 230 &&
-            msg.Data[7] == 240 && msg.Data[8] == 0)
+        // E6 F0 00 - read record by identifier answer
+        if (msg.Data[4] == 0x8F && msg.Data[5] == static_cast<uint8_t>(common::ECUType::ECM_ME) && msg.Data[6] == 0xE6 &&
+            msg.Data[7] == 0xF0 && msg.Data[8] == 0)
           msgOffset = 9;
         for (size_t i = msgOffset; i < 12; ++i) {
           const auto &param = _parameters.parameters()[paramIndex];

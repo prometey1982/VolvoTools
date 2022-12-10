@@ -14,6 +14,8 @@ namespace common {
 std::wstring toWstring(const std::string &str);
 std::string toString(const std::wstring &str);
 
+uint32_t encode(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0, uint8_t byte4 = 0);
+
 #ifdef UNICODE
 std::wstring toPlatformString(const std::string &str);
 std::string fromPlatformString(const std::wstring &str);

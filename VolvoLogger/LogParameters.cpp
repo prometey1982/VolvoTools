@@ -25,8 +25,8 @@ template <typename Reader> void LogParameters::load(Reader &reader) {
                      "Comment");
   while (reader.read_row(name, addr, size, bitmask, unit, isSigned,
                          isInverseConversion, factor, offset, description)) {
-    _parameters.emplace_back(name, std::stol(addr, nullptr, 16), size,
-                             std::stol(bitmask, nullptr, 16), unit,
+    _parameters.emplace_back(name, std::stoul(addr, nullptr, 16), size,
+                             std::stoul(bitmask, nullptr, 16), unit,
                              (isSigned > 0), (isInverseConversion > 0), factor,
                              offset, description);
   }
