@@ -122,7 +122,7 @@ void Flasher::openChannels(unsigned long baudrate) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
+  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate, true);
   _channel2 =
       common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)

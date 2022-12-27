@@ -172,9 +172,9 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
                         now - startTimepoint),
                     std::move(logRecord)));
     }
-    std::unique_lock<std::mutex> lock{_mutex};
-    _cond.wait_until(lock,
-                     startTimepoint + std::chrono::milliseconds(timeoffset));
+//    std::unique_lock<std::mutex> lock{_mutex};
+//    _cond.wait_until(lock,
+//                     startTimepoint + std::chrono::milliseconds(timeoffset));
   }
   {
     std::unique_lock<std::mutex> lock{_callbackMutex};

@@ -123,7 +123,8 @@ static void startXonXoffMessageFiltering(j2534::J2534Channel &channel,
 std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
                                                  unsigned long ProtocolID,
                                                  unsigned long Flags,
-                                                 unsigned long Baudrate) {
+                                                 unsigned long Baudrate,
+                                                 bool AdditionalConfiguration) {
   auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
                                                      Baudrate)};
   std::vector<SCONFIG> config(3);
@@ -133,17 +134,20 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
   config[1].Value = 0;
   config[2].Parameter = BIT_SAMPLE_POINT;
   config[2].Value = (Baudrate == 500000 ? 80 : 68);
-  channel->setConfig(config);
+  if(AdditionalConfiguration)
+      channel->setConfig(config);
 
   PASSTHRU_MSG msgFilter =
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-//  startXonXoffMessageFiltering(*channel, Flags);
-  config.resize(1);
-  config[0].Parameter = CAN_XON_XOFF;
-  config[0].Value = 0;
-  channel->setConfig(config);
+  if(AdditionalConfiguration) {
+      startXonXoffMessageFiltering(*channel, Flags);
+      config.resize(1);
+      config[0].Parameter = CAN_XON_XOFF;
+      config[0].Value = 0;
+      channel->setConfig(config);
+  }
   return std::move(channel);
 }
 

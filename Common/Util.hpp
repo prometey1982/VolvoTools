@@ -29,7 +29,8 @@ std::pair<std::string, std::string> getLibraryParams();
 std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
                                                  unsigned long ProtocolID,
                                                  unsigned long Flags,
-                                                 unsigned long Baudrate);
+                                                 unsigned long Baudrate,
+                                                 bool AdditionalConfiguration = false);
 
 std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534);
 
