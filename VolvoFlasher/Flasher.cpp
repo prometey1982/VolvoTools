@@ -93,7 +93,7 @@ void Flasher::flash(unsigned long baudrate, const std::vector<uint8_t> &bin) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  openChannels(baudrate);
+  openChannels(baudrate, true);
 
   setState(State::InProgress);
 
@@ -107,9 +107,7 @@ void Flasher::stop() {
   if (_flasherThread.joinable()) {
     _flasherThread.join();
   }
-  _channel1.reset();
-  _channel2.reset();
-  _channel3.reset();
+  resetChannels();
   messageToCallbacks("Flasher stopped");
 }
 
@@ -118,15 +116,21 @@ Flasher::State Flasher::getState() const {
   return _currentState;
 }
 
-void Flasher::openChannels(unsigned long baudrate) {
+void Flasher::openChannels(unsigned long baudrate, bool additionalConfiguration) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate, true);
+  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate, additionalConfiguration);
   _channel2 =
       common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
+}
+
+void Flasher::resetChannels() {
+  _channel1.reset();
+  _channel2.reset();
+  _channel3.reset();
 }
 
 void Flasher::selectAndWriteBootloader(bool isMe9, unsigned long protocolId,

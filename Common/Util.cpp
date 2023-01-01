@@ -134,8 +134,7 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
   config[1].Value = 0;
   config[2].Parameter = BIT_SAMPLE_POINT;
   config[2].Value = (Baudrate == 500000 ? 80 : 68);
-  if(AdditionalConfiguration)
-      channel->setConfig(config);
+  channel->setConfig(config);
 
   PASSTHRU_MSG msgFilter =
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});

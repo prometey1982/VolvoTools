@@ -42,7 +42,8 @@ public:
   State getState() const;
 
 protected:
-  void openChannels(unsigned long baudrate);
+  void openChannels(unsigned long baudrate, bool additionalConfiguration);
+  void resetChannels();
 
   void selectAndWriteBootloader(bool isMe9, unsigned long protocolId,
                                 unsigned long flags);
