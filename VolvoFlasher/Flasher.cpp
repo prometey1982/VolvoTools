@@ -151,7 +151,7 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
     break;
   case CMType::TCM_AW55:
   case CMType::TCM_TF80:
-    bootloaderOffset = 0x7F81D0;
+    bootloaderOffset = 0xFFFF8200;
     ecuType = common::ECUType::TCM;
     break;
   }
