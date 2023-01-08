@@ -87,7 +87,8 @@ void Flasher::unregisterCallback(FlasherCallback &callback) {
                    _callbacks.end());
 }
 
-void Flasher::flash(CMType cmType, unsigned long baudrate, const std::vector<uint8_t> &bin) {
+void Flasher::flash(CMType cmType, unsigned long baudrate,
+                    const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
@@ -115,11 +116,13 @@ Flasher::State Flasher::getState() const {
   return _currentState;
 }
 
-void Flasher::openChannels(unsigned long baudrate, bool additionalConfiguration) {
+void Flasher::openChannels(unsigned long baudrate,
+                           bool additionalConfiguration) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
-  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate, additionalConfiguration);
+  _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate,
+                                  additionalConfiguration);
   _channel2 =
       common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)
@@ -137,30 +140,31 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
   uint32_t bootloaderOffset = 0;
   common::ECUType ecuType = common::ECUType::ECM_ME;
 
-  switch(cmType) {
+  switch (cmType) {
   case CMType::ECM_ME7:
-      bootloaderOffset = 0x31C000;
-      ecuType = common::ECUType::ECM_ME;
-      break;
+    bootloaderOffset = 0x31C000;
+    ecuType = common::ECUType::ECM_ME;
+    break;
   case CMType::ECM_ME9:
-      bootloaderOffset = 0x7F81D0;
-      ecuType = common::ECUType::ECM_ME;
-      break;
+    bootloaderOffset = 0x7F81D0;
+    ecuType = common::ECUType::ECM_ME;
+    break;
   case CMType::TCM_AW55:
   case CMType::TCM_TF80:
-      bootloaderOffset = 0x7F81D0;
-      ecuType = common::ECUType::TCM;
-      break;
+    bootloaderOffset = 0x7F81D0;
+    ecuType = common::ECUType::TCM;
+    break;
   }
 
   unsigned long msgsNum = 1;
   _channel1->writeMsgs(
-      common::CanMessages::createWakeUpECUMsg(ecuType).toPassThruMsgs(protocolId, flags), msgsNum,
-      5000);
+      common::CanMessages::createWakeUpECUMsg(ecuType).toPassThruMsgs(
+          protocolId, flags),
+      msgsNum, 5000);
 
   const auto bootloader = getSBL(cmType);
-  if(bootloader.empty())
-      throw std::runtime_error("Secondary bootloader not found");
+  if (bootloader.empty())
+    throw std::runtime_error("Secondary bootloader not found");
 
   canGoToSleep(protocolId, flags);
   writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuType, protocolId, flags);
@@ -168,13 +172,13 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
 }
 
 std::vector<uint8_t> Flasher::getSBL(CMType cmType) {
-  switch(cmType) {
+  switch (cmType) {
   case CMType::ECM_ME7:
-      return common::CanMessages::me7BootLoader;
+    return common::CanMessages::me7BootLoader;
   case CMType::ECM_ME9:
-      return common::CanMessages::me9BootLoader;
+    return common::CanMessages::me9BootLoader;
   default:
-      return {};
+    return {};
   }
 }
 
@@ -236,12 +240,11 @@ void Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
   }
 }
 void Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
-        common::ECUType ecuType,
-        unsigned long protocolId,
-        unsigned long flags) {
+    common::ECUType ecuType, unsigned long protocolId, unsigned long flags) {
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createStartPrimaryBootloaderMsg(ecuType).toPassThruMsg(protocolId, flags),
+          common::CanMessages::createStartPrimaryBootloaderMsg(ecuType)
+              .toPassThruMsg(protocolId, flags),
           0xC6))
     throw std::runtime_error("CM didn't response with correct answer");
 }
@@ -262,11 +265,12 @@ void Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
 }
 
 void Flasher::writeSBL(common::ECUType ecuType, uint32_t writeOffset,
-                              const std::vector<uint8_t> &bootloader,
-                              unsigned long protocolId, unsigned long flags) {
+                       const std::vector<uint8_t> &bootloader,
+                       unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing bootloader");
-  auto bootloaderMsgs = common::CanMessages::createWriteDataMsgs(ecuType, bootloader)
-                            .toPassThruMsgs(protocolId, flags);
+  auto bootloaderMsgs =
+      common::CanMessages::createWriteDataMsgs(ecuType, bootloader)
+          .toPassThruMsgs(protocolId, flags);
   unsigned long numMsgs = 1;
   writeDataOffsetAndCheckAnswer(ecuType, writeOffset, protocolId, flags);
   _channel1->writeMsgs(bootloaderMsgs, numMsgs, 240000);
@@ -276,28 +280,30 @@ void Flasher::writeSBL(common::ECUType ecuType, uint32_t writeOffset,
                            protocolId, flags),
                        numMsgs);
   writeDataOffsetAndCheckAnswer(ecuType, writeOffset, protocolId, flags);
-  if (!writeMessageAndCheckAnswer(*_channel1,
-                                  common::CanMessages::createCalculateChecksumMsg(
-                                      ecuType,
-                                      writeOffset + bootloader.size())
-                                      .toPassThruMsg(protocolId, flags),
-                                  0xB1))
+  if (!writeMessageAndCheckAnswer(
+          *_channel1,
+          common::CanMessages::createCalculateChecksumMsg(
+              ecuType, writeOffset + bootloader.size())
+              .toPassThruMsg(protocolId, flags),
+          0xB1))
     throw std::runtime_error("Can't read memory after bootloader");
   writeDataOffsetAndCheckAnswer(ecuType, writeOffset, protocolId, flags);
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createJumpToMsg(ecuType).toPassThruMsg(protocolId, flags),
+          common::CanMessages::createJumpToMsg(ecuType).toPassThruMsg(
+              protocolId, flags),
           0xA0))
     throw std::runtime_error("Can't start bootloader");
 }
 
-void Flasher::writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &bin,
-                         uint32_t beginOffset, uint32_t endOffset,
-                         unsigned long protocolId, unsigned long flags) {
+void Flasher::writeChunk(common::ECUType ecuType,
+                         const std::vector<uint8_t> &bin, uint32_t beginOffset,
+                         uint32_t endOffset, unsigned long protocolId,
+                         unsigned long flags) {
   messageToCallbacks("Writing chunk");
-  auto binMsgs =
-      common::CanMessages::createWriteDataMsgs(ecuType, bin, beginOffset, endOffset)
-          .toPassThruMsgs(protocolId, flags);
+  auto binMsgs = common::CanMessages::createWriteDataMsgs(
+                     ecuType, bin, beginOffset, endOffset)
+                     .toPassThruMsgs(protocolId, flags);
   unsigned long numMsgs = 1;
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
   const auto error = _channel1->writeMsgs(binMsgs, numMsgs, 240000);
@@ -310,8 +316,8 @@ void Flasher::writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &bi
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createCalculateChecksumMsg(ecuType, endOffset).toPassThruMsg(
-              protocolId, flags),
+          common::CanMessages::createCalculateChecksumMsg(ecuType, endOffset)
+              .toPassThruMsg(protocolId, flags),
           0xB1, checksum))
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
@@ -322,7 +328,8 @@ void Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
   writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
   if (!writeMessageAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createEraseMsg(ecuType).toPassThruMsg(protocolId, flags),
+          common::CanMessages::createEraseMsg(ecuType).toPassThruMsg(protocolId,
+                                                                     flags),
           toCheck))
     throw std::runtime_error("Can't erase memory");
 }
@@ -370,17 +377,17 @@ void Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
                               unsigned long protocolId, unsigned long flags) {
   try {
     selectAndWriteBootloader(cmType, protocolId, flags);
-    switch(cmType) {
+    switch (cmType) {
     case CMType::ECM_ME7:
-        writeFlashMe7(bin, protocolId, flags);
-        break;
+      writeFlashMe7(bin, protocolId, flags);
+      break;
     case CMType::ECM_ME9:
-        writeFlashMe9(bin, protocolId, flags);
-        break;
+      writeFlashMe9(bin, protocolId, flags);
+      break;
     case CMType::TCM_AW55:
     case CMType::TCM_TF80:
-        writeFlashTCM(bin, protocolId, flags);
-        break;
+      writeFlashTCM(bin, protocolId, flags);
+      break;
     }
     canWakeUp(protocolId, flags);
     setState(State::Done);

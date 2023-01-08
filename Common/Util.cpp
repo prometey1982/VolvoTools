@@ -21,8 +21,7 @@ std::string toString(const std::wstring &str) {
   return converter.to_bytes(str);
 }
 
-uint32_t encode(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4)
-{
+uint32_t encode(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4) {
   return byte1 + (byte2 << 8) + (byte3 << 16) + (byte4 << 24);
 }
 
@@ -44,10 +43,11 @@ static bool processRegistry(const std::string &keyName,
                             std::string &libraryPath, std::string &deviceName) {
   const auto key = LocalMachine->Open(toPlatformString(keyName));
   try {
-    auto localLibraryPath = fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
+    auto localLibraryPath =
+        fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
     if (localLibraryPath.find("TSDiCE32.dll") != std::string::npos) {
-        libraryPath = localLibraryPath;
-        deviceName = fromPlatformString(key->GetString(TEXT("Name")));
+      libraryPath = localLibraryPath;
+      deviceName = fromPlatformString(key->GetString(TEXT("Name")));
     }
   } catch (...) {
     return false;
@@ -120,11 +120,9 @@ static void startXonXoffMessageFiltering(j2534::J2534Channel &channel,
   channel.passThruIoctl(CAN_XON_XOFF_FILTER_ACTIVE, &msgId);
 }
 
-std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
-                                                 unsigned long ProtocolID,
-                                                 unsigned long Flags,
-                                                 unsigned long Baudrate,
-                                                 bool AdditionalConfiguration) {
+std::unique_ptr<j2534::J2534Channel>
+openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
+            unsigned long Baudrate, bool AdditionalConfiguration) {
   auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
                                                      Baudrate)};
   std::vector<SCONFIG> config(3);
@@ -140,12 +138,12 @@ std::unique_ptr<j2534::J2534Channel> openChannel(j2534::J2534 &j2534,
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-  if(AdditionalConfiguration) {
-      startXonXoffMessageFiltering(*channel, Flags);
-      config.resize(1);
-      config[0].Parameter = CAN_XON_XOFF;
-      config[0].Value = 0;
-      channel->setConfig(config);
+  if (AdditionalConfiguration) {
+    startXonXoffMessageFiltering(*channel, Flags);
+    config.resize(1);
+    config[0].Parameter = CAN_XON_XOFF;
+    config[0].Value = 0;
+    channel->setConfig(config);
   }
   return std::move(channel);
 }

@@ -38,13 +38,17 @@ bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
                    unsigned &printCount) {
   using namespace boost::program_options;
   options_description descr;
-  descr.add_options()(
-      "baudrate,b", value<unsigned long>()->default_value(500000),
-      "CAN bus speed")("variables,v", value<std::string>()->required(),
-                       "Path to memory variables")(
-      "output,o", value<std::string>()->required(),
-      "Path to save logs")("print,p", value<unsigned>()->default_value(5),
-                           "Number of variables which prints to console");
+  descr.add_options()("baudrate,b",
+                      value<unsigned long>()->default_value(500000),
+                      "CAN bus speed")(
+      "variables,v", value<std::string>()->required(),
+      "Path to memory variables")("output,o", value<std::string>()->required(),
+                                  "Path to save logs")("print,p",
+                                                       value<unsigned>()
+                                                           ->default_value(5),
+                                                       "Number of variables "
+                                                       "which prints to "
+                                                       "console");
   command_line_parser parser{argc, argv};
   parser.options(descr);
   variables_map vm;

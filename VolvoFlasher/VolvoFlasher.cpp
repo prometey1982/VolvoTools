@@ -53,7 +53,8 @@ public:
 
 void writeBinToFile(const std::vector<uint8_t> &bin, const std::string &path) {
   std::fstream out(path, std::ios::out | std::ios::binary);
-  const auto msg = common::CanMessages::createWriteDataMsgs(common::ECUType::ECM_ME, bin);
+  const auto msg =
+      common::CanMessages::createWriteDataMsgs(common::ECUType::ECM_ME, bin);
   const auto passThruMsgs = msg.toPassThruMsgs(123, 456);
   for (const auto &msg : passThruMsgs) {
     for (size_t i = 0; i < msg.DataSize; ++i)

@@ -150,8 +150,9 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
       for (const auto &msg : logMessages) {
         size_t msgOffset = 5;
         // E6 F0 00 - read record by identifier answer
-        if (msg.Data[4] == 0x8F && msg.Data[5] == static_cast<uint8_t>(common::ECUType::ECM_ME) && msg.Data[6] == 0xE6 &&
-            msg.Data[7] == 0xF0 && msg.Data[8] == 0)
+        if (msg.Data[4] == 0x8F &&
+            msg.Data[5] == static_cast<uint8_t>(common::ECUType::ECM_ME) &&
+            msg.Data[6] == 0xE6 && msg.Data[7] == 0xF0 && msg.Data[8] == 0)
           msgOffset = 9;
         for (size_t i = msgOffset; i < 12; ++i) {
           const auto &param = _parameters.parameters()[paramIndex];
@@ -172,9 +173,10 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
                         now - startTimepoint),
                     std::move(logRecord)));
     }
-//    std::unique_lock<std::mutex> lock{_mutex};
-//    _cond.wait_until(lock,
-//                     startTimepoint + std::chrono::milliseconds(timeoffset));
+    //    std::unique_lock<std::mutex> lock{_mutex};
+    //    _cond.wait_until(lock,
+    //                     startTimepoint +
+    //                     std::chrono::milliseconds(timeoffset));
   }
   {
     std::unique_lock<std::mutex> lock{_callbackMutex};

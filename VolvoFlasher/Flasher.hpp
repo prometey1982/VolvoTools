@@ -26,12 +26,7 @@ public:
   virtual void OnMessage(const std::string &message) = 0;
 };
 
-enum class CMType {
-    ECM_ME7,
-    ECM_ME9,
-    TCM_AW55,
-    TCM_TF80
-};
+enum class CMType { ECM_ME7, ECM_ME9, TCM_AW55, TCM_TF80 };
 
 class Flasher {
 public:
@@ -43,7 +38,8 @@ public:
   void registerCallback(FlasherCallback &callback);
   void unregisterCallback(FlasherCallback &callback);
 
-  void flash(CMType cmType, unsigned long baudrate, const std::vector<uint8_t> &bin);
+  void flash(CMType cmType, unsigned long baudrate,
+             const std::vector<uint8_t> &bin);
   void stop();
 
   enum class State { Initial, InProgress, Done, Error };
@@ -55,7 +51,7 @@ protected:
   void resetChannels();
 
   virtual void selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
-                                unsigned long flags);
+                                        unsigned long flags);
   void canWakeUp(unsigned long protocolId, unsigned long flags);
 
   void setState(State newState);
@@ -75,13 +71,14 @@ private:
                                      unsigned long protocolId,
                                      unsigned long flags);
   void writeSBL(common::ECUType ecuType, uint32_t writeOffset,
-                       const std::vector<uint8_t> &bootloader,
-                       unsigned long protocolId, unsigned long flags);
+                const std::vector<uint8_t> &bootloader,
+                unsigned long protocolId, unsigned long flags);
   void writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &bin,
                   uint32_t beginOffset, uint32_t endOffset,
                   unsigned long protocolId, unsigned long flags);
-  void eraseMemory(common::ECUType ecuType, uint32_t offset, unsigned long protocolId,
-                  unsigned long flags, uint8_t toCheck);
+  void eraseMemory(common::ECUType ecuType, uint32_t offset,
+                   unsigned long protocolId, unsigned long flags,
+                   uint8_t toCheck);
   void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
                      unsigned long flags);
   void writeFlashMe9(const std::vector<uint8_t> &bin, unsigned long protocolId,
@@ -89,8 +86,8 @@ private:
   void writeFlashTCM(const std::vector<uint8_t> &bin, unsigned long protocolId,
                      unsigned long flags);
 
-  void flasherFunction(CMType cmType, const std::vector<uint8_t> bin, unsigned long protocolId,
-                       unsigned long flags);
+  void flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
+                       unsigned long protocolId, unsigned long flags);
 
 #if 0
   template <typename... Args> void messageToCallbacks(Args... args) {
