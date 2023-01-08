@@ -34,10 +34,12 @@ CanMessages::createReadOffsetMsg2(common::ECUType ecuType, uint32_t offset) {
 }
 
 /*static*/ CEMCanMessage
-CanMessages::createReadDataByOffsetMsg(common::ECUType ecuType,
-                                       uint32_t offset) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xA7, offset >> 16, offset >> 8,
-                                       offset, 1);
+CanMessages::createReadDataByOffsetMsg(common::ECUType ecuType, uint32_t offset,
+                                       uint8_t size) {
+  return CEMCanMessage::makeCanMessage(
+      ecuType, {0xA7, static_cast<uint8_t>(offset >> 16),
+                static_cast<uint8_t>(offset >> 8), static_cast<uint8_t>(offset),
+                1, size});
 }
 
 /*static*/ CEMCanMessage

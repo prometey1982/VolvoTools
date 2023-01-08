@@ -157,6 +157,8 @@
     <ClCompile Include="LoggerApplication.cpp" />
     <ClCompile Include="LogParameter.cpp" />
     <ClCompile Include="LogParameters.cpp" />
+    <ClCompile Include="TCM55DataLogger.cpp" />
+    <ClCompile Include="TCM80DataLogger.cpp" />
     <ClCompile Include="VolvoLogger.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +168,8 @@
     <ClInclude Include="LoggerCallback.hpp" />
     <ClInclude Include="LogParameter.hpp" />
     <ClInclude Include="LogParameters.hpp" />
+    <ClInclude Include="TCM55DataLogger.hpp" />
+    <ClInclude Include="TCM80DataLogger.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.vcxproj">

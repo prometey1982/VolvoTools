@@ -1,4 +1,4 @@
-#include "TCMDataLogger.hpp"
+#include "TCM55DataLogger.hpp"
 
 #include "../Common/CEMCanMessage.hpp"
 #include "../Common/CanMessages.hpp"
@@ -13,12 +13,12 @@
 
 namespace logger {
 
-TCMDataLogger::TCMDataLogger(j2534::J2534 &j2534)
+TCM55DataLogger::TCM55DataLogger(j2534::J2534 &j2534)
     : _j2534{j2534}, _loggingThread{}, _stopped{true} {}
 
-TCMDataLogger::~TCMDataLogger() { stop(); }
+TCM55DataLogger::~TCM55DataLogger() { stop(); }
 
-void TCMDataLogger::registerCallback(LoggerCallback &callback) {
+void TCM55DataLogger::registerCallback(LoggerCallback &callback) {
   std::unique_lock<std::mutex> lock{_callbackMutex};
   if (std::find(_callbacks.cbegin(), _callbacks.cend(), &callback) ==
       _callbacks.cend()) {
@@ -26,13 +26,14 @@ void TCMDataLogger::registerCallback(LoggerCallback &callback) {
   }
 }
 
-void TCMDataLogger::unregisterCallback(LoggerCallback &callback) {
+void TCM55DataLogger::unregisterCallback(LoggerCallback &callback) {
   std::unique_lock<std::mutex> lock{_callbackMutex};
   _callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
                    _callbacks.end());
 }
 
-void TCMDataLogger::start(unsigned long baudrate, const LogParameters &parameters) {
+void TCM55DataLogger::start(unsigned long baudrate,
+                            const LogParameters &parameters) {
   std::unique_lock<std::mutex> lock{_mutex};
   if (!_stopped) {
     throw std::runtime_error("Logging already started");
@@ -44,8 +45,8 @@ void TCMDataLogger::start(unsigned long baudrate, const LogParameters &parameter
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-//  if (baudrate != 500000)
-    _channel3 = common::openBridgeChannel(_j2534);
+  //  if (baudrate != 500000)
+  _channel3 = common::openBridgeChannel(_j2534);
 
   _stopped = false;
 
@@ -55,7 +56,7 @@ void TCMDataLogger::start(unsigned long baudrate, const LogParameters &parameter
       [this, protocolId, flags]() { logFunction(protocolId, flags); });
 }
 
-void TCMDataLogger::stop() {
+void TCM55DataLogger::stop() {
   {
     std::unique_lock<std::mutex> lock{_mutex};
     _stopped = true;
@@ -75,7 +76,8 @@ void TCMDataLogger::stop() {
   _channel3.reset();
 }
 
-void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
+void TCM55DataLogger::logFunction(unsigned long protocolId,
+                                  unsigned int flags) {
   {
     std::unique_lock<std::mutex> lock{_callbackMutex};
     for (const auto callback : _callbacks) {
@@ -84,11 +86,12 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
   }
   auto testerPresentMsg = common::CanMessages::enableCommunicationMsg;
   unsigned long testerPresentMsgID;
-  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsg(protocolId, flags), testerPresentMsgID, 1000);
+  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsg(protocolId, flags),
+                              testerPresentMsgID, 1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);
   const auto startTimepoint{std::chrono::steady_clock::now()};
-  for(;;) {
+  for (;;) {
     logRecord.resize(_parameters.parameters().size());
     {
       std::unique_lock<std::mutex> lock{_mutex};
@@ -96,38 +99,44 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
         break;
     }
     const auto now{std::chrono::steady_clock::now()};
-    for(size_t i = 0; i < _parameters.parameters().size(); ++i) {
-        auto message = common::CanMessages::createReadTCMDataByAddr(
-                    _parameters.parameters()[i].addr(),
-                    _parameters.parameters()[i].size());
+    for (size_t i = 0; i < _parameters.parameters().size(); ++i) {
+      auto message = common::CanMessages::createReadDataByOffsetMsg(
+          common::ECUType::TCM, _parameters.parameters()[i].addr(),
+          _parameters.parameters()[i].size());
 
-        unsigned long writtenCount = 1;
-        _channel1->writeMsgs(message.toPassThruMsgs(protocolId, flags), writtenCount);
-        if (writtenCount > 0) {
-            logMessages.resize(2);
-            _channel1->readMsgs(logMessages);
-            if (logMessages.size() >= 2) {
-                auto logMessage = logMessages[1];
-                const auto& data = logMessage.Data;
-                size_t msgOffset = 6;
-                if(_parameters.parameters()[i].size() == 1)
-                    logRecord[i] = common::encode(data[msgOffset]);
-                else if(_parameters.parameters()[i].size() == 2)
-                    logRecord[i] = common::encode(data[msgOffset + 1],
-                                                  data[msgOffset]);
-                else if(_parameters.parameters()[i].size() == 3)
-                    logRecord[i] = common::encode(data[msgOffset + 2],
-                                                  data[msgOffset + 1],
-                                                  data[msgOffset]);
-                else if(_parameters.parameters()[i].size() == 4)
-                    logRecord[i] = common::encode(data[msgOffset + 3],
-                                                  data[msgOffset + 2],
-                                                  data[msgOffset + 1],
-                                                  data[msgOffset]);
-            }
+      unsigned long writtenCount = 1;
+      _channel1->writeMsgs(message.toPassThruMsgs(protocolId, flags),
+                           writtenCount);
+      if (writtenCount > 0) {
+        size_t messagesSize = (_parameters.parameters()[i].size() > 2) ? 2 : 1;
+        logMessages.resize(messagesSize);
+        _channel1->readMsgs(logMessages);
+        if (logMessages.size() >= messagesSize) {
+          auto logMessage1 = logMessages[0];
+          const auto &data1 = logMessage1.Data;
+          size_t msg1Offset = 10;
+          size_t msg2Offset = 5;
+          if (messagesSize == 1) {
+            if (_parameters.parameters()[i].size() == 1)
+              logRecord[i] = common::encode(data1[msg1Offset]);
+            else if (_parameters.parameters()[i].size() == 2)
+              logRecord[i] =
+                  common::encode(data1[msg1Offset + 1], data1[msg1Offset]);
+          } else {
+            auto logMessage2 = logMessages[1];
+            const auto &data2 = logMessage2.Data;
+            if (_parameters.parameters()[i].size() == 3)
+              logRecord[i] = common::encode(
+                  data2[msg2Offset], data1[msg1Offset + 1], data1[msg1Offset]);
+            else if (_parameters.parameters()[i].size() == 4)
+              logRecord[i] =
+                  common::encode(data2[msg2Offset + 1], data2[msg2Offset],
+                                 data1[msg1Offset + 1], data1[msg1Offset]);
+          }
         }
+      }
     }
-      if(!logRecord.empty())
+    if (!logRecord.empty())
       pushRecord(
           LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
                         now - startTimepoint),
@@ -142,13 +151,13 @@ void TCMDataLogger::logFunction(unsigned long protocolId, unsigned int flags) {
   _channel1->stopPeriodicMsg(testerPresentMsgID);
 }
 
-void TCMDataLogger::pushRecord(TCMDataLogger::LogRecord &&record) {
+void TCM55DataLogger::pushRecord(TCM55DataLogger::LogRecord &&record) {
   std::unique_lock<std::mutex> lock{_callbackMutex};
   _loggedRecords.emplace_back(std::move(record));
   _callbackCond.notify_all();
 }
 
-void TCMDataLogger::callbackFunction() {
+void TCM55DataLogger::callbackFunction() {
   for (;;) {
     LogRecord logRecord;
     {
@@ -161,7 +170,9 @@ void TCMDataLogger::callbackFunction() {
       _loggedRecords.pop_front();
     }
     std::vector<double> formattedValues(logRecord.values.size());
-    for (size_t i = 0; i < logRecord.values.size() && i < _parameters.parameters().size(); ++i) {
+    for (size_t i = 0;
+         i < logRecord.values.size() && i < _parameters.parameters().size();
+         ++i) {
       formattedValues[i] =
           _parameters.parameters()[i].formatValue(logRecord.values[i]);
     }

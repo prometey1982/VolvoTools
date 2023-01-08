@@ -50,16 +50,17 @@ protected:
   void openChannels(unsigned long baudrate, bool additionalConfiguration);
   void resetChannels();
 
-  virtual void selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
-                                        unsigned long flags);
+  void selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
+                                unsigned long flags);
   void canWakeUp(unsigned long protocolId, unsigned long flags);
 
   void setState(State newState);
 
   void messageToCallbacks(const std::string &message);
 
+  virtual std::vector<uint8_t> getSBL(CMType cmType) const;
+
 private:
-  virtual std::vector<uint8_t> getSBL(CMType cmType);
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
   void cleanErrors(unsigned long protocolId, unsigned long flags);
 

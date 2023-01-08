@@ -18,10 +18,10 @@ class J2534Channel;
 namespace logger {
 class LoggerCallback;
 
-class TCMDataLogger final {
+class TCM80DataLogger final {
 public:
-  explicit TCMDataLogger(j2534::J2534 &j2534);
-  ~TCMDataLogger();
+  explicit TCM80DataLogger(j2534::J2534 &j2534);
+  ~TCM80DataLogger();
 
   void registerCallback(LoggerCallback &callback);
   void unregisterCallback(LoggerCallback &callback);

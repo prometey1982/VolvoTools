@@ -15,7 +15,7 @@ struct CanMessages {
   static CEMCanMessage createReadOffsetMsg2(common::ECUType ecuType,
                                             uint32_t offset);
   static CEMCanMessage createReadDataByOffsetMsg(common::ECUType ecuType,
-                                                 uint32_t offset);
+                                                 uint32_t offset, uint8_t size);
   static CEMCanMessage createReadDataByAddrMsg(common::ECUType ecuType,
                                                uint32_t addr, uint8_t size);
   static CEMCanMessages createWriteDataMsgs(common::ECUType ecuType,

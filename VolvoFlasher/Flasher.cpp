@@ -171,7 +171,7 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
   writeSBL(ecuType, bootloaderOffset, bootloader, protocolId, flags);
 }
 
-std::vector<uint8_t> Flasher::getSBL(CMType cmType) {
+std::vector<uint8_t> Flasher::getSBL(CMType cmType) const {
   switch (cmType) {
   case CMType::ECM_ME7:
     return common::CanMessages::me7BootLoader;
