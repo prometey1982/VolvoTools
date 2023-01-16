@@ -63,7 +63,8 @@ uint8_t calculateCheckSum(const std::vector<uint8_t> &bin, size_t beginOffset,
 
 namespace flasher {
 Flasher::Flasher(j2534::J2534 &j2534)
-    : _j2534{j2534}, _currentState{State::Initial} {}
+    : _j2534{j2534}, _currentState{State::Initial}, _currentProgress{0},
+      _maximumProgress{0} {}
 
 Flasher::~Flasher() { stop(); }
 
@@ -96,6 +97,9 @@ void Flasher::flash(CMType cmType, unsigned long baudrate,
 
   openChannels(baudrate, true);
 
+  setMaximumProgress(bin.size());
+  setCurrentProgress(0);
+
   setState(State::InProgress);
 
   _flasherThread = std::thread([this, cmType, bin, protocolId, flags] {
@@ -115,6 +119,16 @@ void Flasher::stop() {
 Flasher::State Flasher::getState() const {
   std::unique_lock<std::mutex> lock{_mutex};
   return _currentState;
+}
+
+size_t Flasher::getCurrentProgress() const {
+  std::unique_lock<std::mutex> lock(_mutex);
+  return _currentProgress;
+}
+
+size_t Flasher::getMaximumProgress() const {
+  std::unique_lock<std::mutex> lock(_mutex);
+  return _maximumProgress;
 }
 
 void Flasher::openChannels(unsigned long baudrate,
@@ -371,22 +385,14 @@ void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
 void Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::TCM;
-  eraseMemory(ecuType, 0x8000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x8000, 0x10000, protocolId, flags);
-  eraseMemory(ecuType, 0x10000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x10000, 0x20000, protocolId, flags);
-  eraseMemory(ecuType, 0x20000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x20000, 0x30000, protocolId, flags);
-  eraseMemory(ecuType, 0x30000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x30000, 0x40000, protocolId, flags);
-  eraseMemory(ecuType, 0x40000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x40000, 0x50000, protocolId, flags);
-  eraseMemory(ecuType, 0x50000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x50000, 0x60000, protocolId, flags);
-  eraseMemory(ecuType, 0x60000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x60000, 0x70000, protocolId, flags);
-  eraseMemory(ecuType, 0x70000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x70000, 0x80000, protocolId, flags);
+  const std::vector<uint32_t> chunks{0x8000,  0x10000, 0x20000,
+                                     0x30000, 0x40000, 0x50000,
+                                     0x60000, 0x70000, 0x80000};
+  for (size_t i = 0; i < chunks.size() - 1; ++i) {
+    eraseMemory(ecuType, chunks[i], protocolId, flags, 0xF9);
+    writeChunk(ecuType, bin, chunks[i], chunks[i + 1], protocolId, flags);
+    setCurrentProgress(chunks[i + 1]);
+  }
 }
 
 void Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
@@ -423,6 +429,16 @@ void Flasher::messageToCallbacks(const std::string &message) {
   for (const auto &callback : _callbacks) {
     callback->OnMessage(message);
   }
+}
+
+void Flasher::setCurrentProgress(size_t currentProgress) {
+  std::unique_lock<std::mutex> lock(_mutex);
+  _currentProgress = currentProgress;
+}
+
+void Flasher::setMaximumProgress(size_t maximumProgress) {
+  std::unique_lock<std::mutex> lock(_mutex);
+  _maximumProgress = maximumProgress;
 }
 
 } // namespace flasher

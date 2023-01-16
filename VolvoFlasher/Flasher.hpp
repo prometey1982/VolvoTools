@@ -62,6 +62,9 @@ public:
 
   State getState() const;
 
+  size_t getCurrentProgress() const;
+  size_t getMaximumProgress() const;
+
 protected:
   void openChannels(unsigned long baudrate, bool additionalConfiguration);
   void resetChannels();
@@ -73,6 +76,9 @@ protected:
   void setState(State newState);
 
   void messageToCallbacks(const std::string &message);
+
+  void setCurrentProgress(size_t currentProgress);
+  void setMaximumProgress(size_t maximumProgress);
 
   virtual VBF getSBL(CMType cmType) const;
 
@@ -120,6 +126,9 @@ private:
   std::condition_variable _cond;
 
   State _currentState;
+
+  size_t _currentProgress;
+  size_t _maximumProgress;
 
   std::vector<FlasherCallback *> _callbacks;
 

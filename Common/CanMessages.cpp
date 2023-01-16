@@ -62,7 +62,9 @@ CanMessages::createWriteDataMsgs(common::ECUType ecuType,
   std::vector<std::vector<uint8_t>> result;
   const size_t chunkSize = 6u;
   for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
-    std::vector<uint8_t> payload{static_cast<uint8_t>(ecuType), 0xAE};
+    auto payloadSize = std::min(chunkSize, endOffset - i);
+    uint8_t command = 0xA8 + static_cast<uint8_t>(payloadSize);
+    std::vector<uint8_t> payload{static_cast<uint8_t>(ecuType), command};
     std::copy_n(bin.data() + i, std::min(chunkSize, endOffset - i),
                 std::back_inserter(payload));
     payload.resize(8);
