@@ -60,8 +60,6 @@ CanMessages::createWriteDataMsgs(common::ECUType ecuType,
                                  const std::vector<uint8_t> &bin,
                                  size_t beginOffset, size_t endOffset) {
   std::vector<std::vector<uint8_t>> result;
-  std::vector<uint8_t> intermediate_result;
-  intermediate_result.reserve(4128);
   const size_t chunkSize = 6u;
   for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
     std::vector<uint8_t> payload{static_cast<uint8_t>(ecuType), 0xAE};
@@ -115,12 +113,21 @@ CanMessages::createWakeUpECUMsg(common::ECUType ecuType) {
   return common::CEMCanMessage::makeCanMessage(ecuType, 0xC8);
 }
 
-/*static*/ CEMCanMessage CanMessages::createJumpToMsg(common::ECUType ecuType) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xA0);
+/*static*/ CEMCanMessage
+CanMessages::createJumpToMsg(common::ECUType ecuType, uint8_t data1,
+                             uint8_t data2, uint8_t data3, uint8_t data4,
+                             uint8_t data5, uint8_t data6) {
+  return common::CEMCanMessage::makeCanMessage(ecuType, 0xA0, data1, data2,
+                                               data3, data4, data5, data6);
 }
 
 /*static*/ CEMCanMessage CanMessages::createEraseMsg(common::ECUType ecuType) {
   return common::CEMCanMessage::makeCanMessage(ecuType, 0xF8);
+}
+
+/*static*/ CEMCanMessage
+CanMessages::createSBLTransferCompleteMsg(common::ECUType ecuType) {
+  return common::CEMCanMessage::makeCanMessage(ecuType, 0xA8);
 }
 
 const CEMCanMessage CanMessages::requestVIN{
@@ -135,8 +142,6 @@ const CEMCanMessage CanMessages::wakeUpCanRequest{
     common::CEMCanMessage::makeCanMessage(0xFF, 0xC8)};
 const CEMCanMessage CanMessages::goToSleepCanRequest{
     common::CEMCanMessage::makeCanMessage(0xFF, 0x86)};
-const CEMCanMessage CanMessages::afterBootloaderFlash{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME, 0xA8)};
 const CEMCanMessage CanMessages::startTCMAdaptMsg{
     common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50)};
 const CEMCanMessage CanMessages::enableCommunicationMsg{

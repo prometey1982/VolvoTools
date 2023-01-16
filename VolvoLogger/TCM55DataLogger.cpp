@@ -102,7 +102,7 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
     for (size_t i = 0; i < _parameters.parameters().size(); ++i) {
       auto message = common::CanMessages::createReadDataByOffsetMsg(
           common::ECUType::TCM, _parameters.parameters()[i].addr(),
-          _parameters.parameters()[i].size());
+          static_cast<uint8_t>(_parameters.parameters()[i].size()));
 
       unsigned long writtenCount = 1;
       _channel1->writeMsgs(message.toPassThruMsgs(protocolId, flags),

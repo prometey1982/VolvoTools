@@ -32,15 +32,18 @@ struct CanMessages {
                                                size_t dataLength);
   static CEMCanMessage createStartPrimaryBootloaderMsg(common::ECUType ecuType);
   static CEMCanMessage createWakeUpECUMsg(common::ECUType ecuType);
-  static CEMCanMessage createJumpToMsg(common::ECUType ecuType);
+  static CEMCanMessage createJumpToMsg(common::ECUType ecuType,
+                                       uint8_t data1 = 0, uint8_t data2 = 0,
+                                       uint8_t data3 = 0, uint8_t data4 = 0,
+                                       uint8_t data5 = 0, uint8_t data6 = 0);
   static CEMCanMessage createEraseMsg(common::ECUType ecuType);
+  static CEMCanMessage createSBLTransferCompleteMsg(common::ECUType ecuType);
 
   static const CEMCanMessage requestVIN;
   static const CEMCanMessage requestMemory;
   static const CEMCanMessage unregisterAllMemoryRequest;
   static const CEMCanMessage wakeUpCanRequest;
   static const CEMCanMessage goToSleepCanRequest;
-  static const CEMCanMessage afterBootloaderFlash;
   static const CEMCanMessage startTCMAdaptMsg;
   static const CEMCanMessage enableCommunicationMsg;
 
