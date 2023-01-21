@@ -335,13 +335,8 @@ void Flasher::writeChunk(common::ECUType ecuType,
     if (error != STATUS_NOERROR) {
       throw std::runtime_error("write msgs error");
     }
-    std::vector<PASSTHRU_MSG> msgs(1);
-    for (size_t i = 0; i < 50; ++i) {
-      _channel1->readMsgs(msgs, 100);
-      if (msgs.empty())
-        break;
-    }
   }
+  setCurrentProgress(endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
   if (!writeMessageAndCheckAnswer(
