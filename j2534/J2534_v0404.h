@@ -44,7 +44,10 @@ enum Protocol_ID
 #define SW_ISO15765_PS		/*-2*/			0x8007
 #define SW_CAN_PS			/*-2*/			0x8008
 #define GM_UART_PS			/*-2*/			0x8009 // Not supported (YET)
-#define CAN_XON_XOFF_PS			/*-2*/			0x800A // Not supported (YET)
+#define CAN_XON_XOFF_PS		/*-2*/			0x800A // Not supported (YET)
+#define CAN_CH1			    				0x00009000
+#define CAN_CH2				    			(CAN_CH1 + 1)
+#define CAN_CH128				    		(CAN_CH1 + 127)
 #define ANALOG_IN_1			/*-2*/			0x800B
 #define ANALOG_IN_2			/*-2*/			0x800C // Not supported
 #define ANALOG_IN_3			/*-2*/			0x800D // Only 1st analog 
@@ -354,6 +357,30 @@ enum J2534CONNECTFLAG
 #define PASS_FILTER_WITH_TRIGGER	/*DT*/			0x10000005 //DT
 #define BLOCK_FILTER_WITH_TRIGGER	/*DT*/			0x10000006 //DT
 
+//
+// J2534-1 v04.04 Programming Voltage Pin Numbers
+//
+#define AUXILIARY_OUTPUT_PIN				0
+#define SAE_J1962_CONNECTOR_PIN_6			6
+#define SAE_J1962_CONNECTOR_PIN_9			9
+#define SAE_J1962_CONNECTOR_PIN_11			11
+#define SAE_J1962_CONNECTOR_PIN_12			12
+#define SAE_J1962_CONNECTOR_PIN_13			13
+#define SAE_J1962_CONNECTOR_PIN_14			14
+#define SAE_J1962_CONNECTOR_PIN_15			15        // Short to ground only
+
+//
+// J2534-1 v04.04 Programming Voltage Values
+//
+#define SHORT_TO_GROUND						0xFFFFFFFE
+#define VOLTAGE_OFF							0xFFFFFFFF
+
+
+//
+// J2534-1 v04.04 API Version Values
+//
+#define J2534_APIVER_FEBRUARY_2002		"02.02"
+#define J2534_APIVER_NOVEMBER_2004		"04.04"
 
 /*********************/
 /* Message Structure */

@@ -133,13 +133,15 @@ size_t Flasher::getMaximumProgress() const {
 
 void Flasher::openChannels(unsigned long baudrate,
                            bool additionalConfiguration) {
-  const unsigned long protocolId = CAN_XON_XOFF;
+//    const unsigned long protocolId = CAN_XON_XOFF;
+    const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate,
                                   additionalConfiguration);
   _channel2 =
-      common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+          common::openChannel(_j2534, CAN_CH1, flags, 125000);
+//  common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 }

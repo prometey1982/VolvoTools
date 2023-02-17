@@ -80,7 +80,7 @@ CanMessages::createWriteDataMsgs(common::ECUType ecuType,
   const uint8_t byte4 = (addr & 0xFF);
   return CEMCanMessage::makeCanMessage(
       common::ECUType::TCM, {0xB4, 0x21, 0x34, byte1, byte2, byte3, 0x4A, byte4,
-                             static_cast<uint8_t>(dataSize), 0, 0, 0, 0, 0});
+                             static_cast<uint8_t>(dataSize)});
 }
 
 /*static*/ CEMCanMessage CanMessages::createWriteDataByAddrMsg(ECUType ecuType,
@@ -133,6 +133,8 @@ CanMessages::createSBLTransferCompleteMsg(common::ECUType ecuType) {
 
 const CEMCanMessage CanMessages::requestVIN{
     common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, {0xB9, 0xFB})};
+const CEMCanMessage CanMessages::requestVehicleConfiguration{
+    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, {0xB9, 0xFC})};
 const CEMCanMessage CanMessages::requestMemory{
     common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME,
                                           {0xA6, 0xF0, 0x00, 0x01})};

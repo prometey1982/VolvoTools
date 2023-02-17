@@ -45,7 +45,7 @@ static bool processRegistry(const std::string &keyName,
   try {
     auto localLibraryPath =
         fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
-    if (localLibraryPath.find("TSDiCE32.dll") != std::string::npos) {
+    if (!localLibraryPath.empty()) {
       libraryPath = localLibraryPath;
       deviceName = fromPlatformString(key->GetString(TEXT("Name")));
     }
@@ -55,19 +55,23 @@ static bool processRegistry(const std::string &keyName,
   return !libraryPath.empty();
 }
 
-std::pair<std::string, std::string> getLibraryParams() {
+std::vector<std::pair<std::string, std::string>> getLibraryParams() {
   std::string libraryPath = "C:\\Program Files\\DiCE\\Tools\\TSDiCE32.dll";
   std::string deviceName = "DiCE-206751";
+  std::vector<std::pair<std::string, std::string>> result;
 #if 1
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
   const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
   key->EnumerateSubKeys([&rootKeyName, &libraryPath,
-                         &deviceName](const auto &subKeyName) {
-    return processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
+                         &deviceName, &result](const auto &subKeyName) {
+    auto res = processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
                            libraryPath, deviceName);
+    if(res)
+        result.push_back({libraryPath, deviceName});
+    return res;
   });
 #endif
-  return {libraryPath, deviceName};
+  return result;
 }
 
 static PASSTHRU_MSG makePassThruMsg(unsigned long ProtocolID,
@@ -125,13 +129,19 @@ openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
             unsigned long Baudrate, bool AdditionalConfiguration) {
   auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
                                                      Baudrate)};
-  std::vector<SCONFIG> config(3);
+  const auto number_of_params = 3;// ProtocolID == CAN_PS ? 4 : 3;
+  std::vector<SCONFIG> config(number_of_params);
   config[0].Parameter = DATA_RATE;
   config[0].Value = Baudrate;
   config[1].Parameter = LOOPBACK;
   config[1].Value = 0;
   config[2].Parameter = BIT_SAMPLE_POINT;
   config[2].Value = (Baudrate == 500000 ? 80 : 68);
+//  if(number_of_params == 4)
+//  {
+//      config[3].Parameter = J1962_PINS;
+//      config[3].Value = 0x030B;
+//  }
   channel->setConfig(config);
 
   PASSTHRU_MSG msgFilter =
@@ -170,6 +180,47 @@ std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534) {
   channel->startPeriodicMsg(msg, msgId, 2000);
 
   return std::move(channel);
+}
+
+std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel, size_t queryLength) {
+    const size_t MaxErrorCount = 10;
+    size_t errorCount = 0;
+    std::vector<uint8_t> result;
+    for(bool inSeries = false, firstRun = true;inSeries || firstRun; firstRun = false) {
+        std::vector<PASSTHRU_MSG> msgs(1);
+        if (channel.readMsgs(msgs) != STATUS_NOERROR) {
+            ++errorCount;
+        }
+        if (errorCount >= MaxErrorCount) {
+            throw std::runtime_error("Reading ECU failed");
+        }
+        for(const auto& msg: msgs) {
+            auto offset = 5u + queryLength;
+            auto count = 12u;
+            auto messageType = msg.Data[4];
+            if(messageType == 0x8f) { // begin of the series
+                inSeries = true;
+                count = count > offset ? count - offset : 0;
+            }
+            else if(messageType == 0x09) { // second message
+                offset = 5;
+                count = 7;
+            }
+            else if((messageType & 0x40) == 0) { // in the middle
+                offset = 5;
+                count = 7;
+            }
+            else { // end of the series
+                offset = 5;
+                count = messageType - 0x48;
+                inSeries = false;
+            }
+            for(unsigned long j = 0; j < count; ++j) {
+                result.push_back(msg.Data[offset + j]);
+            }
+        }
+    }
+    return result;
 }
 
 } // namespace common

@@ -41,7 +41,8 @@ void TCM80DataLogger::start(unsigned long baudrate,
 
   _parameters = parameters;
 
-  const unsigned long protocolId = CAN_XON_XOFF;
+//  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);

@@ -40,7 +40,8 @@ void Logger::start(unsigned long baudrate, const LogParameters &parameters) {
 
   _parameters = parameters;
 
-  const unsigned long protocolId = CAN_XON_XOFF;
+//  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);

@@ -40,6 +40,7 @@ struct CanMessages {
   static CEMCanMessage createSBLTransferCompleteMsg(ECUType ecuType);
 
   static const CEMCanMessage requestVIN;
+  static const CEMCanMessage requestVehicleConfiguration;
   static const CEMCanMessage requestMemory;
   static const CEMCanMessage unregisterAllMemoryRequest;
   static const CEMCanMessage wakeUpCanRequest;

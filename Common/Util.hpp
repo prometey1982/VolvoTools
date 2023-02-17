@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace j2534 {
 class J2534;
@@ -25,12 +26,14 @@ std::string toPlatformString(const std::string &str);
 std::string fromPlatformString(const std::string &str);
 #endif
 
-std::pair<std::string, std::string> getLibraryParams();
+std::vector<std::pair<std::string, std::string>> getLibraryParams();
 
 std::unique_ptr<j2534::J2534Channel>
 openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
             unsigned long Baudrate, bool AdditionalConfiguration = false);
 
 std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534);
+
+std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel, size_t queryLength);
 
 } // namespace common
