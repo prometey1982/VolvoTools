@@ -1,12 +1,14 @@
 #include "CEMCanMessage.hpp"
 
+#include <algorithm>
+#include <array>
 #include <iterator>
 #include <stdexcept>
 
 namespace {
 const std::vector<uint8_t> CEMMessagePrefix{0x00, 0x0F, 0xFF, 0xFE};
 
-PASSTHRU_MSG toPassThruMsg(const std::vector<uint8_t> &data,
+PASSTHRU_MSG toPassThruMsg(const uint8_t* Data, size_t DataSize,
                            unsigned long ProtocolID, unsigned long Flags) {
   PASSTHRU_MSG result;
   result.ProtocolID = ProtocolID;
@@ -14,20 +16,28 @@ PASSTHRU_MSG toPassThruMsg(const std::vector<uint8_t> &data,
   result.TxFlags = Flags;
   result.Timestamp = 0;
   result.ExtraDataIndex = 0;
-  result.DataSize = data.size();
-  std::copy(data.begin(), data.end(), result.Data);
+  result.DataSize = DataSize;
+  std::copy(Data, Data + DataSize, result.Data);
   return result;
 }
 
-static std::vector<uint8_t>
-generateCemMessage(const std::vector<uint8_t> &data) {
-  // Fill begin of the message with CEM message ID.
-  std::vector<uint8_t> result{CEMMessagePrefix};
-  result.insert(result.end(), data.cbegin(), data.cend());
-  if (result.size() <= 12) {
-    result.resize(12);
-  }
-  return result;
+static std::vector<std::array<uint8_t, common::CEMCanMessage::CanPayloadSize>>
+generateCANProtocolMessages(const std::vector<uint8_t> &data) {
+    std::vector<std::array<uint8_t, common::CEMCanMessage::CanPayloadSize>> result;
+    const auto maxSingleMessagePayload = 7u;
+    const bool isMultipleMessages = data.size() > maxSingleMessagePayload;
+    uint8_t messagePrefix = isMultipleMessages ? 0x80 : 0xC8;
+    for(size_t i = 0; i < data.size(); i += maxSingleMessagePayload) {
+        const auto payloadSize = static_cast<uint8_t>(std::min(data.size() - i, maxSingleMessagePayload));
+        const bool isLastMessage = payloadSize <= maxSingleMessagePayload;
+        uint8_t newPrefix = messagePrefix + payloadSize;
+        std::array<uint8_t, 8> canPayload;
+        canPayload[0] = newPrefix;
+        memcpy(&canPayload[1], data.data() + i, payloadSize);
+        result.emplace_back(std::move(canPayload));
+        messagePrefix = 0x48;
+    }
+    return result;
 }
 } // namespace
 
@@ -51,55 +61,27 @@ CEMCanMessage::getECUType(const std::vector<uint8_t> &buffer) {
 CEMCanMessage CEMCanMessage::makeCanMessage(common::ECUType ecuType,
                                             std::vector<uint8_t> request) {
   const uint8_t payloadLength = 1 + static_cast<uint8_t>(request.size());
-  const uint8_t requestLength =
-      (payloadLength > 8 ? 0x80 : 0xC8) + payloadLength;
+//  const uint8_t requestLength =
+//      (payloadLength > 8 ? 0x80 : 0xC8) + payloadLength;
   request.insert(request.begin(), static_cast<uint8_t>(ecuType));
-  request.insert(request.begin(), requestLength);
+//  request.insert(request.begin(), requestLength);
   return CEMCanMessage(request);
 }
 
 CEMCanMessage::CEMCanMessage(const std::vector<uint8_t> &data)
-    : _data{generateCemMessage(data)} {}
+    : _data{std::move(generateCANProtocolMessages(data))} {}
 
-CEMCanMessage::CEMCanMessage(const std::vector<uint8_t> &data, bool)
+CEMCanMessage::CEMCanMessage(const std::vector<DataType> &data)
     : _data{data} {}
 
-std::vector<uint8_t> CEMCanMessage::data() const { return _data; }
+//std::vector<uint8_t> CEMCanMessage::data() const { return _data; }
 
 std::vector<PASSTHRU_MSG>
 CEMCanMessage::toPassThruMsgs(unsigned long ProtocolID,
                               unsigned long Flags) const {
-  return {toPassThruMsg(ProtocolID, Flags)};
-}
-
-PASSTHRU_MSG CEMCanMessage::toPassThruMsg(unsigned long ProtocolID,
-                                          unsigned long Flags) const {
-  return ::toPassThruMsg(_data, ProtocolID, Flags);
-}
-
-CEMCanMessages::CEMCanMessages(
-    const std::vector<std::vector<uint8_t>> &messages)
-    : _messages{messages} {}
-
-std::vector<PASSTHRU_MSG>
-CEMCanMessages::toPassThruMsgs(unsigned long ProtocolID,
-                               unsigned long Flags) const {
   std::vector<PASSTHRU_MSG> result;
-  std::vector<uint8_t> buffer;
-  buffer.reserve(4128);
-  buffer = CEMMessagePrefix;
-  bool emptyBuffer = true;
-  for (const auto &msg : _messages) {
-    std::copy(msg.begin(), msg.end(), std::back_inserter(buffer));
-    emptyBuffer = false;
-    if (buffer.size() >= 4100) {
-      result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
-      buffer = CEMMessagePrefix;
-      emptyBuffer = true;
-    }
-  }
-  if (!emptyBuffer) {
-    result.emplace_back(toPassThruMsg(buffer, ProtocolID, Flags));
+  for(size_t i = 0; i < _data.size(); ++i) {
+      result.emplace_back(std::move(::toPassThruMsg(_data[i].data(), _data[i].size(), ProtocolID, Flags)));
   }
   return result;
 }

@@ -47,12 +47,12 @@ void CanMessagesTransceiver::unsubscribeAll(const ICanMessagesReceiver& receiver
     }
 }
 
-void CanMessagesTransceiver::sendMessage(const std::vector<uint8_t>& data)
+void CanMessagesTransceiver::sendMessage([[maybe_unused]]const std::vector<uint8_t>& data)
 {
-    CEMCanMessages messages{{data}};
-    const auto& passThruMsgs{messages.toPassThruMsgs(_protocolID, _txFlags)};
-    unsigned long numMsgs = passThruMsgs.size();
-    _j2534Channel->writeMsgs(passThruMsgs, numMsgs);
+//    CEMCanMessages messages{{data}};
+//    const auto& passThruMsgs{messages.toPassThruMsgs(_protocolID, _txFlags)};
+//    unsigned long numMsgs = passThruMsgs.size();
+//    _j2534Channel->writeMsgs(passThruMsgs, numMsgs);
 }
 
 void CanMessagesTransceiver::runRead(bool enabled)

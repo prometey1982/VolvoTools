@@ -49,28 +49,27 @@ CanMessages::createReadDataByAddrMsg(common::ECUType ecuType, uint32_t addr,
                                        addr >> 16, addr >> 8, addr, size);
 }
 
-/*static*/ CEMCanMessages
+/*static*/ CEMCanMessage
 CanMessages::createWriteDataMsgs(common::ECUType ecuType,
                                  const std::vector<uint8_t> &bin) {
   return createWriteDataMsgs(ecuType, bin, 0, bin.size());
 }
 
-/*static*/ CEMCanMessages
+/*static*/ CEMCanMessage
 CanMessages::createWriteDataMsgs(common::ECUType ecuType,
                                  const std::vector<uint8_t> &bin,
                                  size_t beginOffset, size_t endOffset) {
-  std::vector<std::vector<uint8_t>> result;
+  std::vector<CEMCanMessage::DataType> result;
   const size_t chunkSize = 6u;
   for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
     auto payloadSize = std::min(chunkSize, endOffset - i);
     uint8_t command = 0xA8 + static_cast<uint8_t>(payloadSize);
-    std::vector<uint8_t> payload{static_cast<uint8_t>(ecuType), command};
+    CEMCanMessage::DataType payload{static_cast<uint8_t>(ecuType), command};
     std::copy_n(bin.data() + i, std::min(chunkSize, endOffset - i),
-                std::back_inserter(payload));
-    payload.resize(8);
+                &payload[2]);
     result.emplace_back(std::move(payload));
   }
-  return CEMCanMessages(result);
+  return CEMCanMessage(result);
 }
 
 /*static*/ CEMCanMessage CanMessages::createReadTCMDataByAddr(uint32_t addr,

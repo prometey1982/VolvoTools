@@ -86,7 +86,7 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
   }
   auto testerPresentMsg = common::CanMessages::enableCommunicationMsg;
   unsigned long testerPresentMsgID;
-  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsg(protocolId, flags),
+  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsgs(protocolId, flags)[0],
                               testerPresentMsgID, 1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);

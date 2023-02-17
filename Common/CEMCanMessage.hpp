@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
@@ -39,6 +40,9 @@ enum class ECUType : uint8_t {
 
 class CEMCanMessage {
 public:
+  static constexpr size_t CanPayloadSize = 8;
+  using DataType = std::array<uint8_t, CanPayloadSize>;
+
   static ECUType getECUType(const uint8_t *const buffer);
   static ECUType getECUType(const std::vector<uint8_t> &buffer);
   static CEMCanMessage makeCanMessage(ECUType ecuType,
@@ -50,27 +54,15 @@ public:
   }
 
   explicit CEMCanMessage(const std::vector<uint8_t> &data);
-  explicit CEMCanMessage(const std::vector<uint8_t> &data, bool);
+  explicit CEMCanMessage(const std::vector<DataType> &data);
 
-  std::vector<uint8_t> data() const;
+//  std::vector<uint8_t> data() const;
 
-  std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
-                                           unsigned long Flags) const;
-  PASSTHRU_MSG toPassThruMsg(unsigned long ProtocolID,
-                             unsigned long Flags) const;
-
-private:
-  const std::vector<uint8_t> _data;
-};
-
-class CEMCanMessages {
-public:
-  explicit CEMCanMessages(const std::vector<std::vector<uint8_t>> &messages);
   std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
                                            unsigned long Flags) const;
 
 private:
-  std::vector<std::vector<uint8_t>> _messages;
+  const std::vector<DataType> _data;
 };
 
 } // namespace common

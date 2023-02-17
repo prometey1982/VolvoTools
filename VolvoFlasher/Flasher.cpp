@@ -9,18 +9,18 @@
 #include <time.h>
 
 namespace {
-bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
+bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector<PASSTHRU_MSG>& msgs,
                                 uint8_t toCheck) {
   channel.clearRx();
-  unsigned long msgsNum = 1;
-  const auto error = channel.writeMsgs({msg}, msgsNum, 5000);
+  unsigned long msgsNum = msgs.size();
+  const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
     throw std::runtime_error("write msgs error");
   }
-  std::vector<PASSTHRU_MSG> msgs(1);
+  std::vector<PASSTHRU_MSG> received_msgs(1);
   for (size_t i = 0; i < 50; ++i) {
-    channel.readMsgs(msgs, 1000);
-    for (const auto &msg : msgs) {
+    channel.readMsgs(received_msgs, 1000);
+    for (const auto &msg : received_msgs) {
       if (msg.Data[5] == toCheck) {
         return true;
       }
@@ -28,17 +28,17 @@ bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
   }
   return false;
 }
-bool writeMessageAndCheckAnswer(j2534::J2534Channel &channel, PASSTHRU_MSG msg,
+bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector<PASSTHRU_MSG>& msgs,
                                 uint8_t toCheck5, uint8_t toCheck6) {
-  unsigned long msgsNum = 1;
-  const auto error = channel.writeMsgs({msg}, msgsNum, 5000);
+  unsigned long msgsNum = msgs.size();
+  const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
     throw std::runtime_error("write msgs error");
   }
   for (int i = 0; i < 50; ++i) {
-    std::vector<PASSTHRU_MSG> msgs(1);
-    channel.readMsgs(msgs, 1000);
-    for (const auto &read : msgs) {
+    std::vector<PASSTHRU_MSG> received_msgs(1);
+    channel.readMsgs(received_msgs, 1000);
+    for (const auto &read : received_msgs) {
       if (read.Data[5] == toCheck5 && read.Data[6] == toCheck6) {
         return true;
       }
@@ -182,8 +182,11 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
     throw std::runtime_error("Secondary bootloader not found");
 
   canGoToSleep(protocolId, flags);
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuType, protocolId, flags);
+  std::this_thread::sleep_for(std::chrono::seconds(1));
   writeSBL(ecuType, bootloader, protocolId, flags);
+  std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
 VBF Flasher::getSBL(CMType cmType) const {
@@ -203,12 +206,12 @@ void Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   unsigned long channel1MsgId;
   unsigned long channel2MsgId;
   _channel1->startPeriodicMsg(
-      common::CanMessages::goToSleepCanRequest.toPassThruMsg(protocolId, flags),
+      common::CanMessages::goToSleepCanRequest.toPassThruMsgs(protocolId, flags)[0],
       channel1MsgId, 5);
   if (_channel2) {
     _channel2->startPeriodicMsg(
-        common::CanMessages::goToSleepCanRequest.toPassThruMsg(
-            protocolId, CAN_29BIT_CHANNEL2),
+        common::CanMessages::goToSleepCanRequest.toPassThruMsgs(
+            protocolId, CAN_29BIT_CHANNEL2)[0],
         channel2MsgId, 5);
   }
   std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -258,10 +261,10 @@ void Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
 }
 void Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
     common::ECUType ecuType, unsigned long protocolId, unsigned long flags) {
-  if (!writeMessageAndCheckAnswer(
+  if (!writeMessagesAndCheckAnswer(
           *_channel1,
           common::CanMessages::createStartPrimaryBootloaderMsg(ecuType)
-              .toPassThruMsg(protocolId, flags),
+              .toPassThruMsgs(protocolId, flags),
           0xC6))
     throw std::runtime_error("CM didn't response with correct answer");
 }
@@ -270,11 +273,11 @@ void Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
                                             uint32_t writeOffset,
                                             unsigned long protocolId,
                                             unsigned long flags) {
-  const auto writeOffsetMsg{
+  const auto writeOffsetMsgs{
       common::CanMessages::createSetMemoryAddrMsg(ecuType, writeOffset)
-          .toPassThruMsg(protocolId, flags)};
+          .toPassThruMsgs(protocolId, flags)};
   for (int i = 0; i < 10; ++i) {
-    if (writeMessageAndCheckAnswer(*_channel1, writeOffsetMsg, 0x9C))
+    if (writeMessagesAndCheckAnswer(*_channel1, writeOffsetMsgs, 0x9C))
       return;
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
@@ -301,19 +304,19 @@ void Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
         numMsgs);
     writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
                                   flags);
-    if (!writeMessageAndCheckAnswer(
+    if (!writeMessagesAndCheckAnswer(
             *_channel1,
             common::CanMessages::createCalculateChecksumMsg(
                 ecuType, chunk.writeOffset + chunk.data.size())
-                .toPassThruMsg(protocolId, flags),
+                .toPassThruMsgs(protocolId, flags),
             0xB1))
       throw std::runtime_error("Can't read memory after bootloader");
   }
   writeDataOffsetAndCheckAnswer(ecuType, bootloader.jumpAddr, protocolId,
                                 flags);
-  if (!writeMessageAndCheckAnswer(
+  if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createJumpToMsg(ecuType).toPassThruMsg(
+          common::CanMessages::createJumpToMsg(ecuType).toPassThruMsgs(
               protocolId, flags),
           0xA0))
     throw std::runtime_error("Can't start bootloader");
@@ -339,10 +342,10 @@ void Flasher::writeChunk(common::ECUType ecuType,
   setCurrentProgress(endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
-  if (!writeMessageAndCheckAnswer(
+  if (!writeMessagesAndCheckAnswer(
           *_channel1,
           common::CanMessages::createCalculateChecksumMsg(ecuType, endOffset)
-              .toPassThruMsg(protocolId, flags),
+              .toPassThruMsgs(protocolId, flags),
           0xB1, checksum))
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
@@ -351,9 +354,9 @@ void Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
                           unsigned long protocolId, unsigned long flags,
                           uint8_t toCheck) {
   writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
-  if (!writeMessageAndCheckAnswer(
+  if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createEraseMsg(ecuType).toPassThruMsg(protocolId,
+          common::CanMessages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
                                                                      flags),
           toCheck))
     throw std::runtime_error("Can't erase memory");

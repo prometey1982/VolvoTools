@@ -93,7 +93,7 @@ void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
                                                      parameter.size())};
     unsigned long numMsgs;
     _channel1->writeMsgs(
-        {registerParameterRequest.toPassThruMsg(ProtocolID, Flags)}, numMsgs);
+        registerParameterRequest.toPassThruMsgs(ProtocolID, Flags), numMsgs);
     if (numMsgs == 0) {
       throw std::runtime_error("Request to the ECU wasn't send");
     }
@@ -124,7 +124,7 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
   }
   std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
-      common::CanMessages::requestMemory.toPassThruMsg(protocolId, flags)};
+      common::CanMessages::requestMemory.toPassThruMsgs(protocolId, flags)};
   for (size_t timeoffset = 0;; timeoffset += 50) {
     {
       std::unique_lock<std::mutex> lock{_mutex};
