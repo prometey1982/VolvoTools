@@ -19,7 +19,7 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector
   }
   std::vector<PASSTHRU_MSG> received_msgs(1);
   for (size_t i = 0; i < 50; ++i) {
-    channel.readMsgs(received_msgs, 1000);
+    channel.readMsgs(received_msgs, 10000);
     for (const auto &msg : received_msgs) {
       if (msg.Data[5] == toCheck) {
         return true;
@@ -37,7 +37,7 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector
   }
   for (int i = 0; i < 50; ++i) {
     std::vector<PASSTHRU_MSG> received_msgs(1);
-    channel.readMsgs(received_msgs, 1000);
+    channel.readMsgs(received_msgs, 10000);
     for (const auto &read : received_msgs) {
       if (read.Data[5] == toCheck5 && read.Data[6] == toCheck6) {
         return true;
@@ -173,15 +173,15 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
     break;
   }
 
+  const auto bootloader = getSBL(cmType);
+  if (bootloader.chunks.empty())
+    throw std::runtime_error("Secondary bootloader not found");
+
   unsigned long msgsNum = 1;
   _channel1->writeMsgs(
       common::CanMessages::createWakeUpECUMsg(ecuType).toPassThruMsgs(
           protocolId, flags),
       msgsNum, 5000);
-
-  const auto bootloader = getSBL(cmType);
-  if (bootloader.chunks.empty())
-    throw std::runtime_error("Secondary bootloader not found");
 
   canGoToSleep(protocolId, flags);
   std::this_thread::sleep_for(std::chrono::seconds(1));
