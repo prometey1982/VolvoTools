@@ -1,6 +1,6 @@
 #include "CanMessagesTransceiver.hpp"
 
-#include "CEMCanMessage.hpp"
+#include "D2Message.hpp"
 
 #include "../j2534/J2534Channel.hpp"
 
@@ -85,7 +85,7 @@ void CanMessagesTransceiver::processMessages(const std::vector<PASSTHRU_MSG>& ms
     for(auto it = msgs.cbegin(); it != msgs.cend(); ++it) {
         if(it->DataSize < 5)
             continue;
-        auto ecuType = CEMCanMessage::getECUType(it->Data);
+        auto ecuType = D2Message::getECUType(it->Data);
         uint8_t packetType = it->Data[4];
         // begin of packet
         if(packetType && 0x80) {

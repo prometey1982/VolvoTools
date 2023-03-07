@@ -18,9 +18,13 @@ class J2534Channel;
 namespace logger {
 class LoggerCallback;
 
+enum class LoggerType { LT_D2, LT_UDS };
+
+class LoggerImpl;
+
 class Logger final {
 public:
-  explicit Logger(j2534::J2534 &j2534);
+  explicit Logger(j2534::J2534 &j2534, LoggerType loggerType);
   ~Logger();
 
   void registerCallback(LoggerCallback &callback);
@@ -30,9 +34,9 @@ public:
   void stop();
 
 private:
-  void registerParameters(unsigned long ProtocolID, unsigned long Flags);
+  void registerParameters();
 
-  void logFunction(unsigned long protocolId, unsigned int flags);
+  void logFunction();
 
   struct LogRecord {
     LogRecord() = default;
@@ -57,11 +61,12 @@ private:
   std::condition_variable _callbackCond;
   bool _stopped;
 
+  std::unique_ptr<LoggerImpl> _loggerImpl;
+
   std::deque<LogRecord> _loggedRecords;
   std::vector<LoggerCallback *> _callbacks;
 
   std::unique_ptr<j2534::J2534Channel> _channel1;
-  //		std::unique_ptr<j2534::J2534Channel> _channel2;
   std::unique_ptr<j2534::J2534Channel> _channel3;
 };
 
