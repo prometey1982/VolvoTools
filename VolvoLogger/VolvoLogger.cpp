@@ -81,27 +81,29 @@ int main(int argc, const char *argv[]) {
   if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath,
                     printCount)) {
     const auto libraryParams{common::getLibraryParams()};
-    if (!libraryParams.first.empty()) {
-      try {
-        std::unique_ptr<j2534::J2534> j2534{
-            std::make_unique<j2534::J2534>(libraryParams.first)};
-        j2534->PassThruOpen(libraryParams.second);
-        logger::LogParameters params{paramsFilePath};
-        logger::FileLogWriter fileLogWriter(outputPath, params);
-        ConsoleLogWriter consoleLogWriter{printCount};
-        logger::LoggerApplication::instance().start(
-            baudrate, std::move(j2534), params,
-            {&fileLogWriter, &consoleLogWriter});
-        while (logger::LoggerApplication::instance().isStarted()) {
-          std::this_thread::sleep_for(std::chrono::seconds(1));
+    for (const auto &param : libraryParams) {
+      if (!param.first.empty()) {
+        try {
+          std::unique_ptr<j2534::J2534> j2534{
+              std::make_unique<j2534::J2534>(param.first)};
+          j2534->PassThruOpen(param.second);
+          logger::LogParameters params{paramsFilePath};
+          logger::FileLogWriter fileLogWriter(outputPath, params);
+          ConsoleLogWriter consoleLogWriter{printCount};
+          logger::LoggerApplication::instance().start(
+              baudrate, std::move(j2534), params,
+              {&fileLogWriter, &consoleLogWriter});
+          while (logger::LoggerApplication::instance().isStarted()) {
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+          }
+          logger::LoggerApplication::instance().stop();
+        } catch (const std::exception &ex) {
+          std::cout << ex.what() << std::endl;
+        } catch (const char *ex) {
+          std::cout << ex << std::endl;
+        } catch (...) {
+          std::cout << "exception" << std::endl;
         }
-        logger::LoggerApplication::instance().stop();
-      } catch (const std::exception &ex) {
-        std::cout << ex.what() << std::endl;
-      } catch (const char *ex) {
-        std::cout << ex << std::endl;
-      } catch (...) {
-        std::cout << "exception" << std::endl;
       }
     }
   }

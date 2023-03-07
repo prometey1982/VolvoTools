@@ -1,7 +1,7 @@
 #include "Logger.hpp"
 
-#include "../Common/CEMCanMessage.hpp"
-#include "../Common/CanMessages.hpp"
+#include "../Common/D2Message.hpp"
+#include "../Common/D2Messages.hpp"
 #include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
 #include "../j2534/J2534Channel.hpp"
@@ -40,7 +40,7 @@ void Logger::start(unsigned long baudrate, const LogParameters &parameters) {
 
   _parameters = parameters;
 
-//  const unsigned long protocolId = CAN_XON_XOFF;
+  //  const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
@@ -83,15 +83,15 @@ void Logger::stop() {
 void Logger::registerParameters(unsigned long ProtocolID, unsigned long Flags) {
   unsigned long numMsgs;
   _channel1->writeMsgs(
-      common::CanMessages::unregisterAllMemoryRequest.toPassThruMsgs(ProtocolID,
-                                                                     Flags),
+      common::D2Messages::unregisterAllMemoryRequest.toPassThruMsgs(ProtocolID,
+                                                                    Flags),
       numMsgs);
   std::vector<PASSTHRU_MSG> result(1);
   _channel1->readMsgs(result);
   for (const auto parameter : _parameters.parameters()) {
     const auto registerParameterRequest{
-        common::CanMessages::makeRegisterAddrRequest(parameter.addr(),
-                                                     parameter.size())};
+        common::D2Messages::makeRegisterAddrRequest(parameter.addr(),
+                                                    parameter.size())};
     unsigned long numMsgs;
     _channel1->writeMsgs(
         registerParameterRequest.toPassThruMsgs(ProtocolID, Flags), numMsgs);
@@ -125,7 +125,7 @@ void Logger::logFunction(unsigned long protocolId, unsigned int flags) {
   }
   std::vector<PASSTHRU_MSG> logMessages(numberOfCanMessages);
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
-      common::CanMessages::requestMemory.toPassThruMsgs(protocolId, flags)};
+      common::D2Messages::requestMemory.toPassThruMsgs(protocolId, flags)};
   for (size_t timeoffset = 0;; timeoffset += 50) {
     {
       std::unique_lock<std::mutex> lock{_mutex};

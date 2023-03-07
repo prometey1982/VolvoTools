@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../common/CanMessages.hpp"
+#include "../common/D2Messages.hpp"
 
 #include <condition_variable>
 #include <mutex>
@@ -44,10 +44,10 @@ struct VBF {
       : jumpAddr(jumpAddr), chunks(chunks) {}
 };
 
-class Flasher {
+class D2Flasher {
 public:
-  explicit Flasher(j2534::J2534 &j2534);
-  ~Flasher();
+  explicit D2Flasher(j2534::J2534 &j2534);
+  ~D2Flasher();
 
   void canWakeUp(unsigned long baudrate);
 

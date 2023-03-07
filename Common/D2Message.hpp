@@ -38,23 +38,23 @@ enum class ECUType : uint8_t {
   TRM = 0x23,
 };
 
-class CEMCanMessage {
+class D2Message {
 public:
   static constexpr size_t CanPayloadSize = 8;
   using DataType = std::array<uint8_t, CanPayloadSize>;
 
   static ECUType getECUType(const uint8_t *const buffer);
   static ECUType getECUType(const std::vector<uint8_t> &buffer);
-  static CEMCanMessage makeCanMessage(ECUType ecuType,
+  static D2Message makeD2Message(ECUType ecuType,
                                       std::vector<uint8_t> request);
   template <typename... Args>
-  static CEMCanMessage makeCanMessage(Args... args) {
+  static D2Message makeD2Message(Args... args) {
     std::vector<uint8_t> request{static_cast<uint8_t>(args)...};
-    return CEMCanMessage(request);
+    return D2Message(request);
   }
 
-  explicit CEMCanMessage(const std::vector<uint8_t> &data);
-  explicit CEMCanMessage(const std::vector<DataType> &data);
+  explicit D2Message(const std::vector<uint8_t> &data);
+  explicit D2Message(const std::vector<DataType> &data);
 
 //  std::vector<uint8_t> data() const;
 

@@ -1,7 +1,7 @@
-#include "Flasher.hpp"
+#include "D2Flasher.hpp"
 
 #include "../Common/Util.hpp"
-#include "../common/CEMCanMessage.hpp"
+#include "../common/D2Message.hpp"
 #include "../j2534/J2534.hpp"
 #include "../j2534/J2534Channel.hpp"
 
@@ -9,8 +9,9 @@
 #include <time.h>
 
 namespace {
-bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector<PASSTHRU_MSG>& msgs,
-                                uint8_t toCheck) {
+bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
+                                 const std::vector<PASSTHRU_MSG> &msgs,
+                                 uint8_t toCheck) {
   channel.clearRx();
   unsigned long msgsNum = msgs.size();
   const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
@@ -28,8 +29,9 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector
   }
   return false;
 }
-bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel, const std::vector<PASSTHRU_MSG>& msgs,
-                                uint8_t toCheck5, uint8_t toCheck6) {
+bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
+                                 const std::vector<PASSTHRU_MSG> &msgs,
+                                 uint8_t toCheck5, uint8_t toCheck6) {
   unsigned long msgsNum = msgs.size();
   const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
@@ -62,13 +64,13 @@ uint8_t calculateCheckSum(const std::vector<uint8_t> &bin, size_t beginOffset,
 } // namespace
 
 namespace flasher {
-Flasher::Flasher(j2534::J2534 &j2534)
+D2Flasher::D2Flasher(j2534::J2534 &j2534)
     : _j2534{j2534}, _currentState{State::Initial}, _currentProgress{0},
       _maximumProgress{0} {}
 
-Flasher::~Flasher() { stop(); }
+D2Flasher::~D2Flasher() { stop(); }
 
-void Flasher::canWakeUp(unsigned long baudrate) {
+void D2Flasher::canWakeUp(unsigned long baudrate) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
@@ -78,18 +80,18 @@ void Flasher::canWakeUp(unsigned long baudrate) {
   cleanErrors(protocolId, flags);
 }
 
-void Flasher::registerCallback(FlasherCallback &callback) {
+void D2Flasher::registerCallback(FlasherCallback &callback) {
   std::unique_lock<std::mutex> lock{_mutex};
   _callbacks.push_back(&callback);
 }
 
-void Flasher::unregisterCallback(FlasherCallback &callback) {
+void D2Flasher::unregisterCallback(FlasherCallback &callback) {
   std::unique_lock<std::mutex> lock{_mutex};
   _callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
                    _callbacks.end());
 }
 
-void Flasher::flash(CMType cmType, unsigned long baudrate,
+void D2Flasher::flash(CMType cmType, unsigned long baudrate,
                     const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
   const unsigned long protocolId = CAN_XON_XOFF;
@@ -107,7 +109,7 @@ void Flasher::flash(CMType cmType, unsigned long baudrate,
   });
 }
 
-void Flasher::stop() {
+void D2Flasher::stop() {
   messageToCallbacks("Stopping flasher");
   if (_flasherThread.joinable()) {
     _flasherThread.join();
@@ -116,43 +118,42 @@ void Flasher::stop() {
   messageToCallbacks("Flasher stopped");
 }
 
-Flasher::State Flasher::getState() const {
+D2Flasher::State D2Flasher::getState() const {
   std::unique_lock<std::mutex> lock{_mutex};
   return _currentState;
 }
 
-size_t Flasher::getCurrentProgress() const {
+size_t D2Flasher::getCurrentProgress() const {
   std::unique_lock<std::mutex> lock(_mutex);
   return _currentProgress;
 }
 
-size_t Flasher::getMaximumProgress() const {
+size_t D2Flasher::getMaximumProgress() const {
   std::unique_lock<std::mutex> lock(_mutex);
   return _maximumProgress;
 }
 
-void Flasher::openChannels(unsigned long baudrate,
+void D2Flasher::openChannels(unsigned long baudrate,
                            bool additionalConfiguration) {
-//    const unsigned long protocolId = CAN_XON_XOFF;
-    const unsigned long protocolId = CAN;
+  //    const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate,
                                   additionalConfiguration);
-  _channel2 =
-          common::openChannel(_j2534, CAN_CH1, flags, 125000);
-//  common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+  _channel2 = common::openChannel(_j2534, CAN_CH1, flags, 125000);
+  //  common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 }
 
-void Flasher::resetChannels() {
+void D2Flasher::resetChannels() {
   _channel1.reset();
   _channel2.reset();
   _channel3.reset();
 }
 
-void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
+void D2Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
                                        unsigned long flags) {
   uint32_t bootloaderOffset = 0;
   common::ECUType ecuType = common::ECUType::ECM_ME;
@@ -179,8 +180,8 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
 
   unsigned long msgsNum = 1;
   _channel1->writeMsgs(
-      common::CanMessages::createWakeUpECUMsg(ecuType).toPassThruMsgs(
-          protocolId, flags),
+      common::D2Messages::createWakeUpECUMsg(ecuType).toPassThruMsgs(protocolId,
+                                                                     flags),
       msgsNum, 5000);
 
   canGoToSleep(protocolId, flags);
@@ -191,28 +192,29 @@ void Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
   std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-VBF Flasher::getSBL(CMType cmType) const {
+VBF D2Flasher::getSBL(CMType cmType) const {
   switch (cmType) {
   case CMType::ECM_ME7:
     return VBF(0x31C000,
-               {VBFChunk(0x31C000, common::CanMessages::me7BootLoader)});
+               {VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
   case CMType::ECM_ME9:
     return VBF(0x7F81D0,
-               {VBFChunk(0x7F81D0, common::CanMessages::me9BootLoader)});
+               {VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
   default:
     return VBF(0, {});
   }
 }
 
-void Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
+void D2Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   unsigned long channel1MsgId;
   unsigned long channel2MsgId;
   _channel1->startPeriodicMsg(
-      common::CanMessages::goToSleepCanRequest.toPassThruMsgs(protocolId, flags)[0],
+      common::D2Messages::goToSleepCanRequest.toPassThruMsgs(protocolId,
+                                                             flags)[0],
       channel1MsgId, 5);
   if (_channel2) {
     _channel2->startPeriodicMsg(
-        common::CanMessages::goToSleepCanRequest.toPassThruMsgs(
+        common::D2Messages::goToSleepCanRequest.toPassThruMsgs(
             protocolId, CAN_29BIT_CHANNEL2)[0],
         channel2MsgId, 5);
   }
@@ -223,13 +225,13 @@ void Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   _channel1->stopPeriodicMsg(channel1MsgId);
 }
 
-void Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
+void D2Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
   unsigned long numMsgs = 1;
   _channel1->writeMsgs(
-      common::CanMessages::wakeUpCanRequest.toPassThruMsgs(protocolId, flags),
+      common::D2Messages::wakeUpCanRequest.toPassThruMsgs(protocolId, flags),
       numMsgs, 5000);
   if (_channel2) {
-    _channel2->writeMsgs(common::CanMessages::wakeUpCanRequest.toPassThruMsgs(
+    _channel2->writeMsgs(common::D2Messages::wakeUpCanRequest.toPassThruMsgs(
                              protocolId, CAN_29BIT_CHANNEL2),
                          numMsgs, 5000);
 
@@ -241,42 +243,42 @@ void Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
     localtime_s(&lt, &time_t);
 
     _channel2->writeMsgs(
-        common::CanMessages::setCurrentTime(lt.tm_hour, lt.tm_min)
+        common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min)
             .toPassThruMsgs(protocolId, CAN_29BIT_CHANNEL2),
         numMsgs, 5000);
   }
 }
 
-void Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
+void D2Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
   for (const auto ecuType :
        {common::ECUType::ECM_ME, common::ECUType::TCM, common::ECUType::SRS}) {
     unsigned long numMsgs = 1;
     _channel1->writeMsgs(
-        common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId,
-                                                                  flags),
+        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId,
+                                                                 flags),
         numMsgs);
     _channel2->writeMsgs(
-        common::CanMessages::clearDTCMsgs(ecuType).toPassThruMsgs(
+        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(
             protocolId, CAN_29BIT_CHANNEL2),
         numMsgs);
   }
 }
-void Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
+void D2Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
     common::ECUType ecuType, unsigned long protocolId, unsigned long flags) {
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createStartPrimaryBootloaderMsg(ecuType)
+          common::D2Messages::createStartPrimaryBootloaderMsg(ecuType)
               .toPassThruMsgs(protocolId, flags),
           0xC6))
     throw std::runtime_error("CM didn't response with correct answer");
 }
 
-void Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
+void D2Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
                                             uint32_t writeOffset,
                                             unsigned long protocolId,
                                             unsigned long flags) {
   const auto writeOffsetMsgs{
-      common::CanMessages::createSetMemoryAddrMsg(ecuType, writeOffset)
+      common::D2Messages::createSetMemoryAddrMsg(ecuType, writeOffset)
           .toPassThruMsgs(protocolId, flags)};
   for (int i = 0; i < 10; ++i) {
     if (writeMessagesAndCheckAnswer(*_channel1, writeOffsetMsgs, 0x9C))
@@ -286,13 +288,13 @@ void Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
   throw std::runtime_error("CM didn't response with correct answer");
 }
 
-void Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
+void D2Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
                        unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing bootloader");
   for (size_t i = 0; i < bootloader.chunks.size(); ++i) {
     const auto &chunk = bootloader.chunks[i];
     auto bootloaderMsgs =
-        common::CanMessages::createWriteDataMsgs(ecuType, chunk.data)
+        common::D2Messages::createWriteDataMsgs(ecuType, chunk.data)
             .toPassThruMsgs(protocolId, flags);
     unsigned long numMsgs = 1;
     writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
@@ -301,14 +303,14 @@ void Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
     if (numMsgs != bootloaderMsgs.size())
       throw std::runtime_error("Bootloader writing failed");
     _channel1->writeMsgs(
-        common::CanMessages::createSBLTransferCompleteMsg(ecuType)
+        common::D2Messages::createSBLTransferCompleteMsg(ecuType)
             .toPassThruMsgs(protocolId, flags),
         numMsgs);
     writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
                                   flags);
     if (!writeMessagesAndCheckAnswer(
             *_channel1,
-            common::CanMessages::createCalculateChecksumMsg(
+            common::D2Messages::createCalculateChecksumMsg(
                 ecuType, chunk.writeOffset + chunk.data.size())
                 .toPassThruMsgs(protocolId, flags),
             0xB1))
@@ -318,19 +320,19 @@ void Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
                                 flags);
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createJumpToMsg(ecuType).toPassThruMsgs(
+          common::D2Messages::createJumpToMsg(ecuType).toPassThruMsgs(
               protocolId, flags),
           0xA0))
     throw std::runtime_error("Can't start bootloader");
 }
 
-void Flasher::writeChunk(common::ECUType ecuType,
+void D2Flasher::writeChunk(common::ECUType ecuType,
                          const std::vector<uint8_t> &bin, uint32_t beginOffset,
                          uint32_t endOffset, unsigned long protocolId,
                          unsigned long flags) {
   messageToCallbacks("Writing chunk");
-  auto binMsgs = common::CanMessages::createWriteDataMsgs(
-                     ecuType, bin, beginOffset, endOffset)
+  auto binMsgs = common::D2Messages::createWriteDataMsgs(ecuType, bin,
+                                                         beginOffset, endOffset)
                      .toPassThruMsgs(protocolId, flags);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
   for (size_t i = 0; i < binMsgs.size(); ++i) {
@@ -346,25 +348,25 @@ void Flasher::writeChunk(common::ECUType ecuType,
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createCalculateChecksumMsg(ecuType, endOffset)
+          common::D2Messages::createCalculateChecksumMsg(ecuType, endOffset)
               .toPassThruMsgs(protocolId, flags),
           0xB1, checksum))
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
 
-void Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
+void D2Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
                           unsigned long protocolId, unsigned long flags,
                           uint8_t toCheck) {
   writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
-          common::CanMessages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
+          common::D2Messages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
                                                                      flags),
           toCheck))
     throw std::runtime_error("Can't erase memory");
 }
 
-void Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
+void D2Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
   eraseMemory(ecuType, 0x8000, protocolId, flags, 0xF9);
@@ -374,7 +376,7 @@ void Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
   writeChunk(ecuType, bin, 0x10000, bin.size(), protocolId, flags);
 }
 
-void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
+void D2Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
   eraseMemory(ecuType, 0x20000, protocolId, flags, 0x0);
@@ -382,7 +384,7 @@ void Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
   writeChunk(ecuType, bin, 0xA0000, 0x1F0000, protocolId, flags);
 }
 
-void Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
+void D2Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
                             unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::TCM;
   const std::vector<uint32_t> chunks{0x8000,  0x10000, 0x20000,
@@ -395,7 +397,7 @@ void Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
   }
 }
 
-void Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
+void D2Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
                               unsigned long protocolId, unsigned long flags) {
   try {
     selectAndWriteBootloader(cmType, protocolId, flags);
@@ -420,23 +422,23 @@ void Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
   }
 }
 
-void Flasher::setState(State newState) {
+void D2Flasher::setState(State newState) {
   std::unique_lock<std::mutex> lock{_mutex};
   _currentState = newState;
 }
 
-void Flasher::messageToCallbacks(const std::string &message) {
+void D2Flasher::messageToCallbacks(const std::string &message) {
   for (const auto &callback : _callbacks) {
     callback->OnMessage(message);
   }
 }
 
-void Flasher::setCurrentProgress(size_t currentProgress) {
+void D2Flasher::setCurrentProgress(size_t currentProgress) {
   std::unique_lock<std::mutex> lock(_mutex);
   _currentProgress = currentProgress;
 }
 
-void Flasher::setMaximumProgress(size_t maximumProgress) {
+void D2Flasher::setMaximumProgress(size_t maximumProgress) {
   std::unique_lock<std::mutex> lock(_mutex);
   _maximumProgress = maximumProgress;
 }

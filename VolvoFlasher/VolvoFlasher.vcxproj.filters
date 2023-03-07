@@ -18,12 +18,12 @@
     <ClCompile Include="VolvoFlasher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Flasher.cpp">
+    <ClCompile Include="D2Flasher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Flasher.hpp">
+    <ClInclude Include="D2Flasher.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

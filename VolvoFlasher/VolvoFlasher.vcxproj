@@ -150,7 +150,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Flasher.cpp" />
+    <ClCompile Include="D2Flasher.cpp" />
     <ClCompile Include="VolvoFlasher.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -162,7 +162,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Flasher.hpp" />
+    <ClInclude Include="D2Flasher.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

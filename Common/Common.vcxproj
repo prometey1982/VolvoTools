@@ -19,13 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CanMessages.hpp" />
-    <ClInclude Include="CEMCanMessage.hpp" />
+    <ClInclude Include="D2Messages.hpp" />
+    <ClInclude Include="D2Message.hpp" />
     <ClInclude Include="Util.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CanMessages.cpp" />
-    <ClCompile Include="CEMCanMessage.cpp" />
+    <ClCompile Include="D2Messages.cpp" />
+    <ClCompile Include="D2Message.cpp" />
     <ClCompile Include="Util.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -123,6 +123,8 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <AdditionalOptions>
+      </AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>

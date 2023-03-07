@@ -1,156 +1,153 @@
-#include "CanMessages.hpp"
+#include "D2Messages.hpp"
 
 #include <algorithm>
 #include <iterator>
 
 namespace common {
 
-/*static*/ CEMCanMessage CanMessages::setCurrentTime(uint8_t hours,
-                                                     uint8_t minutes) {
+/*static*/ D2Message D2Messages::setCurrentTime(uint8_t hours,
+                                                uint8_t minutes) {
   uint32_t value = minutes + hours * 60;
-  return CEMCanMessage::makeCanMessage(
-      common::ECUType::DIM,
-      {0xB0, 0x07, 0x01, 0xFF, static_cast<uint8_t>((value >> 8) & 0xFF),
-       static_cast<uint8_t>(value & 0xFF)});
+  return D2Message::makeD2Message(common::ECUType::DIM,
+                                  {0xB0, 0x07, 0x01, 0xFF,
+                                   static_cast<uint8_t>((value >> 8) & 0xFF),
+                                   static_cast<uint8_t>(value & 0xFF)});
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createSetMemoryAddrMsg(common::ECUType ecuType, uint32_t offset) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0x9C, offset >> 24,
-                                       offset >> 16, offset >> 8, offset);
+/*static*/ D2Message D2Messages::createSetMemoryAddrMsg(common::ECUType ecuType,
+                                                        uint32_t offset) {
+  return D2Message::makeD2Message(ecuType, 0x9C, offset >> 24, offset >> 16,
+                                  offset >> 8, offset);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createCalculateChecksumMsg(common::ECUType ecuType,
-                                        uint32_t offset) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xB4, offset >> 24,
-                                       offset >> 16, offset >> 8, offset);
+/*static*/ D2Message
+D2Messages::createCalculateChecksumMsg(common::ECUType ecuType,
+                                       uint32_t offset) {
+  return D2Message::makeD2Message(ecuType, 0xB4, offset >> 24, offset >> 16,
+                                  offset >> 8, offset);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createReadOffsetMsg2(common::ECUType ecuType, uint32_t offset) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xBC, offset >> 24,
-                                       offset >> 16, offset >> 8, offset);
+/*static*/ D2Message D2Messages::createReadOffsetMsg2(common::ECUType ecuType,
+                                                      uint32_t offset) {
+  return D2Message::makeD2Message(ecuType, 0xBC, offset >> 24, offset >> 16,
+                                  offset >> 8, offset);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createReadDataByOffsetMsg(common::ECUType ecuType, uint32_t offset,
-                                       uint8_t size) {
-  return CEMCanMessage::makeCanMessage(
-      ecuType, {0xA7, static_cast<uint8_t>(offset >> 16),
-                static_cast<uint8_t>(offset >> 8), static_cast<uint8_t>(offset),
-                1, size});
+/*static*/ D2Message
+D2Messages::createReadDataByOffsetMsg(common::ECUType ecuType, uint32_t offset,
+                                      uint8_t size) {
+  return D2Message::makeD2Message(ecuType,
+                                  {0xA7, static_cast<uint8_t>(offset >> 16),
+                                   static_cast<uint8_t>(offset >> 8),
+                                   static_cast<uint8_t>(offset), 1, size});
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createReadDataByAddrMsg(common::ECUType ecuType, uint32_t addr,
-                                     uint8_t size) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xB4, 21, 34, addr >> 24,
-                                       addr >> 16, addr >> 8, addr, size);
+/*static*/ D2Message
+D2Messages::createReadDataByAddrMsg(common::ECUType ecuType, uint32_t addr,
+                                    uint8_t size) {
+  return D2Message::makeD2Message(ecuType, 0xB4, 21, 34, addr >> 24, addr >> 16,
+                                  addr >> 8, addr, size);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createWriteDataMsgs(common::ECUType ecuType,
-                                 const std::vector<uint8_t> &bin) {
+/*static*/ D2Message
+D2Messages::createWriteDataMsgs(common::ECUType ecuType,
+                                const std::vector<uint8_t> &bin) {
   return createWriteDataMsgs(ecuType, bin, 0, bin.size());
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createWriteDataMsgs(common::ECUType ecuType,
-                                 const std::vector<uint8_t> &bin,
-                                 size_t beginOffset, size_t endOffset) {
-  std::vector<CEMCanMessage::DataType> result;
+/*static*/ D2Message
+D2Messages::createWriteDataMsgs(common::ECUType ecuType,
+                                const std::vector<uint8_t> &bin,
+                                size_t beginOffset, size_t endOffset) {
+  std::vector<D2Message::DataType> result;
   const size_t chunkSize = 6u;
   for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
     auto payloadSize = std::min(chunkSize, endOffset - i);
     uint8_t command = 0xA8 + static_cast<uint8_t>(payloadSize);
-    CEMCanMessage::DataType payload{static_cast<uint8_t>(ecuType), command};
-    std::copy_n(bin.data() + i, std::min(chunkSize, endOffset - i),
-                &payload[2]);
+    D2Message::DataType payload{static_cast<uint8_t>(ecuType), command};
+    std::copy_n(bin.begin() + i, std::min(chunkSize, endOffset - i),
+                payload.begin() + 2);
     result.emplace_back(std::move(payload));
   }
-  return CEMCanMessage(result);
+  return D2Message(result);
 }
 
-/*static*/ CEMCanMessage CanMessages::createReadTCMDataByAddr(uint32_t addr,
-                                                              size_t dataSize) {
+/*static*/ D2Message D2Messages::createReadTCMDataByAddr(uint32_t addr,
+                                                         size_t dataSize) {
   const uint8_t byte1 = (addr & 0xFF000000) >> 24;
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return CEMCanMessage::makeCanMessage(
-      common::ECUType::TCM, {0xB4, 0x21, 0x34, byte1, byte2, byte3, 0x4A, byte4,
-                             static_cast<uint8_t>(dataSize)});
+  return D2Message::makeD2Message(common::ECUType::TCM,
+                                  {0xB4, 0x21, 0x34, byte1, byte2, byte3, 0x4A,
+                                   byte4, static_cast<uint8_t>(dataSize)});
 }
 
-/*static*/ CEMCanMessage CanMessages::createWriteDataByAddrMsg(ECUType ecuType,
-                                                               uint32_t addr,
-                                                               uint8_t data) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xBA, addr >> 16, addr >> 8,
-                                       addr, data);
+/*static*/ D2Message D2Messages::createWriteDataByAddrMsg(ECUType ecuType,
+                                                          uint32_t addr,
+                                                          uint8_t data) {
+  return D2Message::makeD2Message(ecuType, 0xBA, addr >> 16, addr >> 8, addr,
+                                  data);
 }
 
-/*static*/ CEMCanMessage CanMessages::clearDTCMsgs(ECUType ecuType) {
-  return CEMCanMessage::makeCanMessage(ecuType, 0xAF, 0x11);
+/*static*/ D2Message D2Messages::clearDTCMsgs(ECUType ecuType) {
+  return D2Message::makeD2Message(ecuType, 0xAF, 0x11);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::makeRegisterAddrRequest(uint32_t addr, size_t dataLength) {
+/*static*/ D2Message D2Messages::makeRegisterAddrRequest(uint32_t addr,
+                                                         size_t dataLength) {
   const uint8_t byte1 = (addr & 0xFF0000) >> 16;
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
-  return CEMCanMessage::makeCanMessage(
+  return D2Message::makeD2Message(
       common::ECUType::ECM_ME,
       {0xAA, 0x50, byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createStartPrimaryBootloaderMsg(common::ECUType ecuType) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xC0);
+/*static*/ D2Message
+D2Messages::createStartPrimaryBootloaderMsg(common::ECUType ecuType) {
+  return common::D2Message::makeD2Message(ecuType, 0xC0);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createWakeUpECUMsg(common::ECUType ecuType) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xC8);
+/*static*/ D2Message D2Messages::createWakeUpECUMsg(common::ECUType ecuType) {
+  return common::D2Message::makeD2Message(ecuType, 0xC8);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createJumpToMsg(common::ECUType ecuType, uint8_t data1,
-                             uint8_t data2, uint8_t data3, uint8_t data4,
-                             uint8_t data5, uint8_t data6) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xA0, data1, data2,
-                                               data3, data4, data5, data6);
+/*static*/ D2Message D2Messages::createJumpToMsg(common::ECUType ecuType,
+                                                 uint8_t data1, uint8_t data2,
+                                                 uint8_t data3, uint8_t data4,
+                                                 uint8_t data5, uint8_t data6) {
+  return common::D2Message::makeD2Message(ecuType, 0xA0, data1, data2, data3,
+                                          data4, data5, data6);
 }
 
-/*static*/ CEMCanMessage CanMessages::createEraseMsg(common::ECUType ecuType) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xF8);
+/*static*/ D2Message D2Messages::createEraseMsg(common::ECUType ecuType) {
+  return common::D2Message::makeD2Message(ecuType, 0xF8);
 }
 
-/*static*/ CEMCanMessage
-CanMessages::createSBLTransferCompleteMsg(common::ECUType ecuType) {
-  return common::CEMCanMessage::makeCanMessage(ecuType, 0xA8);
+/*static*/ D2Message
+D2Messages::createSBLTransferCompleteMsg(common::ECUType ecuType) {
+  return common::D2Message::makeD2Message(ecuType, 0xA8);
 }
 
-const CEMCanMessage CanMessages::requestVIN{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, {0xB9, 0xFB})};
-const CEMCanMessage CanMessages::requestVehicleConfiguration{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, {0xB9, 0xFC})};
-const CEMCanMessage CanMessages::requestMemory{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME,
-                                          {0xA6, 0xF0, 0x00, 0x01})};
-const CEMCanMessage CanMessages::unregisterAllMemoryRequest{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::ECM_ME,
-                                          {0xAA, 0x00})};
-const CEMCanMessage CanMessages::wakeUpCanRequest{
-    common::CEMCanMessage::makeCanMessage(0xFF, 0xC8)};
-const CEMCanMessage CanMessages::goToSleepCanRequest{
-    common::CEMCanMessage::makeCanMessage(0xFF, 0x86)};
-const CEMCanMessage CanMessages::startTCMAdaptMsg{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::TCM, 0xB2, 0x50)};
-const CEMCanMessage CanMessages::enableCommunicationMsg{
-    common::CEMCanMessage::makeCanMessage(common::ECUType::CEM, 0xD8)};
+const D2Message D2Messages::requestVIN{
+    common::D2Message::makeD2Message(common::ECUType::CEM, {0xB9, 0xFB})};
+const D2Message D2Messages::requestVehicleConfiguration{
+    common::D2Message::makeD2Message(common::ECUType::CEM, {0xB9, 0xFC})};
+const D2Message D2Messages::requestMemory{common::D2Message::makeD2Message(
+    common::ECUType::ECM_ME, {0xA6, 0xF0, 0x00, 0x01})};
+const D2Message D2Messages::unregisterAllMemoryRequest{
+    common::D2Message::makeD2Message(common::ECUType::ECM_ME, {0xAA, 0x00})};
+const D2Message D2Messages::wakeUpCanRequest{
+    common::D2Message::makeD2Message(0xFF, 0xC8)};
+const D2Message D2Messages::goToSleepCanRequest{
+    common::D2Message::makeD2Message(0xFF, 0x86)};
+const D2Message D2Messages::startTCMAdaptMsg{
+    common::D2Message::makeD2Message(common::ECUType::TCM, 0xB2, 0x50)};
+const D2Message D2Messages::enableCommunicationMsg{
+    common::D2Message::makeD2Message(common::ECUType::CEM, 0xD8)};
 
-const std::vector<uint8_t> CanMessages::me7BootLoader = {
+const std::vector<uint8_t> D2Messages::me7BootLoader = {
     230, 244, 96,  2,   230, 245, 140, 248, 230, 246, 24,  249, 230, 247, 0,
     239, 230, 2,   199, 0,   230, 215, 1,   0,   167, 88,  167, 167, 240, 5,
     240, 22,  240, 39,  187, 18,  167, 88,  167, 167, 202, 0,   190, 203, 138,
@@ -570,7 +567,7 @@ const std::vector<uint8_t> CanMessages::me7BootLoader = {
     252, 245, 203, 0,   72,  16,  45,  5,   164, 0,   28,  255, 8,   1,   40,
     17,  61,  251, 203, 0};
 
-const std::vector<uint8_t> CanMessages::me9BootLoader = {
+const std::vector<uint8_t> D2Messages::me9BootLoader = {
     148, 33,  255, 240, 124, 8,   2,   166, 147, 225, 0,   12,  144, 1,   0,
     20,  61,  128, 0,   128, 61,  96,  0,   112, 57,  107, 112, 128, 145, 108,
     173, 128, 61,  64,  0,   128, 129, 74,  173, 128, 59,  234, 0,   150, 127,

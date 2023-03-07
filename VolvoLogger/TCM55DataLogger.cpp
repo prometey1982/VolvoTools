@@ -1,7 +1,7 @@
 #include "TCM55DataLogger.hpp"
 
-#include "../Common/CEMCanMessage.hpp"
-#include "../Common/CanMessages.hpp"
+#include "../Common/D2Message.hpp"
+#include "../Common/D2Messages.hpp"
 #include "../Common/Util.hpp"
 #include "../j2534/J2534.hpp"
 #include "../j2534/J2534Channel.hpp"
@@ -84,10 +84,11 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
       callback->onStatusChanged(true);
     }
   }
-  auto testerPresentMsg = common::CanMessages::enableCommunicationMsg;
+  auto testerPresentMsg = common::D2Messages::enableCommunicationMsg;
   unsigned long testerPresentMsgID;
-  _channel1->startPeriodicMsg(testerPresentMsg.toPassThruMsgs(protocolId, flags)[0],
-                              testerPresentMsgID, 1000);
+  _channel1->startPeriodicMsg(
+      testerPresentMsg.toPassThruMsgs(protocolId, flags)[0], testerPresentMsgID,
+      1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);
   const auto startTimepoint{std::chrono::steady_clock::now()};
@@ -100,7 +101,7 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
     }
     const auto now{std::chrono::steady_clock::now()};
     for (size_t i = 0; i < _parameters.parameters().size(); ++i) {
-      auto message = common::CanMessages::createReadDataByOffsetMsg(
+      auto message = common::D2Messages::createReadDataByOffsetMsg(
           common::ECUType::TCM, _parameters.parameters()[i].addr(),
           static_cast<uint8_t>(_parameters.parameters()[i].size()));
 

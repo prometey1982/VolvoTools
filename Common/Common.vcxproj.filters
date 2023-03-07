@@ -15,24 +15,24 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CEMCanMessage.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CanMessages.hpp">
+    <ClInclude Include="D2Message.hpp">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D2Messages.hpp">
+      <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CEMCanMessage.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CanMessages.cpp">
+    <ClCompile Include="D2Message.cpp">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D2Messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
