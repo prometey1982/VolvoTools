@@ -17,7 +17,6 @@ public:
   const LogParameters &operator=(const LogParameters &rhs);
 
   const std::vector<LogParameter> &parameters() const;
-  unsigned long getNumberOfCanMessages() const;
 
 private:
   template <typename Reader> void load(Reader &reader);

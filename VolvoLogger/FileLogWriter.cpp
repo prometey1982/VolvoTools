@@ -14,8 +14,6 @@ void FileLogWriter::open(const std::string &outputPath,
   _outputStream.open(outputPath);
   _outputStream << "Time (sec),";
   const auto startTimepoint{std::chrono::steady_clock::now()};
-  unsigned long numberOfCanMessages{0};
-  numberOfCanMessages = parameters.getNumberOfCanMessages();
   for (const auto &param : parameters.parameters()) {
     _outputStream << param.description() << "(" << param.unit() << ") "
                   << param.name() << ",";

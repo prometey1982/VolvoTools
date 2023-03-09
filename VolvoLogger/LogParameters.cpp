@@ -55,13 +55,4 @@ const std::vector<LogParameter> &LogParameters::parameters() const {
   return _parameters;
 }
 
-unsigned long LogParameters::getNumberOfCanMessages() const {
-  double totalDataLength =
-      std::accumulate(_parameters.cbegin(), _parameters.cend(), 0,
-                      [](size_t prevValue, const auto &param) {
-                        return prevValue + param.size();
-                      });
-  return static_cast<unsigned long>(std::ceil((totalDataLength - 3) / 7)) + 1;
-}
-
 } // namespace logger

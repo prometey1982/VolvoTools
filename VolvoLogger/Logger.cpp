@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <numeric>
 
 namespace logger {
 
@@ -37,6 +38,15 @@ private:
 
   const std::vector<PASSTHRU_MSG> requstMemoryMessage{
       common::D2Messages::requestMemory.toPassThruMsgs(protocolId, flags)};
+
+  unsigned long getNumberOfCanMessages(const LogParameters& parameters) const {
+      double totalDataLength =
+          std::accumulate(parameters.parameters().cbegin(), parameters.parameters().cend(), 0,
+              [](size_t prevValue, const auto& param) {
+                  return prevValue + param.size();
+              });
+      return static_cast<unsigned long>(std::ceil((totalDataLength - 3) / 7)) + 1;
+  }
 
   virtual void registerParameters(j2534::J2534Channel &channel,
                                   const LogParameters &parameters) override {
@@ -72,7 +82,7 @@ private:
   virtual std::vector<uint32_t>
   requestMemory(j2534::J2534Channel &channel,
                 const LogParameters &parameters) override {
-    const auto numberOfCanMessages = parameters.getNumberOfCanMessages();
+    const auto numberOfCanMessages = getNumberOfCanMessages(parameters);
     std::vector<uint32_t> result;
     unsigned long writtenCount = 1;
     channel.writeMsgs(requstMemoryMessage, writtenCount);
@@ -217,11 +227,6 @@ void Logger::logFunction() {
     }
   }
   const auto startTimepoint{std::chrono::steady_clock::now()};
-  unsigned long numberOfCanMessages{0};
-  {
-    std::unique_lock<std::mutex> lock{_mutex};
-    numberOfCanMessages = _parameters.getNumberOfCanMessages();
-  }
   for (size_t timeoffset = 0;; timeoffset += 50) {
     {
       std::unique_lock<std::mutex> lock{_mutex};
