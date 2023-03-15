@@ -19,11 +19,13 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CanMessage.hpp" />
     <ClInclude Include="D2Messages.hpp" />
     <ClInclude Include="D2Message.hpp" />
     <ClInclude Include="Util.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="CanMessage.cpp" />
     <ClCompile Include="D2Messages.cpp" />
     <ClCompile Include="D2Message.cpp" />
     <ClCompile Include="Util.cpp" />

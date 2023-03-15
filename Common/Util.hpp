@@ -5,6 +5,8 @@
 #include <utility>
 #include <vector>
 
+#include "DeviceInfo.hpp"
+
 namespace j2534 {
 class J2534;
 class J2534Channel;
@@ -26,7 +28,7 @@ std::string toPlatformString(const std::string &str);
 std::string fromPlatformString(const std::string &str);
 #endif
 
-std::vector<std::pair<std::string, std::string>> getLibraryParams();
+std::vector<j2534::DeviceInfo> getAvailableDevices();
 
 std::unique_ptr<j2534::J2534Channel>
 openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,

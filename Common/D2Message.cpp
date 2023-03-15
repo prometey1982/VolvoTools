@@ -16,8 +16,9 @@ PASSTHRU_MSG toPassThruMsg(const uint8_t* Data, size_t DataSize,
   result.TxFlags = Flags;
   result.Timestamp = 0;
   result.ExtraDataIndex = 0;
-  result.DataSize = DataSize;
-  std::copy(Data, Data + DataSize, result.Data);
+  result.DataSize = DataSize + D2MessagePrefix.size();
+  std::copy(D2MessagePrefix.cbegin(), D2MessagePrefix.cend(), result.Data);
+  std::copy(Data, Data + DataSize, result.Data + D2MessagePrefix.size());
   return result;
 }
 
@@ -33,6 +34,7 @@ generateCANProtocolMessages(const std::vector<uint8_t> &data) {
         uint8_t newPrefix = messagePrefix + payloadSize;
         std::array<uint8_t, 8> canPayload;
         canPayload[0] = newPrefix;
+        memset(&canPayload[1], 0, canPayload.size() - 1);
         memcpy(&canPayload[1], data.data() + i, payloadSize);
         result.emplace_back(std::move(canPayload));
         messagePrefix = 0x48;
@@ -68,20 +70,18 @@ D2Message D2Message::makeD2Message(common::ECUType ecuType,
   return D2Message(request);
 }
 
-D2Message::D2Message(const std::vector<uint8_t> &data)
-    : _data{std::move(generateCANProtocolMessages(data))} {}
-
 D2Message::D2Message(const std::vector<DataType> &data)
-    : _data{data} {}
+    : CanMessage{data} {}
 
-//std::vector<uint8_t> D2Message::data() const { return _data; }
+D2Message::D2Message(const std::vector<uint8_t> &data)
+    : CanMessage{std::move(generateCANProtocolMessages(data))} {}
 
 std::vector<PASSTHRU_MSG>
 D2Message::toPassThruMsgs(unsigned long ProtocolID,
                               unsigned long Flags) const {
   std::vector<PASSTHRU_MSG> result;
-  for(size_t i = 0; i < _data.size(); ++i) {
-      result.emplace_back(std::move(::toPassThruMsg(_data[i].data(), _data[i].size(), ProtocolID, Flags)));
+  for(size_t i = 0; i < data().size(); ++i) {
+      result.emplace_back(std::move(::toPassThruMsg(data()[i].data(), data()[i].size(), ProtocolID, Flags)));
   }
   return result;
 }

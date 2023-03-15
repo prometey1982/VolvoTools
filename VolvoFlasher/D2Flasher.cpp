@@ -75,7 +75,7 @@ void D2Flasher::canWakeUp(unsigned long baudrate) {
   const unsigned long flags = CAN_29BIT_ID;
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
   _channel2 =
-      common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+      common::openChannel(_j2534, protocolId, CAN_29BIT_ID, 125000);
   canWakeUp(protocolId, flags);
   cleanErrors(protocolId, flags);
 }
@@ -94,7 +94,8 @@ void D2Flasher::unregisterCallback(FlasherCallback &callback) {
 void D2Flasher::flash(CMType cmType, unsigned long baudrate,
                     const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
-  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long protocolId = CAN;
+//  const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
   openChannels(baudrate, true);
@@ -135,14 +136,15 @@ size_t D2Flasher::getMaximumProgress() const {
 
 void D2Flasher::openChannels(unsigned long baudrate,
                            bool additionalConfiguration) {
-  //    const unsigned long protocolId = CAN_XON_XOFF;
-  const unsigned long protocolId = CAN;
+  //const unsigned long protocolId = CAN_XON_XOFF;
+    const unsigned long protocolId = CAN;
+  //  const unsigned long protocolId = CAN_PS;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate,
                                   additionalConfiguration);
-  _channel2 = common::openChannel(_j2534, CAN_CH1, flags, 125000);
-  //  common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+  _channel2 = common::openChannel(_j2534, CAN_PS, flags, 125000);
+//    _channel2 = common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 }
@@ -215,7 +217,7 @@ void D2Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   if (_channel2) {
     _channel2->startPeriodicMsg(
         common::D2Messages::goToSleepCanRequest.toPassThruMsgs(
-            protocolId, CAN_29BIT_CHANNEL2)[0],
+            CAN_PS/*protocolId*/, CAN_29BIT_ID)[0],
         channel2MsgId, 5);
   }
   std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -232,7 +234,7 @@ void D2Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
       numMsgs, 5000);
   if (_channel2) {
     _channel2->writeMsgs(common::D2Messages::wakeUpCanRequest.toPassThruMsgs(
-                             protocolId, CAN_29BIT_CHANNEL2),
+                             CAN_PS, CAN_29BIT_ID),
                          numMsgs, 5000);
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -244,7 +246,7 @@ void D2Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
 
     _channel2->writeMsgs(
         common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min)
-            .toPassThruMsgs(protocolId, CAN_29BIT_CHANNEL2),
+            .toPassThruMsgs(CAN_PS, CAN_29BIT_ID),
         numMsgs, 5000);
   }
 }
@@ -259,7 +261,7 @@ void D2Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
         numMsgs);
     _channel2->writeMsgs(
         common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(
-            protocolId, CAN_29BIT_CHANNEL2),
+            CAN_PS, CAN_29BIT_ID),
         numMsgs);
   }
 }

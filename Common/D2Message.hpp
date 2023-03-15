@@ -1,10 +1,6 @@
 #pragma once
 
-#include <array>
-#include <cstdint>
-#include <vector>
-
-#include "../j2534/J2534_v0404.h"
+#include "CanMessage.hpp"
 
 namespace common {
 
@@ -38,11 +34,8 @@ enum class ECUType : uint8_t {
   TRM = 0x23,
 };
 
-class D2Message {
+class D2Message: public CanMessage {
 public:
-  static constexpr size_t CanPayloadSize = 8;
-  using DataType = std::array<uint8_t, CanPayloadSize>;
-
   static ECUType getECUType(const uint8_t *const buffer);
   static ECUType getECUType(const std::vector<uint8_t> &buffer);
   static D2Message makeD2Message(ECUType ecuType,
@@ -53,16 +46,11 @@ public:
     return D2Message(request);
   }
 
-  explicit D2Message(const std::vector<uint8_t> &data);
   explicit D2Message(const std::vector<DataType> &data);
+  explicit D2Message(const std::vector<uint8_t> &data);
 
-//  std::vector<uint8_t> data() const;
-
-  std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
-                                           unsigned long Flags) const;
-
-private:
-  const std::vector<DataType> _data;
+  virtual std::vector<PASSTHRU_MSG> toPassThruMsgs(unsigned long ProtocolID,
+                                           unsigned long Flags) const override;
 };
 
 } // namespace common

@@ -40,14 +40,24 @@ std::string fromPlatformString(const std::string &str) { return str; }
 using namespace m4x1m1l14n::Registry;
 
 static bool processRegistry(const std::string &keyName,
-                            std::string &libraryPath, std::string &deviceName) {
-  const auto key = LocalMachine->Open(toPlatformString(keyName));
+                            std::string &libraryPath, std::vector<std::string> &deviceNames) {
+  const auto platformKeyName = toPlatformString(keyName);
+  const auto key = LocalMachine->Open(platformKeyName);
   try {
     auto localLibraryPath =
         fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
     if (!localLibraryPath.empty()) {
       libraryPath = localLibraryPath;
-      deviceName = fromPlatformString(key->GetString(TEXT("Name")));
+      key->EnumerateSubKeys([&deviceNames, &platformKeyName](const auto & deviceKeyName) {
+          const auto key = LocalMachine->Open(platformKeyName + toPlatformString("\\") + deviceKeyName);
+          const auto deviceName = fromPlatformString(key->GetString(TEXT("Name")));
+          deviceNames.push_back(deviceName);
+          return true;
+      });
+      if(deviceNames.empty()) {
+          const auto deviceName = fromPlatformString(key->GetString(TEXT("Name")));
+          deviceNames.push_back(deviceName);
+      }
     }
   } catch (...) {
     return false;
@@ -55,20 +65,24 @@ static bool processRegistry(const std::string &keyName,
   return !libraryPath.empty();
 }
 
-std::vector<std::pair<std::string, std::string>> getLibraryParams() {
-  std::string libraryPath = "C:\\Program Files (x86)\\DiCE\\Tools\\TSDiCE32.dll";
-  std::string deviceName = "DiCE-206751";
-  std::vector<std::pair<std::string, std::string>> result;
-  result.push_back({libraryPath, deviceName});
+std::vector<j2534::DeviceInfo> getAvailableDevices() {
+  std::vector<j2534::DeviceInfo> result;
 #if 0
+  result.push_back({"C:\\Program Files (x86)\\DiCE\\Tools\\TSDiCE32.dll", "DiCE-206751"});
+#else
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
   const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
-  key->EnumerateSubKeys([&rootKeyName, &libraryPath,
-                         &deviceName, &result](const auto &subKeyName) {
+  key->EnumerateSubKeys([&rootKeyName,
+                         &result](const auto &subKeyName) {
+    std::string libraryPath;
+    std::vector<std::string> deviceNames;
     auto res = processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
-                           libraryPath, deviceName);
-    if(res)
-        result.push_back({libraryPath, deviceName});
+                           libraryPath, deviceNames);
+    if(res) {
+        for(const auto& deviceName: deviceNames) {
+          result.push_back({libraryPath, deviceName});
+        }
+    }
     return res;
   });
 #endif
@@ -130,19 +144,19 @@ openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
             unsigned long Baudrate, bool AdditionalConfiguration) {
   auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
                                                      Baudrate)};
-  const auto number_of_params = 3;// ProtocolID == CAN_PS ? 4 : 3;
-  std::vector<SCONFIG> config(number_of_params);
+  if(ProtocolID == CAN_PS) {
+      std::vector<SCONFIG> config(1);
+      config[0].Parameter = J1962_PINS;
+      config[0].Value = 0x030B;
+      channel->setConfig(config);
+  }
+  std::vector<SCONFIG> config(3);
   config[0].Parameter = DATA_RATE;
   config[0].Value = Baudrate;
   config[1].Parameter = LOOPBACK;
   config[1].Value = 0;
   config[2].Parameter = BIT_SAMPLE_POINT;
   config[2].Value = (Baudrate == 500000 ? 80 : 68);
-//  if(number_of_params == 4)
-//  {
-//      config[3].Parameter = J1962_PINS;
-//      config[3].Value = 0x030B;
-//  }
   channel->setConfig(config);
 
   PASSTHRU_MSG msgFilter =
