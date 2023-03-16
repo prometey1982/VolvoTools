@@ -100,7 +100,10 @@ int main(int argc, const char *argv[]) {
             FlasherCallback callback;
             flasher::D2Flasher flasher(*j2534);
             flasher.registerCallback(callback);
-            flasher.flash(flasher::CMType::ECM_ME7, baudrate, bin);
+            const flasher::CMType cmType = bin.size() == 2048 * 1024
+                                               ? flasher::CMType::ECM_ME9
+                                               : flasher::CMType::ECM_ME7;
+            flasher.flash(cmType, baudrate, bin);
             while (flasher.getState() ==
                    flasher::D2Flasher::State::InProgress) {
               std::this_thread::sleep_for(std::chrono::seconds(1));
