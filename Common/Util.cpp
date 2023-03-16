@@ -40,7 +40,8 @@ std::string fromPlatformString(const std::string &str) { return str; }
 using namespace m4x1m1l14n::Registry;
 
 static bool processRegistry(const std::string &keyName,
-                            std::string &libraryPath, std::vector<std::string> &deviceNames) {
+                            std::string &libraryPath,
+                            std::vector<std::string> &deviceNames) {
   const auto platformKeyName = toPlatformString(keyName);
   const auto key = LocalMachine->Open(platformKeyName);
   try {
@@ -48,15 +49,19 @@ static bool processRegistry(const std::string &keyName,
         fromPlatformString(key->GetString(TEXT("FunctionLibrary")));
     if (!localLibraryPath.empty()) {
       libraryPath = localLibraryPath;
-      key->EnumerateSubKeys([&deviceNames, &platformKeyName](const auto & deviceKeyName) {
-          const auto key = LocalMachine->Open(platformKeyName + toPlatformString("\\") + deviceKeyName);
-          const auto deviceName = fromPlatformString(key->GetString(TEXT("Name")));
-          deviceNames.push_back(deviceName);
-          return true;
-      });
-      if(deviceNames.empty()) {
-          const auto deviceName = fromPlatformString(key->GetString(TEXT("Name")));
-          deviceNames.push_back(deviceName);
+      key->EnumerateSubKeys(
+          [&deviceNames, &platformKeyName](const auto &deviceKeyName) {
+            const auto key = LocalMachine->Open(
+                platformKeyName + toPlatformString("\\") + deviceKeyName);
+            const auto deviceName =
+                fromPlatformString(key->GetString(TEXT("Name")));
+            deviceNames.push_back(deviceName);
+            return true;
+          });
+      if (deviceNames.empty()) {
+        const auto deviceName =
+            fromPlatformString(key->GetString(TEXT("Name")));
+        deviceNames.push_back(deviceName);
       }
     }
   } catch (...) {
@@ -72,16 +77,16 @@ std::vector<j2534::DeviceInfo> getAvailableDevices() {
 #else
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
   const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
-  key->EnumerateSubKeys([&rootKeyName,
-                         &result](const auto &subKeyName) {
+  key->EnumerateSubKeys([&rootKeyName, &result](const auto &subKeyName) {
     std::string libraryPath;
     std::vector<std::string> deviceNames;
-    auto res = processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
-                           libraryPath, deviceNames);
-    if(res) {
-        for(const auto& deviceName: deviceNames) {
-          result.push_back({libraryPath, deviceName});
-        }
+    auto res =
+        processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
+                        libraryPath, deviceNames);
+    if (res) {
+      for (const auto &deviceName : deviceNames) {
+        result.push_back({libraryPath, deviceName});
+      }
     }
     return res;
   });
@@ -167,46 +172,45 @@ openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
   return std::move(channel);
 }
 
-std::unique_ptr<j2534::J2534Channel>
-openLowSpeedChannel(j2534::J2534 &j2534, unsigned long Flags) {
+std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534 &j2534,
+                                                         unsigned long Flags) {
 
   const auto Baudrate = 125000;
   const std::vector<unsigned long> SupportedProtocols = {CAN_XON_XOFF, CAN_PS};
   std::unique_ptr<j2534::J2534Channel> channel;
 
-  for(const auto& ProtocolID: SupportedProtocols) {
-      auto LocalFlags = Flags;
-      if(ProtocolID == CAN_XON_XOFF)
-          LocalFlags |= PHYSICAL_CHANNEL;
-      try {
-        channel = std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, LocalFlags,
-                                                         Baudrate, Flags);
-      }
-    catch(...)
-    {
-        continue;
+  for (const auto &ProtocolID : SupportedProtocols) {
+    auto LocalFlags = Flags;
+    if (ProtocolID == CAN_XON_XOFF)
+      LocalFlags |= PHYSICAL_CHANNEL;
+    try {
+      channel = std::make_unique<j2534::J2534Channel>(
+          j2534, ProtocolID, LocalFlags, Baudrate, Flags);
+    } catch (...) {
+      continue;
     }
 
-      if(ProtocolID == CAN_PS) {
-          std::vector<SCONFIG> config(1);
-          config[0].Parameter = J1962_PINS;
-          config[0].Value = 0x030B;
-          channel->setConfig(config);
-      }
-      std::vector<SCONFIG> config(3);
-      config[0].Parameter = DATA_RATE;
-      config[0].Value = Baudrate;
-      config[1].Parameter = LOOPBACK;
-      config[1].Value = 0;
-      config[2].Parameter = BIT_SAMPLE_POINT;
-      config[2].Value = (Baudrate == 500000 ? 80 : 68);
+    if (ProtocolID == CAN_PS) {
+      std::vector<SCONFIG> config(1);
+      config[0].Parameter = J1962_PINS;
+      config[0].Value = 0x030B;
       channel->setConfig(config);
+    }
+    std::vector<SCONFIG> config(3);
+    config[0].Parameter = DATA_RATE;
+    config[0].Value = Baudrate;
+    config[1].Parameter = LOOPBACK;
+    config[1].Value = 0;
+    config[2].Parameter = BIT_SAMPLE_POINT;
+    config[2].Value = (Baudrate == 500000 ? 80 : 68);
+    channel->setConfig(config);
 
-      PASSTHRU_MSG msgFilter =
-          makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
-      unsigned long msgId;
-      channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-      return std::move(channel);
+    PASSTHRU_MSG msgFilter =
+        makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
+    unsigned long msgId;
+    channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr,
+                            msgId);
+    return std::move(channel);
   }
   return {};
 }
@@ -214,8 +218,8 @@ openLowSpeedChannel(j2534::J2534 &j2534, unsigned long Flags) {
 std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534) {
   const unsigned long ProtocolId = ISO9141;
   const unsigned long Flags = ISO9141_K_LINE_ONLY;
-  auto channel{
-      std::make_unique<j2534::J2534Channel>(j2534, ProtocolId, Flags, 10400, Flags)};
+  auto channel{std::make_unique<j2534::J2534Channel>(j2534, ProtocolId, Flags,
+                                                     10400, Flags)};
   std::vector<SCONFIG> config(4);
   config[0].Parameter = PARITY;
   config[0].Value = 0;
@@ -235,45 +239,44 @@ std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534) {
   return std::move(channel);
 }
 
-std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel, size_t queryLength) {
-    const size_t MaxErrorCount = 10;
-    size_t errorCount = 0;
-    std::vector<uint8_t> result;
-    for(bool inSeries = false, firstRun = true;inSeries || firstRun; firstRun = false) {
-        std::vector<PASSTHRU_MSG> msgs(1);
-        if (channel.readMsgs(msgs) != STATUS_NOERROR) {
-            ++errorCount;
-        }
-        if (errorCount >= MaxErrorCount) {
-            throw std::runtime_error("Reading ECU failed");
-        }
-        for(const auto& msg: msgs) {
-            auto offset = 5u + queryLength;
-            auto count = 12u;
-            auto messageType = msg.Data[4];
-            if(messageType == 0x8f) { // begin of the series
-                inSeries = true;
-                count = count > offset ? count - offset : 0;
-            }
-            else if(messageType == 0x09) { // second message
-                offset = 5;
-                count = 7;
-            }
-            else if((messageType & 0x40) == 0) { // in the middle
-                offset = 5;
-                count = 7;
-            }
-            else { // end of the series
-                offset = 5;
-                count = messageType - 0x48;
-                inSeries = false;
-            }
-            for(unsigned long j = 0; j < count; ++j) {
-                result.push_back(msg.Data[offset + j]);
-            }
-        }
+std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel,
+                                         size_t queryLength) {
+  const size_t MaxErrorCount = 10;
+  size_t errorCount = 0;
+  std::vector<uint8_t> result;
+  for (bool inSeries = false, firstRun = true; inSeries || firstRun;
+       firstRun = false) {
+    std::vector<PASSTHRU_MSG> msgs(1);
+    if (channel.readMsgs(msgs) != STATUS_NOERROR) {
+      ++errorCount;
     }
-    return result;
+    if (errorCount >= MaxErrorCount) {
+      throw std::runtime_error("Reading ECU failed");
+    }
+    for (const auto &msg : msgs) {
+      auto offset = 5u + queryLength;
+      auto count = 12u;
+      auto messageType = msg.Data[4];
+      if (messageType == 0x8f) { // begin of the series
+        inSeries = true;
+        count = count > offset ? count - offset : 0;
+      } else if (messageType == 0x09) { // second message
+        offset = 5;
+        count = 7;
+      } else if ((messageType & 0x40) == 0) { // in the middle
+        offset = 5;
+        count = 7;
+      } else { // end of the series
+        offset = 5;
+        count = messageType - 0x48;
+        inSeries = false;
+      }
+      for (unsigned long j = 0; j < count; ++j) {
+        result.push_back(msg.Data[offset + j]);
+      }
+    }
+  }
+  return result;
 }
 
 } // namespace common

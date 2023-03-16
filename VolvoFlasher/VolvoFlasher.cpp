@@ -15,7 +15,7 @@ bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
   using namespace boost::program_options;
   options_description descr;
   descr.add_options()("device,d", value<std::string>()->default_value(""),
-      "Device name")(
+                      "Device name")(
       "baudrate,b", value<unsigned long>()->default_value(500000),
       "CAN bus speed")("flash,f", value<std::string>(),
                        "Path to flash BIN")("wakeup,w", "Wake up CAN network");
@@ -76,8 +76,8 @@ int main(int argc, const char *argv[]) {
   std::string deviceName;
   std::string flashPath;
   bool wakeup = false;
+  const auto devices = common::getAvailableDevices();
   if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, wakeup)) {
-    const auto devices = common::getAvailableDevices();
     for (const auto &device : devices) {
       if (deviceName.empty() ||
           device.deviceName.find(deviceName) != std::string::npos) {
@@ -122,6 +122,12 @@ int main(int argc, const char *argv[]) {
         }
       }
     }
+  }
+  else {
+      std::cout << "Available J2534 devices:" << std::endl;
+      for (const auto& device : devices) {
+          std::cout << "    " << device.deviceName << std::endl;
+      }
   }
   return 0;
 }

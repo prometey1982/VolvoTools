@@ -16,33 +16,31 @@ namespace common {
 
 /*static*/ D2Message D2Messages::createSetMemoryAddrMsg(common::ECUType ecuType,
                                                         uint32_t addr) {
-    const uint8_t byte1 = (addr & 0xFF000000) >> 24;
-    const uint8_t byte2 = (addr & 0xFF0000) >> 16;
-    const uint8_t byte3 = (addr & 0xFF00) >> 8;
-    const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2RawMessage(ecuType, {0x9C, byte1, byte2,
-                                  byte3, byte4});
+  const uint8_t byte1 = (addr & 0xFF000000) >> 24;
+  const uint8_t byte2 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte3 = (addr & 0xFF00) >> 8;
+  const uint8_t byte4 = (addr & 0xFF);
+  return D2Message::makeD2RawMessage(ecuType,
+                                     {0x9C, byte1, byte2, byte3, byte4});
 }
 
 /*static*/ D2Message
-D2Messages::createCalculateChecksumMsg(common::ECUType ecuType,
-                                       uint32_t addr) {
-    const uint8_t byte1 = (addr & 0xFF000000) >> 24;
-    const uint8_t byte2 = (addr & 0xFF0000) >> 16;
-    const uint8_t byte3 = (addr & 0xFF00) >> 8;
-    const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2RawMessage(ecuType, {0xB4, byte1, byte2,
-                                  byte3, byte4});
+D2Messages::createCalculateChecksumMsg(common::ECUType ecuType, uint32_t addr) {
+  const uint8_t byte1 = (addr & 0xFF000000) >> 24;
+  const uint8_t byte2 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte3 = (addr & 0xFF00) >> 8;
+  const uint8_t byte4 = (addr & 0xFF);
+  return D2Message::makeD2RawMessage(ecuType,
+                                     {0xB4, byte1, byte2, byte3, byte4});
 }
 
 /*static*/ D2Message D2Messages::createReadOffsetMsg2(common::ECUType ecuType,
                                                       uint32_t addr) {
-    const uint8_t byte1 = (addr & 0xFF000000) >> 24;
-    const uint8_t byte2 = (addr & 0xFF0000) >> 16;
-    const uint8_t byte3 = (addr & 0xFF00) >> 8;
-    const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2Message(ecuType, 0xBC, byte1, byte2,
-                                  byte3, byte4);
+  const uint8_t byte1 = (addr & 0xFF000000) >> 24;
+  const uint8_t byte2 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte3 = (addr & 0xFF00) >> 8;
+  const uint8_t byte4 = (addr & 0xFF);
+  return D2Message::makeD2Message(ecuType, 0xBC, byte1, byte2, byte3, byte4);
 }
 
 /*static*/ D2Message
@@ -57,12 +55,12 @@ D2Messages::createReadDataByOffsetMsg(common::ECUType ecuType, uint32_t addr,
 /*static*/ D2Message
 D2Messages::createReadDataByAddrMsg(common::ECUType ecuType, uint32_t addr,
                                     uint8_t size) {
-    const uint8_t byte1 = (addr & 0xFF000000) >> 24;
-    const uint8_t byte2 = (addr & 0xFF0000) >> 16;
-    const uint8_t byte3 = (addr & 0xFF00) >> 8;
-    const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2Message(ecuType, 0xB4, 21, 34, byte1, byte2,
-                                  byte3, byte4, size);
+  const uint8_t byte1 = (addr & 0xFF000000) >> 24;
+  const uint8_t byte2 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte3 = (addr & 0xFF00) >> 8;
+  const uint8_t byte4 = (addr & 0xFF);
+  return D2Message::makeD2Message(ecuType, 0xB4, 21, 34, byte1, byte2, byte3,
+                                  byte4, size);
 }
 
 /*static*/ std::vector<D2Message>
@@ -75,7 +73,7 @@ D2Messages::createWriteDataMsgs(common::ECUType ecuType,
 D2Messages::createWriteDataMsgs(common::ECUType ecuType,
                                 const std::vector<uint8_t> &bin,
                                 size_t beginOffset, size_t endOffset) {
-  const auto MaxMessagesPerMessage = 1000;
+  const auto MaxMessagesPerMessage = 10;
   std::vector<D2Message> result;
   std::vector<D2Message::DataType> resultPayload;
   const size_t chunkSize = 6u;
@@ -86,14 +84,20 @@ D2Messages::createWriteDataMsgs(common::ECUType ecuType,
     uint8_t command = 0xA8 + static_cast<uint8_t>(payloadSize);
     payload[0] = static_cast<uint8_t>(ecuType);
     payload[1] = command;
-    std::copy(bin.begin() + i, bin.begin() + i + payloadSize, payload.begin() + 2);
+    std::copy(bin.begin() + i, bin.begin() + i + payloadSize,
+              payload.begin() + 2);
     resultPayload.emplace_back(std::move(payload));
-    if(resultPayload.size() >= MaxMessagesPerMessage) {
-        result.emplace_back(D2Message(std::move(resultPayload)));
-        resultPayload.clear();
+    if (resultPayload.size() >= MaxMessagesPerMessage) {
+      result.emplace_back(D2Message(std::move(resultPayload)));
+      resultPayload.clear();
     }
   }
-  if(!resultPayload.empty())
+  D2Message::DataType payload;
+  memset(payload.data(), 0, payload.size());
+  payload[0] = static_cast<uint8_t>(ecuType);
+  payload[1] = 0xA8;
+  resultPayload.emplace_back(std::move(payload));
+  if (!resultPayload.empty())
     result.emplace_back(D2Message(std::move(resultPayload)));
   return result;
 }
@@ -143,8 +147,8 @@ D2Messages::createStartPrimaryBootloaderMsg(common::ECUType ecuType) {
                                                  uint8_t data1, uint8_t data2,
                                                  uint8_t data3, uint8_t data4,
                                                  uint8_t data5, uint8_t data6) {
-  return common::D2Message::makeD2RawMessage(ecuType, {0xA0, data1, data2, data3,
-                                          data4, data5, data6});
+  return common::D2Message::makeD2RawMessage(
+      ecuType, {0xA0, data1, data2, data3, data4, data5, data6});
 }
 
 /*static*/ D2Message D2Messages::createEraseMsg(common::ECUType ecuType) {

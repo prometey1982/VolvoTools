@@ -335,6 +335,7 @@ void D2Flasher::writeChunk(common::ECUType ecuType,
                            uint32_t beginOffset, uint32_t endOffset,
                            unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing chunk");
+  auto storedProgress = getCurrentProgress();
   auto binMsgs = common::D2Messages::createWriteDataMsgs(
       ecuType, bin, beginOffset, endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
@@ -346,6 +347,8 @@ void D2Flasher::writeChunk(common::ECUType ecuType,
     if (error != STATUS_NOERROR) {
       throw std::runtime_error("write msgs error");
     }
+    storedProgress += 6 * passThruMsgs.size();
+    setCurrentProgress(storedProgress);
   }
   setCurrentProgress(endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);

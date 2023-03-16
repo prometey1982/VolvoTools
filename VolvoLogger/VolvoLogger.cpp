@@ -90,9 +90,9 @@ int main(int argc, const char *argv[]) {
   std::string paramsFilePath;
   std::string outputPath;
   unsigned printCount;
+  const auto devices = common::getAvailableDevices();
   if (getRunOptions(argc, argv, deviceName, baudrate, paramsFilePath,
                     outputPath, printCount)) {
-    const auto devices = common::getAvailableDevices();
     for (const auto &device : devices) {
       if (deviceName.empty() ||
           device.deviceName.find(deviceName) != std::string::npos) {
@@ -101,8 +101,8 @@ int main(int argc, const char *argv[]) {
               std::make_unique<j2534::J2534>(device.libraryName)};
           std::string name =
               device.deviceName.find("DiCE-") != std::string::npos
-              ? device.deviceName
-              : "";
+                  ? device.deviceName
+                  : "";
           j2534->PassThruOpen(name);
           logger::LogParameters params{paramsFilePath};
           logger::FileLogWriter fileLogWriter(outputPath, params);
@@ -122,6 +122,11 @@ int main(int argc, const char *argv[]) {
           std::cout << "exception" << std::endl;
         }
       }
+    }
+  } else {
+    std::cout << "Available J2534 devices:" << std::endl;
+    for (const auto &device : devices) {
+      std::cout << "    " << device.deviceName << std::endl;
     }
   }
   return 0;

@@ -181,7 +181,6 @@ void Logger::start(unsigned long baudrate, const LogParameters &parameters) {
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  //		_channel2 = openChannel(protocolId, flags | 0x20000000, 125000);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 
@@ -211,7 +210,6 @@ void Logger::stop() {
     _callbackThread.join();
 
   _channel1.reset();
-  //		_channel2.reset();
   _channel3.reset();
 }
 
