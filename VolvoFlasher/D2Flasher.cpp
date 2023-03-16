@@ -19,8 +19,8 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
     throw std::runtime_error("write msgs error");
   }
   std::vector<PASSTHRU_MSG> received_msgs(1);
-  for (size_t i = 0; i < 50; ++i) {
-    channel.readMsgs(received_msgs, 10000);
+  for (size_t i = 0; i < 10; ++i) {
+    channel.readMsgs(received_msgs, 3000);
     for (const auto &msg : received_msgs) {
       if (msg.Data[5] == toCheck) {
         return true;
@@ -37,9 +37,9 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
   if (error != STATUS_NOERROR) {
     throw std::runtime_error("write msgs error");
   }
-  for (int i = 0; i < 50; ++i) {
+  for (int i = 0; i < 10; ++i) {
     std::vector<PASSTHRU_MSG> received_msgs(1);
-    channel.readMsgs(received_msgs, 10000);
+    channel.readMsgs(received_msgs, 3000);
     for (const auto &read : received_msgs) {
       if (read.Data[5] == toCheck5 && read.Data[6] == toCheck6) {
         return true;
@@ -71,12 +71,12 @@ D2Flasher::D2Flasher(j2534::J2534 &j2534)
 D2Flasher::~D2Flasher() { stop(); }
 
 void D2Flasher::canWakeUp(unsigned long baudrate) {
-  const unsigned long protocolId = CAN_XON_XOFF;
+  const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  _channel2 = common::openChannel(_j2534, protocolId, CAN_29BIT_ID, 125000);
-  canWakeUp(protocolId, flags);
-  cleanErrors(protocolId, flags);
+  _channel2 = common::openLowSpeedChannel(_j2534, flags);
+  canWakeUp();
+  cleanErrors();
 }
 
 void D2Flasher::registerCallback(FlasherCallback &callback) {
@@ -226,15 +226,11 @@ void D2Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   _channel1->stopPeriodicMsg(channel1MsgId);
 }
 
-void D2Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
+void D2Flasher::canWakeUp() {
   unsigned long numMsgs = 1;
-  _channel1->writeMsgs(
-      common::D2Messages::wakeUpCanRequest.toPassThruMsgs(protocolId, flags),
-      numMsgs, 5000);
+  _channel1->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
   if (_channel2) {
-    _channel2->writeMsgs(common::D2Messages::wakeUpCanRequest.toPassThruMsgs(
-                             CAN_PS, CAN_29BIT_ID),
-                         numMsgs, 5000);
+    _channel2->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
@@ -244,24 +240,17 @@ void D2Flasher::canWakeUp(unsigned long protocolId, unsigned long flags) {
     localtime_s(&lt, &time_t);
 
     _channel2->writeMsgs(
-        common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min)
-            .toPassThruMsgs(CAN_PS, CAN_29BIT_ID),
-        numMsgs, 5000);
+        common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min), numMsgs,
+        5000);
   }
 }
 
-void D2Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
+void D2Flasher::cleanErrors() {
   for (const auto ecuType :
        {common::ECUType::ECM_ME, common::ECUType::TCM, common::ECUType::SRS}) {
     unsigned long numMsgs = 1;
-    _channel1->writeMsgs(
-        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(protocolId,
-                                                                 flags),
-        numMsgs);
-    _channel2->writeMsgs(
-        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(CAN_PS,
-                                                                 CAN_29BIT_ID),
-        numMsgs);
+    _channel1->writeMsgs(common::D2Messages::clearDTCMsgs(ecuType), numMsgs);
+    _channel2->writeMsgs(common::D2Messages::clearDTCMsgs(ecuType), numMsgs);
   }
 }
 void D2Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
@@ -420,10 +409,10 @@ void D2Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
       writeFlashTCM(bin, protocolId, flags);
       break;
     }
-    canWakeUp(protocolId, flags);
+    canWakeUp();
     setState(State::Done);
   } catch (std::exception &ex) {
-    canWakeUp(protocolId, flags);
+    canWakeUp();
     messageToCallbacks(ex.what());
     setState(State::Error);
   }

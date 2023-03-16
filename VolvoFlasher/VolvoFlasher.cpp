@@ -122,12 +122,11 @@ int main(int argc, const char *argv[]) {
         }
       }
     }
-  }
-  else {
-      std::cout << "Available J2534 devices:" << std::endl;
-      for (const auto& device : devices) {
-          std::cout << "    " << device.deviceName << std::endl;
-      }
+  } else {
+    std::cout << "Available J2534 devices:" << std::endl;
+    for (const auto &device : devices) {
+      std::cout << "    " << device.deviceName << std::endl;
+    }
   }
   return 0;
 }

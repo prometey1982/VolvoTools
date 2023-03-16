@@ -71,7 +71,7 @@ protected:
 
   void selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
                                 unsigned long flags);
-  void canWakeUp(unsigned long protocolId, unsigned long flags);
+  void canWakeUp();
 
   void setState(State newState);
 
@@ -84,7 +84,7 @@ protected:
 
 private:
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
-  void cleanErrors(unsigned long protocolId, unsigned long flags);
+  void cleanErrors();
 
   void writeStartPrimaryBootloaderMsgAndCheckAnswer(common::ECUType ecuType,
                                                     unsigned long protocolId,
