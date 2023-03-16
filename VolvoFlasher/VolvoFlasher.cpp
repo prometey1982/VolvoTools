@@ -8,12 +8,14 @@
 #include <iostream>
 #include <iterator>
 
-bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
-                   std::string &flashPath, bool &wakeup) {
+bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
+                   unsigned long &baudrate, std::string &flashPath,
+                   bool &wakeup) {
   wakeup = false;
   using namespace boost::program_options;
   options_description descr;
-  descr.add_options()(
+  descr.add_options()("device,d", value<std::string>()->default_value(""),
+      "Device name")(
       "baudrate,b", value<unsigned long>()->default_value(500000),
       "CAN bus speed")("flash,f", value<std::string>(),
                        "Path to flash BIN")("wakeup,w", "Wake up CAN network");
@@ -22,10 +24,12 @@ bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
   variables_map vm;
   store(parser.run(), vm);
   if (vm.count("wakeup")) {
+    deviceName = vm["device"].as<std::string>();
     baudrate = vm["baudrate"].as<unsigned long>();
     wakeup = true;
     return true;
   } else if (vm.count("flash")) {
+    deviceName = vm["device"].as<std::string>();
     baudrate = vm["baudrate"].as<unsigned long>();
     flashPath = vm["flash"].as<std::string>();
     return true;
@@ -53,12 +57,14 @@ public:
 
 void writeBinToFile(const std::vector<uint8_t> &bin, const std::string &path) {
   std::fstream out(path, std::ios::out | std::ios::binary);
-  const auto msg =
+  const auto msgs =
       common::D2Messages::createWriteDataMsgs(common::ECUType::ECM_ME, bin);
-  const auto passThruMsgs = msg.toPassThruMsgs(123, 456);
-  for (const auto &msg : passThruMsgs) {
-    for (size_t i = 0; i < msg.DataSize; ++i)
-      out << msg.Data[i];
+  for (const auto &msg : msgs) {
+    auto passThruMsgs = msg.toPassThruMsgs(123, 456);
+    for (const auto &msg : passThruMsgs) {
+      for (size_t i = 0; i < msg.DataSize; ++i)
+        out << msg.Data[i];
+    }
   }
 }
 
@@ -67,17 +73,23 @@ int main(int argc, const char *argv[]) {
     throw std::runtime_error("Can't set console control hander");
   }
   unsigned long baudrate = 0;
+  std::string deviceName;
   std::string flashPath;
   bool wakeup = false;
-  if (getRunOptions(argc, argv, baudrate, flashPath, wakeup)) {
-    const auto libraryParams{common::getLibraryParams()};
-    for (const auto &params : libraryParams) {
-      if (!params.first.empty()) {
+  if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, wakeup)) {
+    const auto devices = common::getAvailableDevices();
+    for (const auto &device : devices) {
+      if (deviceName.empty() ||
+          device.deviceName.find(deviceName) != std::string::npos) {
         try {
+          std::string name =
+              device.deviceName.find("DiCE-") != std::string::npos
+                  ? device.deviceName
+                  : "";
+          std::unique_ptr<j2534::J2534> j2534{
+              std::make_unique<j2534::J2534>(device.libraryName)};
+          j2534->PassThruOpen(name);
           if (wakeup) {
-            std::unique_ptr<j2534::J2534> j2534{
-                std::make_unique<j2534::J2534>(params.first)};
-            j2534->PassThruOpen(params.second);
             flasher::D2Flasher flasher(*j2534);
             flasher.canWakeUp(baudrate);
           } else {
@@ -85,9 +97,6 @@ int main(int argc, const char *argv[]) {
                                std::ios_base::binary | std::ios_base::in);
             std::vector<uint8_t> bin{std::istreambuf_iterator<char>(input), {}};
 
-            std::unique_ptr<j2534::J2534> j2534{
-                std::make_unique<j2534::J2534>(params.first)};
-            j2534->PassThruOpen(params.second);
             FlasherCallback callback;
             flasher::D2Flasher flasher(*j2534);
             flasher.registerCallback(callback);

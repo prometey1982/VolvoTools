@@ -74,8 +74,7 @@ void D2Flasher::canWakeUp(unsigned long baudrate) {
   const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-  _channel2 =
-      common::openChannel(_j2534, protocolId, CAN_29BIT_ID, 125000);
+  _channel2 = common::openChannel(_j2534, protocolId, CAN_29BIT_ID, 125000);
   canWakeUp(protocolId, flags);
   cleanErrors(protocolId, flags);
 }
@@ -92,10 +91,10 @@ void D2Flasher::unregisterCallback(FlasherCallback &callback) {
 }
 
 void D2Flasher::flash(CMType cmType, unsigned long baudrate,
-                    const std::vector<uint8_t> &bin) {
+                      const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
   const unsigned long protocolId = CAN;
-//  const unsigned long protocolId = CAN_XON_XOFF;
+  //  const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
   openChannels(baudrate, true);
@@ -135,16 +134,15 @@ size_t D2Flasher::getMaximumProgress() const {
 }
 
 void D2Flasher::openChannels(unsigned long baudrate,
-                           bool additionalConfiguration) {
-  //const unsigned long protocolId = CAN_XON_XOFF;
-    const unsigned long protocolId = CAN;
+                             bool additionalConfiguration) {
+  // const unsigned long protocolId = CAN_XON_XOFF;
   //  const unsigned long protocolId = CAN_PS;
+  const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 
   _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate,
                                   additionalConfiguration);
-  _channel2 = common::openChannel(_j2534, CAN_PS, flags, 125000);
-//    _channel2 = common::openChannel(_j2534, protocolId, CAN_29BIT_CHANNEL2, 125000);
+  _channel2 = common::openLowSpeedChannel(_j2534, flags);
   if (baudrate != 500000)
     _channel3 = common::openBridgeChannel(_j2534);
 }
@@ -155,8 +153,9 @@ void D2Flasher::resetChannels() {
   _channel3.reset();
 }
 
-void D2Flasher::selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
-                                       unsigned long flags) {
+void D2Flasher::selectAndWriteBootloader(CMType cmType,
+                                         unsigned long protocolId,
+                                         unsigned long flags) {
   uint32_t bootloaderOffset = 0;
   common::ECUType ecuType = common::ECUType::ECM_ME;
 
@@ -217,7 +216,7 @@ void D2Flasher::canGoToSleep(unsigned long protocolId, unsigned long flags) {
   if (_channel2) {
     _channel2->startPeriodicMsg(
         common::D2Messages::goToSleepCanRequest.toPassThruMsgs(
-            CAN_PS/*protocolId*/, CAN_29BIT_ID)[0],
+            CAN_PS /*protocolId*/, CAN_29BIT_ID)[0],
         channel2MsgId, 5);
   }
   std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -260,8 +259,8 @@ void D2Flasher::cleanErrors(unsigned long protocolId, unsigned long flags) {
                                                                  flags),
         numMsgs);
     _channel2->writeMsgs(
-        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(
-            CAN_PS, CAN_29BIT_ID),
+        common::D2Messages::clearDTCMsgs(ecuType).toPassThruMsgs(CAN_PS,
+                                                                 CAN_29BIT_ID),
         numMsgs);
   }
 }
@@ -276,9 +275,9 @@ void D2Flasher::writeStartPrimaryBootloaderMsgAndCheckAnswer(
 }
 
 void D2Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
-                                            uint32_t writeOffset,
-                                            unsigned long protocolId,
-                                            unsigned long flags) {
+                                              uint32_t writeOffset,
+                                              unsigned long protocolId,
+                                              unsigned long flags) {
   const auto writeOffsetMsgs{
       common::D2Messages::createSetMemoryAddrMsg(ecuType, writeOffset)
           .toPassThruMsgs(protocolId, flags)};
@@ -291,19 +290,22 @@ void D2Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
 }
 
 void D2Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
-                       unsigned long protocolId, unsigned long flags) {
+                         unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing bootloader");
   for (size_t i = 0; i < bootloader.chunks.size(); ++i) {
     const auto &chunk = bootloader.chunks[i];
     auto bootloaderMsgs =
-        common::D2Messages::createWriteDataMsgs(ecuType, chunk.data)
-            .toPassThruMsgs(protocolId, flags);
-    unsigned long numMsgs = 1;
+        common::D2Messages::createWriteDataMsgs(ecuType, chunk.data);
     writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
                                   flags);
-    _channel1->writeMsgs(bootloaderMsgs, numMsgs, 240000);
-    if (numMsgs != bootloaderMsgs.size())
-      throw std::runtime_error("Bootloader writing failed");
+    for (auto message : bootloaderMsgs) {
+      const auto passThruMsgs = message.toPassThruMsgs(protocolId, flags);
+      unsigned long numMsgs = passThruMsgs.size();
+      _channel1->writeMsgs(passThruMsgs, numMsgs, 240000);
+      if (numMsgs != passThruMsgs.size())
+        throw std::runtime_error("Bootloader writing failed");
+    }
+    unsigned long numMsgs = 1;
     _channel1->writeMsgs(
         common::D2Messages::createSBLTransferCompleteMsg(ecuType)
             .toPassThruMsgs(protocolId, flags),
@@ -329,18 +331,18 @@ void D2Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
 }
 
 void D2Flasher::writeChunk(common::ECUType ecuType,
-                         const std::vector<uint8_t> &bin, uint32_t beginOffset,
-                         uint32_t endOffset, unsigned long protocolId,
-                         unsigned long flags) {
+                           const std::vector<uint8_t> &bin,
+                           uint32_t beginOffset, uint32_t endOffset,
+                           unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing chunk");
-  auto binMsgs = common::D2Messages::createWriteDataMsgs(ecuType, bin,
-                                                         beginOffset, endOffset)
-                     .toPassThruMsgs(protocolId, flags);
+  auto binMsgs = common::D2Messages::createWriteDataMsgs(
+      ecuType, bin, beginOffset, endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
-  for (size_t i = 0; i < binMsgs.size(); ++i) {
-    unsigned long msgsNum = 1;
+  for (const auto binMsg : binMsgs) {
     _channel1->clearRx();
-    const auto error = _channel1->writeMsgs({binMsgs[i]}, msgsNum, 50000);
+    const auto passThruMsgs = binMsg.toPassThruMsgs(protocolId, flags);
+    unsigned long msgsNum = passThruMsgs.size();
+    const auto error = _channel1->writeMsgs(passThruMsgs, msgsNum, 50000);
     if (error != STATUS_NOERROR) {
       throw std::runtime_error("write msgs error");
     }
@@ -357,8 +359,8 @@ void D2Flasher::writeChunk(common::ECUType ecuType,
 }
 
 void D2Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
-                          unsigned long protocolId, unsigned long flags,
-                          uint8_t toCheck) {
+                            unsigned long protocolId, unsigned long flags,
+                            uint8_t toCheck) {
   writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
@@ -369,7 +371,7 @@ void D2Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
 }
 
 void D2Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
-                            unsigned long protocolId, unsigned long flags) {
+                              unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
   eraseMemory(ecuType, 0x8000, protocolId, flags, 0xF9);
   std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -379,7 +381,7 @@ void D2Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
 }
 
 void D2Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
-                            unsigned long protocolId, unsigned long flags) {
+                              unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
   eraseMemory(ecuType, 0x20000, protocolId, flags, 0x0);
   writeChunk(ecuType, bin, 0x20000, 0x90000, protocolId, flags);
@@ -387,7 +389,7 @@ void D2Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
 }
 
 void D2Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
-                            unsigned long protocolId, unsigned long flags) {
+                              unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::TCM;
   const std::vector<uint32_t> chunks{0x8000,  0x10000, 0x20000,
                                      0x30000, 0x40000, 0x50000,
@@ -400,7 +402,7 @@ void D2Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
 }
 
 void D2Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
-                              unsigned long protocolId, unsigned long flags) {
+                                unsigned long protocolId, unsigned long flags) {
   try {
     selectAndWriteBootloader(cmType, protocolId, flags);
     switch (cmType) {

@@ -17,8 +17,8 @@ PASSTHRU_MSG toPassThruMsg(const uint8_t* Data, size_t DataSize,
   result.Timestamp = 0;
   result.ExtraDataIndex = 0;
   result.DataSize = DataSize + D2MessagePrefix.size();
-  std::copy(D2MessagePrefix.cbegin(), D2MessagePrefix.cend(), result.Data);
-  std::copy(Data, Data + DataSize, result.Data + D2MessagePrefix.size());
+  memcpy(result.Data, D2MessagePrefix.data(), D2MessagePrefix.size());
+  memcpy(result.Data + D2MessagePrefix.size(), Data, DataSize);
   return result;
 }
 
@@ -63,15 +63,27 @@ D2Message::getECUType(const std::vector<uint8_t> &buffer) {
 D2Message D2Message::makeD2Message(common::ECUType ecuType,
                                             std::vector<uint8_t> request) {
   const uint8_t payloadLength = 1 + static_cast<uint8_t>(request.size());
-//  const uint8_t requestLength =
-//      (payloadLength > 8 ? 0x80 : 0xC8) + payloadLength;
   request.insert(request.begin(), static_cast<uint8_t>(ecuType));
-//  request.insert(request.begin(), requestLength);
   return D2Message(request);
+}
+
+D2Message D2Message::makeD2RawMessage(uint8_t ecuType,
+                                            const std::vector<uint8_t>& request) {
+  DataType data;
+  memset(data.data(), 0, data.size());
+  data[0] = ecuType;
+  const auto payloadLength = request.size();
+  if(payloadLength >= data.size())
+      throw std::runtime_error("Raw message has length >= 8");
+  std::copy(request.begin(), request.end(), data.begin() + 1);
+  return D2Message({data});
 }
 
 D2Message::D2Message(const std::vector<DataType> &data)
     : CanMessage{data} {}
+
+D2Message::D2Message(std::vector<DataType> &&data)
+    : CanMessage{std::move(data)} {}
 
 D2Message::D2Message(const std::vector<uint8_t> &data)
     : CanMessage{std::move(generateCANProtocolMessages(data))} {}

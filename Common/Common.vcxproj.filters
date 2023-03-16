@@ -21,10 +21,10 @@
     <ClInclude Include="D2Message.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="D2Messages.hpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="CanMessage.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D2Messages.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -32,13 +32,13 @@
     <ClCompile Include="Util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="D2Message.cpp">
-      <Filter>Header Files</Filter>
-    </ClCompile>
     <ClCompile Include="D2Messages.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CanMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D2Message.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

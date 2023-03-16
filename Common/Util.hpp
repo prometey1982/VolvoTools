@@ -34,6 +34,9 @@ std::unique_ptr<j2534::J2534Channel>
 openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
             unsigned long Baudrate, bool AdditionalConfiguration = false);
 
+std::unique_ptr<j2534::J2534Channel>
+openLowSpeedChannel(j2534::J2534 &j2534, unsigned long Flags);
+
 std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534);
 
 std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel, size_t queryLength);

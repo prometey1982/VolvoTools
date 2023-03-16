@@ -33,22 +33,33 @@ private:
   const size_t _printLimit;
 };
 
-bool getRunOptions(int argc, const char *argv[], unsigned long &baudrate,
-                   std::string &paramsFilePath, std::string &outputPath,
-                   unsigned &printCount) {
+bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
+                   unsigned long &baudrate, std::string &paramsFilePath,
+                   std::string &outputPath, unsigned &printCount) {
   using namespace boost::program_options;
   options_description descr;
-  descr.add_options()("baudrate,b",
-                      value<unsigned long>()->default_value(500000),
-                      "CAN bus speed")(
-      "variables,v", value<std::string>()->required(),
-      "Path to memory variables")("output,o", value<std::string>()->required(),
-                                  "Path to save logs")("print,p",
-                                                       value<unsigned>()
-                                                           ->default_value(5),
-                                                       "Number of variables "
-                                                       "which prints to "
-                                                       "console");
+  descr.add_options()("device,d", value<std::string>()->default_value(""),
+                      "Device name")(
+      "baudrate,b", value<unsigned long>()->default_value(500000),
+      "CAN bus speed")("variables,v", value<std::string>()->required(),
+                       "Path to memory variables")("output,o",
+                                                   value<std::string>()
+                                                       ->required(),
+                                                   "Path to save logs")("print,"
+                                                                        "p",
+                                                                        value<
+                                                                            unsigned>()
+                                                                            ->default_value(
+                                                                                5),
+                                                                        "Number"
+                                                                        " of "
+                                                                        "variab"
+                                                                        "les "
+                                                                        "which "
+                                                                        "prints"
+                                                                        " to "
+                                                                        "consol"
+                                                                        "e");
   command_line_parser parser{argc, argv};
   parser.options(descr);
   variables_map vm;
@@ -75,18 +86,24 @@ int main(int argc, const char *argv[]) {
     throw std::runtime_error("Can't set console control hander");
   }
   unsigned long baudrate = 0;
+  std::string deviceName;
   std::string paramsFilePath;
   std::string outputPath;
   unsigned printCount;
-  if (getRunOptions(argc, argv, baudrate, paramsFilePath, outputPath,
-                    printCount)) {
-    const auto libraryParams{common::getLibraryParams()};
-    for (const auto &param : libraryParams) {
-      if (!param.first.empty()) {
+  if (getRunOptions(argc, argv, deviceName, baudrate, paramsFilePath,
+                    outputPath, printCount)) {
+    const auto devices = common::getAvailableDevices();
+    for (const auto &device : devices) {
+      if (deviceName.empty() ||
+          device.deviceName.find(deviceName) != std::string::npos) {
         try {
           std::unique_ptr<j2534::J2534> j2534{
-              std::make_unique<j2534::J2534>(param.first)};
-          j2534->PassThruOpen(param.second);
+              std::make_unique<j2534::J2534>(device.libraryName)};
+          std::string name =
+              device.deviceName.find("DiCE-") != std::string::npos
+              ? device.deviceName
+              : "";
+          j2534->PassThruOpen(name);
           logger::LogParameters params{paramsFilePath};
           logger::FileLogWriter fileLogWriter(outputPath, params);
           ConsoleLogWriter consoleLogWriter{printCount};

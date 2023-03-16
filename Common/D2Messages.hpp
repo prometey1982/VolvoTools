@@ -18,9 +18,9 @@ struct D2Messages {
                                                  uint32_t offset, uint8_t size);
   static D2Message createReadDataByAddrMsg(common::ECUType ecuType,
                                                uint32_t addr, uint8_t size);
-  static D2Message createWriteDataMsgs(ECUType ecuType,
+  static std::vector<D2Message> createWriteDataMsgs(ECUType ecuType,
                                             const std::vector<uint8_t> &bin);
-  static D2Message createWriteDataMsgs(ECUType ecuType,
+  static std::vector<D2Message> createWriteDataMsgs(ECUType ecuType,
                                             const std::vector<uint8_t> &bin,
                                             size_t beginOffset,
                                             size_t endOffset);
