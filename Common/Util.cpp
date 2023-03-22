@@ -65,7 +65,7 @@ static bool processRegistry(const std::string &keyName,
       }
     }
   } catch (...) {
-    return false;
+    return true;
   }
   return !libraryPath.empty();
 }
