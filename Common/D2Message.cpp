@@ -27,7 +27,7 @@ generateCANProtocolMessages(const std::vector<uint8_t> &data) {
   std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>> result;
   const auto maxSingleMessagePayload = 7u;
   const bool isMultipleMessages = data.size() > maxSingleMessagePayload;
-  uint8_t messagePrefix = isMultipleMessages ? 0x80 : 0xC8;
+  uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
   for (size_t i = 0; i < data.size(); i += maxSingleMessagePayload) {
     const auto payloadSize = static_cast<uint8_t>(
         std::min(data.size() - i, maxSingleMessagePayload));

@@ -83,11 +83,6 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
       callback->onStatusChanged(true);
     }
   }
-  auto testerPresentMsg = common::D2Messages::enableCommunicationMsg;
-  unsigned long testerPresentMsgID;
-  _channel1->startPeriodicMsg(
-      testerPresentMsg.toPassThruMsgs(protocolId, flags)[0], testerPresentMsgID,
-      1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);
   const auto startTimepoint{std::chrono::steady_clock::now()};
@@ -148,7 +143,6 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
       callback->onStatusChanged(false);
     }
   }
-  _channel1->stopPeriodicMsg(testerPresentMsgID);
 }
 
 void TCM55DataLogger::pushRecord(TCM55DataLogger::LogRecord &&record) {

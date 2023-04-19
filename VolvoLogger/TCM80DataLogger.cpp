@@ -83,11 +83,6 @@ void TCM80DataLogger::logFunction(unsigned long protocolId,
       callback->onStatusChanged(true);
     }
   }
-  auto testerPresentMsg = common::D2Messages::enableCommunicationMsg;
-  unsigned long testerPresentMsgID;
-  _channel1->startPeriodicMsg(
-      testerPresentMsg.toPassThruMsgs(protocolId, flags)[0], testerPresentMsgID,
-      1000);
   std::vector<uint32_t> logRecord(_parameters.parameters().size());
   std::vector<PASSTHRU_MSG> logMessages(1);
   const auto startTimepoint{std::chrono::steady_clock::now()};
@@ -105,8 +100,14 @@ void TCM80DataLogger::logFunction(unsigned long protocolId,
           _parameters.parameters()[i].size());
 
       unsigned long writtenCount = 1;
-      _channel1->writeMsgs(message.toPassThruMsgs(protocolId, flags),
-                           writtenCount);
+      const auto write_msgs = message.toPassThruMsgs(protocolId, flags);
+      for(size_t j = 0; j < write_msgs.size(); ++j) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(3));
+          _channel1->writeMsgs({write_msgs[j]},
+                               writtenCount);
+          if(!writtenCount)
+              break;
+      }
       if (writtenCount > 0) {
         logMessages.resize(2);
         _channel1->readMsgs(logMessages);
@@ -140,7 +141,6 @@ void TCM80DataLogger::logFunction(unsigned long protocolId,
       callback->onStatusChanged(false);
     }
   }
-  _channel1->stopPeriodicMsg(testerPresentMsgID);
 }
 
 void TCM80DataLogger::pushRecord(TCM80DataLogger::LogRecord &&record) {
