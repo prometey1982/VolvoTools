@@ -90,7 +90,7 @@ void D2Flasher::unregisterCallback(FlasherCallback &callback) {
                    _callbacks.end());
 }
 
-void D2Flasher::flash(CMType cmType, unsigned long baudrate,
+void D2Flasher::flash(common::CMType cmType, unsigned long baudrate,
                       const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
   const unsigned long protocolId = CAN;
@@ -153,23 +153,23 @@ void D2Flasher::resetChannels() {
   _channel3.reset();
 }
 
-void D2Flasher::selectAndWriteBootloader(CMType cmType,
+void D2Flasher::selectAndWriteBootloader(common::CMType cmType,
                                          unsigned long protocolId,
                                          unsigned long flags) {
   uint32_t bootloaderOffset = 0;
   common::ECUType ecuType = common::ECUType::ECM_ME;
 
   switch (cmType) {
-  case CMType::ECM_ME7:
+  case common::CMType::ECM_ME7:
     bootloaderOffset = 0x31C000;
     ecuType = common::ECUType::ECM_ME;
     break;
-  case CMType::ECM_ME9:
+  case common::CMType::ECM_ME9:
     bootloaderOffset = 0x7F81D0;
     ecuType = common::ECUType::ECM_ME;
     break;
-  case CMType::TCM_AW55:
-  case CMType::TCM_TF80:
+  case common::CMType::TCM_AW55:
+  case common::CMType::TCM_TF80:
     bootloaderOffset = 0xFFFF8200;
     ecuType = common::ECUType::TCM;
     break;
@@ -193,12 +193,12 @@ void D2Flasher::selectAndWriteBootloader(CMType cmType,
   std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-VBF D2Flasher::getSBL(CMType cmType) const {
+VBF D2Flasher::getSBL(common::CMType cmType) const {
   switch (cmType) {
-  case CMType::ECM_ME7:
+  case common::CMType::ECM_ME7:
     return VBF(0x31C000,
                {VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
-  case CMType::ECM_ME9:
+  case common::CMType::ECM_ME9:
     return VBF(0x7F81D0,
                {VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
   default:
@@ -393,19 +393,19 @@ void D2Flasher::writeFlashTCM(const std::vector<uint8_t> &bin,
   }
 }
 
-void D2Flasher::flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
+void D2Flasher::flasherFunction(common::CMType cmType, const std::vector<uint8_t> bin,
                                 unsigned long protocolId, unsigned long flags) {
   try {
     selectAndWriteBootloader(cmType, protocolId, flags);
     switch (cmType) {
-    case CMType::ECM_ME7:
+    case common::CMType::ECM_ME7:
       writeFlashMe7(bin, protocolId, flags);
       break;
-    case CMType::ECM_ME9:
+    case common::CMType::ECM_ME9:
       writeFlashMe9(bin, protocolId, flags);
       break;
-    case CMType::TCM_AW55:
-    case CMType::TCM_TF80:
+    case common::CMType::TCM_AW55:
+    case common::CMType::TCM_TF80:
       writeFlashTCM(bin, protocolId, flags);
       break;
     }

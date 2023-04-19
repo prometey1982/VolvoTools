@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../common/CMType.hpp"
 #include "../common/D2Messages.hpp"
 
 #include <condition_variable>
@@ -25,8 +26,6 @@ public:
                                size_t currentValue, size_t maxValue) = 0;
   virtual void OnMessage(const std::string &message) = 0;
 };
-
-enum class CMType { ECM_ME7, ECM_ME9, TCM_AW55, TCM_TF80 };
 
 struct VBFChunk {
   uint32_t writeOffset;
@@ -54,7 +53,7 @@ public:
   void registerCallback(FlasherCallback &callback);
   void unregisterCallback(FlasherCallback &callback);
 
-  void flash(CMType cmType, unsigned long baudrate,
+  void flash(common::CMType cmType, unsigned long baudrate,
              const std::vector<uint8_t> &bin);
   void stop();
 
@@ -69,7 +68,7 @@ protected:
   void openChannels(unsigned long baudrate, bool additionalConfiguration);
   void resetChannels();
 
-  void selectAndWriteBootloader(CMType cmType, unsigned long protocolId,
+  void selectAndWriteBootloader(common::CMType cmType, unsigned long protocolId,
                                 unsigned long flags);
   void canWakeUp();
 
@@ -80,7 +79,7 @@ protected:
   void setCurrentProgress(size_t currentProgress);
   void setMaximumProgress(size_t maximumProgress);
 
-  virtual VBF getSBL(CMType cmType) const;
+  virtual VBF getSBL(common::CMType cmType) const;
 
 private:
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
@@ -108,7 +107,7 @@ private:
   void writeFlashTCM(const std::vector<uint8_t> &bin, unsigned long protocolId,
                      unsigned long flags);
 
-  void flasherFunction(CMType cmType, const std::vector<uint8_t> bin,
+  void flasherFunction(common::CMType cmType, const std::vector<uint8_t> bin,
                        unsigned long protocolId, unsigned long flags);
 
 #if 0

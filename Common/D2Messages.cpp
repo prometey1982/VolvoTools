@@ -40,7 +40,7 @@ D2Messages::createCalculateChecksumMsg(common::ECUType ecuType, uint32_t addr) {
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2Message(ecuType, 0xBC, byte1, byte2, byte3, byte4);
+  return D2Message::makeD2RawMessage(ecuType, {0xBC, byte1, byte2, byte3, byte4});
 }
 
 /*static*/ D2Message
