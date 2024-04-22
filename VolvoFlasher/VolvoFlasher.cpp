@@ -100,9 +100,9 @@ int main(int argc, const char *argv[]) {
             FlasherCallback callback;
             flasher::D2Flasher flasher(*j2534);
             flasher.registerCallback(callback);
-            const flasher::CMType cmType = bin.size() == 2048 * 1024
-                                               ? flasher::CMType::ECM_ME9
-                                               : flasher::CMType::ECM_ME7;
+            const common::CMType cmType = bin.size() == 2048 * 1024
+                                               ? common::CMType::ECM_ME9
+                                               : common::CMType::ECM_ME7;
             flasher.flash(cmType, baudrate, bin);
             while (flasher.getState() ==
                    flasher::D2Flasher::State::InProgress) {
