@@ -9,7 +9,19 @@
 #include <time.h>
 
 namespace {
-bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
+    PASSTHRU_MSG writeMessagesAndReadMessage(j2534::J2534Channel& channel,
+        const std::vector<PASSTHRU_MSG>& msgs) {
+        channel.clearRx();
+        unsigned long msgsNum = msgs.size();
+        const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
+        if (error != STATUS_NOERROR) {
+            throw std::runtime_error("write msgs error");
+        }
+        std::vector<PASSTHRU_MSG> received_msgs(1);
+        channel.readMsgs(received_msgs, 3000);
+        return received_msgs[0];
+    }
+    bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
                                  const std::vector<PASSTHRU_MSG> &msgs,
                                  uint8_t toCheck) {
   channel.clearRx();
@@ -107,6 +119,25 @@ void D2Flasher::flash(common::CMType cmType, unsigned long baudrate,
   _flasherThread = std::thread([this, cmType, bin, protocolId, flags] {
     flasherFunction(cmType, bin, protocolId, flags);
   });
+}
+
+void D2Flasher::read(uint8_t cmId, unsigned long baudrate,
+    unsigned long startPos, unsigned long size, std::vector<uint8_t>& bin) {
+    messageToCallbacks("Initializing");
+    const unsigned long protocolId = CAN;
+    //  const unsigned long protocolId = CAN_XON_XOFF;
+    const unsigned long flags = CAN_29BIT_ID;
+
+    openChannels(baudrate, true);
+
+    setMaximumProgress(size);
+    setCurrentProgress(0);
+
+    setState(State::InProgress);
+
+    _flasherThread = std::thread([this, cmId, &bin, protocolId, flags, startPos, size] {
+        readFunction(cmId, bin, protocolId, flags, startPos, size);
+        });
 }
 
 void D2Flasher::stop() {
@@ -416,6 +447,41 @@ void D2Flasher::flasherFunction(common::CMType cmType, const std::vector<uint8_t
     messageToCallbacks(ex.what());
     setState(State::Error);
   }
+}
+
+void D2Flasher::readFunction(uint8_t cmId, std::vector<uint8_t>& bin,
+    unsigned long protocolId, unsigned long flags, unsigned long startPos, unsigned long size)
+{
+    try {
+        messageToCallbacks("Go to sleep");
+        const auto ecuType = static_cast<common::ECUType>(cmId);
+        canGoToSleep(protocolId, flags);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        messageToCallbacks("Start PBL");
+        writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuType, protocolId, flags);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        messageToCallbacks("Reading");
+        for (unsigned long i = 0; i < size; ++i)
+        {
+            const auto currentPos = startPos + i;
+            writeDataOffsetAndCheckAnswer(ecuType, currentPos, protocolId, flags);
+            const auto checksumAnswer = writeMessagesAndReadMessage(*_channel1, common::D2Messages::createCalculateChecksumMsg(
+                ecuType, currentPos + 1).toPassThruMsgs(protocolId, flags));
+            if (checksumAnswer.Data[5] == 0xB1)
+            {
+                bin.push_back(checksumAnswer.Data[6]);
+            }
+        }
+        messageToCallbacks("Wakeup CAN");
+        canWakeUp();
+        setState(State::Done);
+    }
+    catch (std::exception& ex) {
+        messageToCallbacks("Wakeup CAN");
+        canWakeUp();
+        messageToCallbacks(ex.what());
+        setState(State::Error);
+    }
 }
 
 void D2Flasher::setState(State newState) {

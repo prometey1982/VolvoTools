@@ -55,6 +55,10 @@ public:
 
   void flash(common::CMType cmType, unsigned long baudrate,
              const std::vector<uint8_t> &bin);
+
+  void read(uint8_t cmId, unsigned long baudrate,
+      unsigned long startPos, unsigned long size, std::vector<uint8_t>& bin);
+
   void stop();
 
   enum class State { Initial, InProgress, Done, Error };
@@ -109,6 +113,9 @@ private:
 
   void flasherFunction(common::CMType cmType, const std::vector<uint8_t> bin,
                        unsigned long protocolId, unsigned long flags);
+
+  void readFunction(uint8_t cmId, std::vector<uint8_t>& bin,
+      unsigned long protocolId, unsigned long flags, unsigned long startPos, unsigned long size);
 
 #if 0
   template <typename... Args> void messageToCallbacks(Args... args) {
