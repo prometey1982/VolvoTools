@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LogParameters.hpp"
+#include "CarPlatform.hpp"
 
 #include <chrono>
 #include <condition_variable>
@@ -24,7 +25,7 @@ class LoggerImpl;
 
 class Logger final {
 public:
-  explicit Logger(j2534::J2534 &j2534, LoggerType loggerType);
+  explicit Logger(j2534::J2534 &j2534, common::CarPlatform carPlatform);
   ~Logger();
 
   void registerCallback(LoggerCallback &callback);

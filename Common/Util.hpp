@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "DeviceInfo.hpp"
+#include "CarPlatform.hpp"
 
 namespace j2534 {
 class J2534;
@@ -41,5 +42,7 @@ std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534 &j2534);
 
 std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel,
                                          size_t queryLength);
+
+CarPlatform getPlatfromFromVIN(const std::string& vin);
 
 } // namespace common

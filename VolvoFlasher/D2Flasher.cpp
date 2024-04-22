@@ -164,12 +164,12 @@ void D2Flasher::selectAndWriteBootloader(common::CMType cmType,
     bootloaderOffset = 0x31C000;
     ecuType = common::ECUType::ECM_ME;
     break;
-  case common::CMType::ECM_ME9:
+  case common::CMType::ECM_ME9_P1:
     bootloaderOffset = 0x7F81D0;
     ecuType = common::ECUType::ECM_ME;
     break;
   case common::CMType::TCM_AW55:
-  case common::CMType::TCM_TF80:
+  case common::CMType::TCM_TF80_P2:
     bootloaderOffset = 0xFFFF8200;
     ecuType = common::ECUType::TCM;
     break;
@@ -198,7 +198,7 @@ VBF D2Flasher::getSBL(common::CMType cmType) const {
   case common::CMType::ECM_ME7:
     return VBF(0x31C000,
                {VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
-  case common::CMType::ECM_ME9:
+  case common::CMType::ECM_ME9_P1:
     return VBF(0x7F81D0,
                {VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
   default:
@@ -401,11 +401,11 @@ void D2Flasher::flasherFunction(common::CMType cmType, const std::vector<uint8_t
     case common::CMType::ECM_ME7:
       writeFlashMe7(bin, protocolId, flags);
       break;
-    case common::CMType::ECM_ME9:
+    case common::CMType::ECM_ME9_P1:
       writeFlashMe9(bin, protocolId, flags);
       break;
     case common::CMType::TCM_AW55:
-    case common::CMType::TCM_TF80:
+    case common::CMType::TCM_TF80_P2:
       writeFlashTCM(bin, protocolId, flags);
       break;
     }

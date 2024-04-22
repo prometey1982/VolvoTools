@@ -279,4 +279,29 @@ std::vector<uint8_t> readMessageSequence(j2534::J2534Channel &channel,
   return result;
 }
 
+CarPlatform getPlatfromFromVIN(const std::string& vin)
+{
+    CarPlatform result = CarPlatform::Undefined;
+    const std::string volvoPrefix = "YV1";
+    if(vin.find(volvoPrefix) == 0)
+    {
+        switch(vin[3])
+        {
+        case 'L':
+            result = CarPlatform::P80;
+            break;
+        case 'T':
+        case 'R':
+        case 'S':
+        case 'С':
+            result = CarPlatform::P2;
+            break;
+        case 'M':
+            result = CarPlatform::P1;
+            break;
+        }
+    }
+    return result;
+}
+
 } // namespace common

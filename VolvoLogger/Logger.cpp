@@ -148,9 +148,22 @@ std::unique_ptr<LoggerImpl> createLoggerImpl(LoggerType loggerType,
   throw std::runtime_error("Not implemented");
 }
 
-Logger::Logger(j2534::J2534 &j2534, LoggerType loggerType)
+LoggerType getLoggerType(common::CarPlatform carPlatform)
+{
+    switch(carPlatform)
+    {
+    case common::CarPlatform::P1:
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P80:
+        return LoggerType::LT_D2;
+    case common::CarPlatform::P3:
+        return LoggerType::LT_UDS;
+    }
+}
+
+Logger::Logger(j2534::J2534 &j2534, common::CarPlatform carPlatform)
     : _j2534{j2534}, _loggingThread{}, _stopped{true},
-      _loggerImpl(createLoggerImpl(loggerType, j2534)) {}
+      _loggerImpl(createLoggerImpl(getLoggerType(carPlatform), j2534)) {}
 
 Logger::~Logger() { stop(); }
 
