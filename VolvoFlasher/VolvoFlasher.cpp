@@ -525,7 +525,7 @@ int main(int argc, const char* argv[]) {
 						flasher::D2Flasher flasher(*j2534);
 						flasher.registerCallback(callback);
 						const common::CMType cmType = bin.size() == 2048 * 1024
-							? common::CMType::ECM_ME9
+							? common::CMType::ECM_ME9_P1
 							: common::CMType::ECM_ME7;
 						flasher.flash(cmType, baudrate, bin);
 						while (flasher.getState() ==
