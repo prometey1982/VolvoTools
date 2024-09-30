@@ -76,20 +76,26 @@ std::vector<j2534::DeviceInfo> getAvailableDevices() {
   result.push_back({"C:\\Program Files (x86)\\DiCE\\Tools\\TSDiCE32.dll", "DiCE-206751"});
 #else
   const std::string rootKeyName{"Software\\PassThruSupport.04.04"};
-  const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
-  key->EnumerateSubKeys([&rootKeyName, &result](const auto &subKeyName) {
-    std::string libraryPath;
-    std::vector<std::string> deviceNames;
-    auto res =
-        processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
-                        libraryPath, deviceNames);
-    if (res) {
-      for (const auto &deviceName : deviceNames) {
-        result.push_back({libraryPath, deviceName});
-      }
-    }
-    return res;
-  });
+  try {
+      const auto key = LocalMachine->Open(toPlatformString(rootKeyName));
+      key->EnumerateSubKeys([&rootKeyName, &result](const auto &subKeyName) {
+        std::string libraryPath;
+        std::vector<std::string> deviceNames;
+        auto res =
+            processRegistry(rootKeyName + "\\" + fromPlatformString(subKeyName),
+                            libraryPath, deviceNames);
+        if (res) {
+          for (const auto &deviceName : deviceNames) {
+            result.push_back({libraryPath, deviceName});
+          }
+        }
+        return res;
+      });
+  }
+  catch(...)
+  {
+  }
+
 #endif
   return result;
 }

@@ -226,6 +226,19 @@ uint32_t p3_hash(const uint8_t pin[5], const uint8_t seed[3])
 	return ((n & 0xF00000) >> 12) | n & 0xF000 | (uint8_t)(16 * n) | ((n & 0xFF0) << 12) | ((n & 0xF0000) >> 16);
 }
 
+J2534_ERROR_CODE sendMessage(j2534::J2534Channel& channel, unsigned long protocolId, const std::vector<uint8_t>& data)
+{
+	PASSTHRU_MSG msg;
+	memset(&msg, 0, sizeof(msg));
+	for (size_t i = 0; i < data.size(); ++i) {
+		msg.Data[i + 2] = data[i];
+	}
+	msg.DataSize = 12;
+	msg.ProtocolID = protocolId;
+	unsigned long numMsgs = 1;
+	return channel.writeMsgs({ msg }, numMsgs);
+}
+
 void findPin(j2534::J2534& j2534, uint32_t i = 0)
 {
 	const unsigned long baudrate = 500000;
@@ -239,11 +252,12 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 	memset(&msg, 0, sizeof(msg));
 	msg.ProtocolID = CAN;
 	msg.DataSize = 12;
-	msg.Data[2] = 7;
+	msg.Data[2] = 0x7;
 	msg.Data[3] = 0xDF;
-	msg.Data[4] = 2;
-	msg.Data[5] = 16;
+	msg.Data[4] = 0x02;
+	msg.Data[5] = 0x10;
 	msg.Data[6] = 0x82;
+#if 1
 	std::cout << "Start sending prog" << std::endl;
 	if (channel.startPeriodicMsg(msg, msg_id, 5) != STATUS_NOERROR)
 	{
@@ -253,12 +267,13 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 	std::this_thread::sleep_for(std::chrono::seconds(4));
 	std::cout << "Stop sending prog" << std::endl;
 	channel.stopPeriodicMsg(msg_id);
+#endif
 	memset(&msg, 0, sizeof(msg));
 	msg.ProtocolID = CAN;
 	msg.DataSize = 12;
-	msg.Data[2] = 7;
+	msg.Data[2] = 0x7;
 	msg.Data[3] = 0xDF;
-	msg.Data[4] = 2;
+	msg.Data[4] = 0x02;
 	msg.Data[5] = 0x3E;
 	msg.Data[6] = 0x80;
 	std::cout << "Start sending alive messages" << std::endl;
@@ -267,25 +282,6 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 		std::cout << "Can't start keep alive periodic message" << std::endl;
 		return;
 	}
-	PASSTHRU_MSG key_msg;
-	memset(&key_msg, 0, sizeof(key_msg));
-	key_msg.ProtocolID = CAN;
-	key_msg.DataSize = 12;
-	key_msg.Data[0] = 0x18;
-	key_msg.Data[1] = 0xDA;
-	key_msg.Data[2] = 7;
-	key_msg.Data[3] = 0xE0;
-	key_msg.Data[4] = 5;
-	key_msg.Data[5] = 0x27;
-	key_msg.Data[6] = 2;
-	memset(&msg, 0, sizeof(msg));
-	msg.ProtocolID = CAN;
-	msg.DataSize = 12;
-	msg.Data[2] = 7;
-	msg.Data[3] = 0xE0;
-	msg.Data[4] = 2;
-	msg.Data[5] = 0x27;
-	msg.Data[6] = 1;
 	for (; i <= 0xFFFFFF; ++i)
 	{
 		const uint8_t p1 = (i >> 16) & 0xFF;
@@ -298,8 +294,7 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 		bool success = false;
 		for (int l = 0; l < 10; ++l)
 		{
-			unsigned long numMsgs = 1;
-			if (channel.writeMsgs({ msg }, numMsgs) == STATUS_NOERROR)
+			if (sendMessage(channel, CAN, {0x07, 0xE0, 0x02, 0x27, 0x01}) == STATUS_NOERROR)
 			{
 				success = true;
 				break;
@@ -323,11 +318,7 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 		uint8_t pin[5] = { 0, 0, p1, p2, p3 };
 		uint8_t key[4];
 		VolvoGenerateKey(pin, seed, key);
-		key_msg.Data[7] = key[0];
-		key_msg.Data[8] = key[1];
-		key_msg.Data[9] = key[2];
-		unsigned long numMsgs = 1;
-		if (channel.writeMsgs({ key_msg }, numMsgs) != STATUS_NOERROR)
+		if (sendMessage(channel, CAN, { 0x07, 0xE0, 5, 0x27, 0x02, key[0], key[1], key[2]}) != STATUS_NOERROR)
 		{
 			std::cout << "Can't write key" << std::endl;
 			return;
@@ -463,15 +454,16 @@ int main(int argc, const char* argv[]) {
 	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
+#if 0
 	fill_crc_map();
-	findMultiplePins();
+//	findMultiplePins();
 	const uint8_t seed1[3] = { 0xE5, 0x76, 0x4B };
 	const uint8_t key1[3] = { 0x76, 0x58, 0x2F };
-	const auto pins1 = getCorrectPins(seed1, key1);
+//	const auto pins1 = getCorrectPins(seed1, key1);
 
 	const uint8_t seed2[3] = { 0x0F, 0x8C, 0xB3 };
 	const uint8_t key2[3] = { 0x41, 0xFC, 0x61 };
-	const auto pins2 = getCorrectPins(seed2, key2);
+//	const auto pins2 = getCorrectPins(seed2, key2);
 
 	uint8_t output_ford_key[4];
 	uint32_t ford_key = SK1_FordME9(0x332211, output_ford_key);
@@ -485,6 +477,7 @@ int main(int argc, const char* argv[]) {
 	p3_key_array[1] = (p3_key >> 8) & 0xFF;
 	p3_key_array[2] = (p3_key >> 16) & 0xFF;
 	p3_key_array[3] = (p3_key >> 24) & 0xFF;
+	#endif
 	unsigned long baudrate = 0;
 	std::string deviceName;
 	std::string flashPath;
