@@ -8,7 +8,7 @@
 namespace {
 const std::vector<uint8_t> D2MessagePrefix{0x00, 0x0F, 0xFF, 0xFE};
 
-PASSTHRU_MSG toPassThruMsg(const uint8_t *Data, size_t DataSize,
+PASSTHRU_MSG toPassThruMsg(uint32_t msgId, const uint8_t *Data, size_t DataSize,
                            unsigned long ProtocolID, unsigned long Flags) {
   PASSTHRU_MSG result;
   result.ProtocolID = ProtocolID;
@@ -16,9 +16,12 @@ PASSTHRU_MSG toPassThruMsg(const uint8_t *Data, size_t DataSize,
   result.TxFlags = Flags;
   result.Timestamp = 0;
   result.ExtraDataIndex = 0;
-  result.DataSize = DataSize + D2MessagePrefix.size();
-  memcpy(result.Data, D2MessagePrefix.data(), D2MessagePrefix.size());
-  memcpy(result.Data + D2MessagePrefix.size(), Data, DataSize);
+  result.DataSize = DataSize + sizeof(msgId);
+  result.Data[0] = (msgId >> 24) & 0xFF;
+  result.Data[1] = (msgId >> 16) & 0xFF;
+  result.Data[2] = (msgId >> 8) & 0xFF;
+  result.Data[3] = (msgId >> 0) & 0xFF;
+  memcpy(result.Data + sizeof(msgId), Data, DataSize);
   return result;
 }
 
@@ -79,19 +82,20 @@ D2Message D2Message::makeD2RawMessage(uint8_t ecuType,
   return D2Message({data});
 }
 
-D2Message::D2Message(const std::vector<DataType> &data) : CanMessage{data} {}
+D2Message::D2Message(const std::vector<DataType> &data) : CanMessage{0xFFFFE, CAN, data} {}
 
 D2Message::D2Message(std::vector<DataType> &&data)
-    : CanMessage{std::move(data)} {}
+    : CanMessage{0xFFFFE, CAN, std::move(data)} {}
 
 D2Message::D2Message(const std::vector<uint8_t> &data)
-    : CanMessage{std::move(generateCANProtocolMessages(data))} {}
+    : CanMessage{0xFFFFE, CAN, std::move(generateCANProtocolMessages(data))} {}
 
 std::vector<PASSTHRU_MSG> D2Message::toPassThruMsgs(unsigned long ProtocolID,
                                                     unsigned long Flags) const {
   std::vector<PASSTHRU_MSG> result;
+
   for (size_t i = 0; i < data().size(); ++i) {
-    result.emplace_back(std::move(::toPassThruMsg(
+    result.emplace_back(std::move(::toPassThruMsg(getCanId(),
         data()[i].data(), data()[i].size(), ProtocolID, Flags)));
   }
   return result;

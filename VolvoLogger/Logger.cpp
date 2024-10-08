@@ -157,7 +157,10 @@ LoggerType getLoggerType(common::CarPlatform carPlatform)
     case common::CarPlatform::P80:
         return LoggerType::LT_D2;
     case common::CarPlatform::P3:
+    case common::CarPlatform::Ford:
         return LoggerType::LT_UDS;
+    default:
+        throw std::runtime_error("Unsupported car platform");
     }
 }
 

@@ -20,6 +20,7 @@ enum class RunMode
 	Read,
 	Wakeup,
 	Pin,
+	Test
 };
 
 bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
@@ -36,6 +37,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 				"Path to flash BIN")
 		("read,r", value<std::string>(),
 					"Path to flash BIN")
+		("test",
+			"Test purposes")
 		("start,s", value<unsigned long>()->default_value(0),
 			"Begin address to read")
 		("size,sz", value<unsigned long>()->default_value(0),
@@ -76,6 +79,11 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		datasize = vm["size"].as<unsigned long>();
 		runMode = RunMode::Read;
 		return true;
+	}
+	else if (vm.count("test")) {
+		deviceName = vm["device"].as<std::string>();
+		baudrate = vm["baudrate"].as<unsigned long>();
+		runMode = RunMode::Test;
 	}
 	else {
 		std::cout << descr;
@@ -168,7 +176,7 @@ uint32_t SK1_FordME9(uint32_t seed, uint8_t output_key[4])
 	return key;
 }
 
-uint32_t VolvoGenerateKey(uint8_t pin_array[5], uint8_t seed_array[3], uint8_t key_array[3])
+uint32_t VolvoGenerateKey(const std::array<uint8_t, 5> pin_array, uint8_t seed_array[3], uint8_t key_array[3])
 {
 	unsigned int high_part;
 	unsigned int low_part;
@@ -233,10 +241,71 @@ J2534_ERROR_CODE sendMessage(j2534::J2534Channel& channel, unsigned long protoco
 	for (size_t i = 0; i < data.size(); ++i) {
 		msg.Data[i + 2] = data[i];
 	}
-	msg.DataSize = 12;
+	msg.DataSize = max(data.size() + 2, 12u);
 	msg.ProtocolID = protocolId;
 	unsigned long numMsgs = 1;
 	return channel.writeMsgs({ msg }, numMsgs);
+}
+
+std::vector<PASSTHRU_MSG> readMessages(j2534::J2534Channel& channel, size_t messageNum = 1)
+{
+	std::vector<PASSTHRU_MSG> read_msgs;
+	read_msgs.resize(messageNum);
+	if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
+	{
+		std::cout << "Can't read message" << std::endl;
+		return {};
+	}
+	return read_msgs;
+}
+
+bool authByKey(j2534::J2534Channel& channel, unsigned long protocolId, const std::array<uint8_t, 5>& pin)
+{
+	bool success = false;
+	for (int l = 0; l < 10; ++l)
+	{
+
+		if (sendMessage(channel, protocolId, { 0x07, 0xE0, 0x02, 0x27, 0x01 }) == STATUS_NOERROR)
+		{
+			success = true;
+			break;
+		}
+		else
+			std::cout << "Retry send request seed message" << std::endl;
+	}
+	if (!success)
+	{
+		std::cout << "Can't request seed" << std::endl;
+		return false;
+	}
+	std::vector<PASSTHRU_MSG> read_msgs;
+	read_msgs.resize(1);
+	if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
+	{
+		std::cout << "Can't read seed" << std::endl;
+		return false;
+	}
+	uint8_t seed[3] = { read_msgs[0].Data[7], read_msgs[0].Data[8], read_msgs[0].Data[9] };
+	uint8_t key[4];
+	VolvoGenerateKey(pin, seed, key);
+	channel.clearRx();
+	if (sendMessage(channel, protocolId, { 0x07, 0xE0, 5, 0x27, 0x02, key[0], key[1], key[2] }) != STATUS_NOERROR)
+	{
+		std::cout << "Can't write key" << std::endl;
+		return false;
+	}
+	read_msgs.resize(1);
+	if (channel.readMsgs(read_msgs) != STATUS_NOERROR || read_msgs.empty())
+	{
+		std::cout << "Can't read key result" << std::endl;
+		return false;
+	}
+	const auto& answer_data = read_msgs[0].Data;
+	if (answer_data[4] == 2 && answer_data[5] == 0x67 && answer_data[6] == 2)
+	{
+		return true;
+	}
+	return false;
 }
 
 void findPin(j2534::J2534& j2534, uint32_t i = 0)
@@ -247,6 +316,7 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 	memset(&msg, 0, sizeof(msg));
 	msg.ProtocolID = CAN;
 	msg.DataSize = 4;
+	msg.Data[2] = 7;
 	unsigned long msg_id;
 	channel.startMsgFilter(PASS_FILTER, &msg, &msg, nullptr, msg_id);
 	memset(&msg, 0, sizeof(msg));
@@ -257,7 +327,7 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 	msg.Data[4] = 0x02;
 	msg.Data[5] = 0x10;
 	msg.Data[6] = 0x82;
-#if 1
+
 	std::cout << "Start sending prog" << std::endl;
 	if (channel.startPeriodicMsg(msg, msg_id, 5) != STATUS_NOERROR)
 	{
@@ -267,7 +337,7 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 	std::this_thread::sleep_for(std::chrono::seconds(4));
 	std::cout << "Stop sending prog" << std::endl;
 	channel.stopPeriodicMsg(msg_id);
-#endif
+
 	memset(&msg, 0, sizeof(msg));
 	msg.ProtocolID = CAN;
 	msg.DataSize = 12;
@@ -291,6 +361,18 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 			std::cout << "Trying PIN " << std::hex << std::setfill('0') << std::setw(2) << int(p1) << " "
 			<< std::hex << std::setfill('0') << std::setw(2) << int(p2) << " XX" << std::endl;
 
+		std::array<uint8_t, 5> pin = { 0, 0, p1, p2, p3 };
+#if 1
+		if(authByKey(channel, CAN, pin))
+		{
+			std::cout << "Found PIN code 00 00 "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(p1) << " "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(p2) << " "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(p3) << std::endl;
+			return;
+		}
+#endif
+#if 0
 		bool success = false;
 		for (int l = 0; l < 10; ++l)
 		{
@@ -315,7 +397,6 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 			return;
 		}
 		uint8_t seed[3] = { read_msgs[0].Data[7], read_msgs[0].Data[8], read_msgs[0].Data[9] };
-		uint8_t pin[5] = { 0, 0, p1, p2, p3 };
 		uint8_t key[4];
 		VolvoGenerateKey(pin, seed, key);
 		if (sendMessage(channel, CAN, { 0x07, 0xE0, 5, 0x27, 0x02, key[0], key[1], key[2]}) != STATUS_NOERROR)
@@ -338,7 +419,89 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 				<< std::hex << std::setfill('0') << std::setw(2) << int(p3) << std::endl;
 			return;
 		}
+#endif
 	}
+}
+
+bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId, const std::array<uint8_t, 5>& pin)
+{
+	PASSTHRU_MSG msg;
+
+#if 1
+	memset(&msg, 0, sizeof(msg));
+	msg.ProtocolID = protocolId;
+	msg.DataSize = 12;
+	msg.Data[2] = 0x7;
+	msg.Data[3] = 0xE0;// 0xDF;
+	msg.Data[4] = 0x02;
+	msg.Data[5] = 0x10;
+	msg.Data[6] = 0x02;
+	std::cout << "Start sending prog" << std::endl;
+	unsigned long msg_id;
+	if (channel.startPeriodicMsg(msg, msg_id, 5) != STATUS_NOERROR)
+	{
+		std::cout << "Can't start prog periodic message" << std::endl;
+		return false;
+	}
+	std::this_thread::sleep_for(std::chrono::seconds(4));
+	std::cout << "Stop sending prog" << std::endl;
+	channel.stopPeriodicMsg(msg_id);
+#endif
+
+	memset(&msg, 0, sizeof(msg));
+	msg.ProtocolID = protocolId;
+	msg.DataSize = 12;
+	msg.Data[2] = 0x7;
+	msg.Data[3] = 0xDF;
+	msg.Data[4] = 0x02;
+	msg.Data[5] = 0x3E;
+	msg.Data[6] = 0x80;
+	std::cout << "Start sending alive messages" << std::endl;
+	if (channel.startPeriodicMsg(msg, msg_id, 1900) != STATUS_NOERROR)
+	{
+		std::cout << "Can't start keep alive periodic message" << std::endl;
+		return false;
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		if (authByKey(channel, CAN, pin))
+		{
+			std::cout << "Auth with PIN code 00 00 "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(pin[2]) << " "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(pin[3]) << " "
+				<< std::hex << std::setfill('0') << std::setw(2) << int(pin[4]) << " success" << std::endl;
+			return true;
+		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	}
+	return false;
+}
+
+void doSomeStuff(j2534::J2534& j2534)
+{
+	const unsigned long baudrate = 500000;
+	unsigned long protocolId = CAN;
+	j2534::J2534Channel channel(j2534, protocolId, CAN_ID_BOTH, baudrate, 0);
+	PASSTHRU_MSG msg;
+	memset(&msg, 0, sizeof(msg));
+	msg.ProtocolID = protocolId;
+	msg.DataSize = 4;
+	msg.Data[2] = 7;
+	unsigned long msg_id;
+	channel.startMsgFilter(PASS_FILTER, &msg, &msg, nullptr, msg_id);
+#if 1
+	if (!switchToDiagSession(channel, protocolId, { 0, 0, 0xd3, 0x5d, 0x6f })) {
+		std::cout << "failed to switch" << std::endl;
+		return;
+	}
+#endif
+	memset(&msg, 0, sizeof(msg));
+	if (sendMessage(channel, protocolId, { 0x07, 0xe0, 0x8, 0x23, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2 }) != STATUS_NOERROR)
+	{
+		std::cout << "failed to get memory write" << std::endl;
+		return;
+	}
+	const auto messages = readMessages(channel, 20);
 
 }
 
@@ -504,7 +667,7 @@ int main(int argc, const char* argv[]) {
 						flasher.canWakeUp(baudrate);
 					}
 					else if (runMode == RunMode::Pin) {
-						findPin(*j2534, 0xd35d00);
+						findPin(*j2534, pinStart);
 					}
 					else if (runMode == RunMode::Read) {
 						readFlash(*j2534, cmId, baudrate, flashPath, start, datasize);
@@ -532,6 +695,9 @@ int main(int argc, const char* argv[]) {
 								? "Flashing done"
 								: "Flashing error. Try again.")
 							<< std::endl;
+					}
+					else if (runMode == RunMode::Test) {
+						doSomeStuff(*j2534);
 					}
 				}
 				catch (const std::exception& ex) {
