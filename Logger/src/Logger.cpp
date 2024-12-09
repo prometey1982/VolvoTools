@@ -1,11 +1,12 @@
-#include "Logger.hpp"
+#include "logger/Logger.hpp"
+
+#include "logger/LoggerCallback.hpp"
 
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
-#include "LoggerCallback.hpp"
 
 #include <algorithm>
 #include <chrono>

@@ -1,4 +1,4 @@
-#include "LogParameter.hpp"
+#include "logger/LogParameter.hpp"
 
 namespace {
 double processSign(uint32_t value, bool isSigned, size_t size) {

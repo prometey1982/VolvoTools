@@ -1,6 +1,6 @@
 #pragma once
 
-#include "LoggerCallback.hpp"
+#include <logger/LoggerCallback.hpp>
 
 #include <fstream>
 

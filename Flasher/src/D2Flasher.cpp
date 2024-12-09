@@ -1,4 +1,4 @@
-#include "D2Flasher.hpp"
+#include "flasher/D2Flasher.hpp"
 
 #include <common/Util.hpp>
 #include <common/D2Message.hpp>

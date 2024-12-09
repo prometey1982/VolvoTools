@@ -1,9 +1,9 @@
 #include "FileLogWriter.hpp"
-#include "LogParameters.hpp"
-#include "Logger.hpp"
 #include "LoggerApplication.hpp"
-#include "LoggerCallback.hpp"
 
+#include <logger/LogParameters.hpp>
+#include <logger/Logger.hpp>
+#include <logger/LoggerCallback.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 

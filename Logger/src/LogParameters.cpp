@@ -1,4 +1,4 @@
-#include "LogParameters.hpp"
+#include "logger/LogParameters.hpp"
 
 #pragma warning(push)
 #pragma warning(disable : 4996)

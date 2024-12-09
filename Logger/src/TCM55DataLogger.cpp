@@ -1,6 +1,6 @@
-#include "TCM55DataLogger.hpp"
+#include "logger/TCM55DataLogger.hpp"
 
-#include "LoggerCallback.hpp"
+#include "logger/LoggerCallback.hpp"
 
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>

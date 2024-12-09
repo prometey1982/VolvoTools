@@ -1,6 +1,6 @@
 #include "FileLogWriter.hpp"
 
-#include "LogParameters.hpp"
+#include <logger/LogParameters.hpp>
 
 namespace logger {
 

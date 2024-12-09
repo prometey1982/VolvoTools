@@ -2,7 +2,7 @@
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
-#include "D2Flasher.hpp"
+#include <flasher/D2Flasher.hpp>
 
 #include <boost/program_options.hpp>
 #include <fstream>

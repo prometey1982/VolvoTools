@@ -20,4 +20,4 @@ if (WIN32)
        NOMINMAX 
     )   
 endif()
-target_link_libraries(${PROJECT_NAME} Common j2534 boost::boost)
+target_link_libraries(${PROJECT_NAME} Common j2534 Flasher boost::boost)
