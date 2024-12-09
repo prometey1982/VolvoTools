@@ -1,7 +1,8 @@
 #pragma once
 
 #include "LogParameters.hpp"
-#include "CarPlatform.hpp"
+
+#include <common/CarPlatform.hpp>
 
 #include <chrono>
 #include <condition_variable>

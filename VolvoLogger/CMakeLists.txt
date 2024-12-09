@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
-project(Common VERSION 1.0.0 LANGUAGES CXX)
+project(VolvoLogger VERSION 1.0.0 LANGUAGES CXX)
 
+find_package(Boost REQUIRED)
+ 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 
 set(SOURCE
@@ -8,7 +10,7 @@ set(SOURCE
   ${SUB_SOURCES}
 )
 
-add_library(${PROJECT_NAME} ${SOURCE})
+add_executable(${PROJECT_NAME} ${SOURCE})
 
 if (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE   
@@ -18,6 +20,4 @@ if (WIN32)
        NOMINMAX 
     )   
 endif()
-
-target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME} j2534 Registry)
+target_link_libraries(${PROJECT_NAME} Common j2534 boost::boost)

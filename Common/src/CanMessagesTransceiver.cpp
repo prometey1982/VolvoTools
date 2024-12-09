@@ -1,8 +1,8 @@
-#include "CanMessagesTransceiver.hpp"
+#include "common/CanMessagesTransceiver.hpp"
 
-#include "D2Message.hpp"
+#include "common/D2Message.hpp"
 
-#include "../j2534/J2534Channel.hpp"
+#include <j2534/J2534Channel.hpp>
 
 namespace common {
 

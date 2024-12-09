@@ -2,7 +2,7 @@
 
 #include "D2Message.hpp"
 
-#include "../j2534/J2534_v0404.h"
+#include <j2534/J2534_v0404.h>
 
 #include <condition_variable>
 #include <map>

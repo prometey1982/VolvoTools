@@ -1,4 +1,4 @@
-#include "CanMessage.hpp"
+#include "common/CanMessage.hpp"
 
 #include <algorithm>
 #include <array>

@@ -1,11 +1,12 @@
 #include "TCM55DataLogger.hpp"
 
-#include "../Common/D2Message.hpp"
-#include "../Common/D2Messages.hpp"
-#include "../Common/Util.hpp"
-#include "../j2534/J2534.hpp"
-#include "../j2534/J2534Channel.hpp"
 #include "LoggerCallback.hpp"
+
+#include <common/D2Message.hpp>
+#include <common/D2Messages.hpp>
+#include <common/Util.hpp>
+#include <j2534/J2534.hpp>
+#include <j2534/J2534Channel.hpp>
 
 #include <algorithm>
 #include <chrono>

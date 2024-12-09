@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../common/CMType.hpp"
-#include "../common/D2Messages.hpp"
+#include <common/CMType.hpp>
+#include <common/D2Messages.hpp>
 
 #include <condition_variable>
 #include <mutex>

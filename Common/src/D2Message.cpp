@@ -1,4 +1,4 @@
-#include "D2Message.hpp"
+#include "common/D2Message.hpp"
 
 #include <algorithm>
 #include <array>
@@ -28,7 +28,7 @@ PASSTHRU_MSG toPassThruMsg(uint32_t msgId, const uint8_t *Data, size_t DataSize,
 static std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>>
 generateCANProtocolMessages(const std::vector<uint8_t> &data) {
   std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>> result;
-  const auto maxSingleMessagePayload = 7u;
+  const size_t maxSingleMessagePayload = 7u;
   const bool isMultipleMessages = data.size() > maxSingleMessagePayload;
   uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
   for (size_t i = 0; i < data.size(); i += maxSingleMessagePayload) {

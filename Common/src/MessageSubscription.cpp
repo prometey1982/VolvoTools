@@ -1,6 +1,6 @@
-#include "MessageSubscription.hpp"
+#include "common/MessageSubscription.hpp"
 
-#include "IChannel.hpp"
+#include "common/IChannel.hpp"
 
 #include <utility>
 

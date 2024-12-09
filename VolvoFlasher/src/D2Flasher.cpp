@@ -1,9 +1,9 @@
 #include "D2Flasher.hpp"
 
-#include "../Common/Util.hpp"
-#include "../common/D2Message.hpp"
-#include "../j2534/J2534.hpp"
-#include "../j2534/J2534Channel.hpp"
+#include <common/Util.hpp>
+#include <common/D2Message.hpp>
+#include <j2534/J2534.hpp>
+#include <j2534/J2534Channel.hpp>
 
 #include <algorithm>
 #include <time.h>

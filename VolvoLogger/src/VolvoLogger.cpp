@@ -1,10 +1,11 @@
-#include "../Common/Util.hpp"
-#include "../j2534/J2534.hpp"
 #include "FileLogWriter.hpp"
 #include "LogParameters.hpp"
 #include "Logger.hpp"
 #include "LoggerApplication.hpp"
 #include "LoggerCallback.hpp"
+
+#include <common/Util.hpp>
+#include <j2534/J2534.hpp>
 
 #include <boost/program_options.hpp>
 #include <fstream>

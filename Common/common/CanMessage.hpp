@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <vector>
 
-#include "../j2534/BaseMessage.hpp"
+#include <j2534/BaseMessage.hpp>
 
 namespace common {
 

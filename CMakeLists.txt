@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.16)
+project(VolvoTools VERSION 0.0.1 LANGUAGES CXX)
+
+add_subdirectory (j2534)
+add_subdirectory (Registry)
+add_subdirectory (Common)
+add_subdirectory (VolvoFlasher)
+add_subdirectory (VolvoLogger)

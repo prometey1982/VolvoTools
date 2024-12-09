@@ -1,8 +1,8 @@
-#include "Util.hpp"
+#include "common/Util.hpp"
 
-#include "../Registry/Registry/include/Registry.hpp"
-#include "../j2534/J2534Channel.hpp"
-#include "../j2534/J2534_v0404.h"
+#include <Registry/include/Registry.hpp>
+#include <j2534/J2534Channel.hpp>
+#include <j2534/J2534_v0404.h>
 
 #include <codecvt>
 #include <locale>
