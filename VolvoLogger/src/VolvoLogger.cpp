@@ -7,7 +7,7 @@
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 
-#include <boost/program_options.hpp>
+#include <argparse/argparse.hpp>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -37,44 +37,27 @@ private:
 bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
                    unsigned long &baudrate, std::string &paramsFilePath,
                    std::string &outputPath, unsigned &printCount) {
-  using namespace boost::program_options;
-  options_description descr;
-  descr.add_options()("device,d", value<std::string>()->default_value(""),
-                      "Device name")(
-      "baudrate,b", value<unsigned long>()->default_value(500000),
-      "CAN bus speed")("variables,v", value<std::string>()->required(),
-                       "Path to memory variables")("output,o",
-                                                   value<std::string>()
-                                                       ->required(),
-                                                   "Path to save logs")("print,"
-                                                                        "p",
-                                                                        value<
-                                                                            unsigned>()
-                                                                            ->default_value(
-                                                                                5),
-                                                                        "Number"
-                                                                        " of "
-                                                                        "variab"
-                                                                        "les "
-                                                                        "which "
-                                                                        "prints"
-                                                                        " to "
-                                                                        "consol"
-                                                                        "e");
-  command_line_parser parser{argc, argv};
-  parser.options(descr);
-  variables_map vm;
-  store(parser.run(), vm);
-  if (vm.count("variables") && vm.count("output")) {
-    baudrate = vm["baudrate"].as<unsigned long>();
-    paramsFilePath = vm["variables"].as<std::string>();
-    outputPath = vm["output"].as<std::string>();
-    printCount = vm["print"].as<unsigned>();
-    return true;
-  } else {
-    std::cout << descr;
-    return false;
+  argparse::ArgumentParser program("VolvoLogger");
+  program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
+  program.add_argument("-b", "--baudrate").scan<'u', unsigned>().default_value(500000u).help("CAN bus speed");
+  program.add_argument("-v", "--variables").help("Path to memory variables");
+  program.add_argument("-o", "--output").help("Path to save logs");
+  program.add_argument("-p", "--print").scan<'u', unsigned>().default_value(5u).help("Number of variables which prints to console");
+
+  try {
+      program.parse_args(argc, argv);
+      deviceName = program.get<std::string>("-d");
+      baudrate = program.get<unsigned>("-b");
+      paramsFilePath = program.get<std::string>("-v");
+      outputPath = program.get<std::string>("-o");
+      printCount = program.get<unsigned>("-p");
+      return true;
   }
+  catch (const std::exception& err) {
+      std::cerr << err.what() << std::endl;
+      std::cerr << program;
+  }
+  return false;
 }
 
 BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {

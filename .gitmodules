@@ -7,3 +7,6 @@
 [submodule "j2534"]
 	path = j2534
 	url = git@github.com:prometey1982/J2534.git
+[submodule "argparse"]
+	path = argparse
+	url = https://github.com/prometey1982/argparse.git

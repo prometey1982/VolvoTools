@@ -4,7 +4,7 @@
 #include <j2534/J2534Channel.hpp>
 #include <flasher/D2Flasher.hpp>
 
-#include <boost/program_options.hpp>
+#include <argparse/argparse.hpp>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -27,6 +27,73 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	unsigned long& baudrate, std::string& flashPath, unsigned long& pinStart,
 	uint8_t& cmId, unsigned long& start, unsigned long& datasize,
 	RunMode& runMode) {
+	argparse::ArgumentParser program("VolvoLogger", "1.0", argparse::default_arguments::help);
+	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
+	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
+
+	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
+	flash_command.add_description("Flash BIN to ECU");
+	flash_command.add_argument("-i", "--input").help("File to flash");
+
+	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
+	read_command.add_description("Read BIN from ECU");
+	read_command.add_argument("-o", "--output").help("File to write");
+	read_command.add_argument("-s", "--start").scan<'x', unsigned long>().help("Begin address to read");
+	read_command.add_argument("-sz", "--size").scan<'x', unsigned long>().help("Datasize to read");
+	read_command.add_argument("-e", "--ecu").scan<'x', uint8_t>().help("ECU id to read");
+
+	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
+	test_command.add_description("Test purposes");
+
+	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
+	pin_command.add_description("Bruteforce ECM PIN code");
+	pin_command.add_argument("-s", "--start").scan<'x', unsigned long>().default_value(0).help("Start PIN");
+
+	argparse::ArgumentParser wakeup_command("wakeup", "1.0", argparse::default_arguments::help);
+	wakeup_command.add_description("Wake up CAN network");
+
+	program.add_subparser(flash_command);
+	program.add_subparser(read_command);
+	program.add_subparser(test_command);
+	program.add_subparser(pin_command);
+	program.add_subparser(wakeup_command);
+	try {
+		program.parse_args(argc, argv);
+		if (program.is_subcommand_used(flash_command)) {
+			flashPath = flash_command.get("-i");
+			runMode = RunMode::Flash;
+		}
+		else if (program.is_subcommand_used(read_command)) {
+			flashPath = flash_command.get("-o");
+			cmId = flash_command.get<uint8_t>("-e");
+			start = flash_command.get<unsigned long>("-s");
+			datasize = flash_command.get<unsigned long>("-sz");
+			runMode = RunMode::Read;
+		}
+		else if (program.is_subcommand_used(test_command)) {
+			runMode = RunMode::Test;
+		}
+		else if (program.is_subcommand_used(pin_command)) {
+			pinStart = flash_command.get<unsigned long>("-s");
+			runMode = RunMode::Pin;
+		}
+		else if (program.is_subcommand_used(wakeup_command)) {
+			runMode = RunMode::Wakeup;
+		}
+		else {
+			std::cout << program;
+			return false;
+		}
+		deviceName = program.get("-d");
+		baudrate = program.get<unsigned>("-b");
+		return true;
+	}
+	catch (const std::exception& err) {
+		std::cerr << err.what() << std::endl;
+		std::cerr << program;
+	}
+	return false;
+#if 0
 	runMode = RunMode::None;
 	using namespace boost::program_options;
 	options_description descr;
@@ -89,6 +156,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		std::cout << descr;
 		return false;
 	}
+	return false;
+#endif
 }
 
 BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {

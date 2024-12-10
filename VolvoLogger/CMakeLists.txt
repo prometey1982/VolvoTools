@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(VolvoLogger VERSION 1.0.0 LANGUAGES CXX)
 
-find_package(Boost REQUIRED)
+#find_package(Boost REQUIRED)
  
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 
@@ -20,4 +20,4 @@ if (WIN32)
        NOMINMAX 
     )   
 endif()
-target_link_libraries(${PROJECT_NAME} Logger Common j2534 boost::boost)
+target_link_libraries(${PROJECT_NAME} Logger Common j2534 argparse)

@@ -5,6 +5,8 @@
 /VolvoLogger.vcxproj.user
 /Debug
 /Release
+Debug/
+Release/
 /.vs/VolvoLogger/v16
 .vs
 /Common/Release
@@ -19,8 +21,11 @@
 CMakeFiles
 CMakeCache.txt
 CMakeUserPresets.json
+CPackConfig.cmake
+CPackSourceConfig.cmake
 cmake_install.cmake
 *.vcxproj
 *.vcxproj.filters
 *.user
 *.VC.db
+*.sln
