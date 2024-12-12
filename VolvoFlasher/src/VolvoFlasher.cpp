@@ -5,6 +5,7 @@
 #include <flasher/D2Flasher.hpp>
 
 #include <argparse/argparse.hpp>
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -310,7 +311,7 @@ J2534_ERROR_CODE sendMessage(j2534::J2534Channel& channel, unsigned long protoco
 	for (size_t i = 0; i < data.size(); ++i) {
 		msg.Data[i + 2] = data[i];
 	}
-	msg.DataSize = std::max(data.size() + 2, 12u);
+	msg.DataSize = std::max(data.size() + 2, static_cast<size_t>(12));
 	msg.ProtocolID = protocolId;
 	unsigned long numMsgs = 1;
 	return channel.writeMsgs({ msg }, numMsgs);
