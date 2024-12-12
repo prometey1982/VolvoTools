@@ -27,7 +27,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	unsigned long& baudrate, std::string& flashPath, unsigned long& pinStart,
 	uint8_t& cmId, unsigned long& start, unsigned long& datasize,
 	RunMode& runMode) {
-	argparse::ArgumentParser program("VolvoLogger", "1.0", argparse::default_arguments::help);
+	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
 
@@ -64,17 +64,17 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			runMode = RunMode::Flash;
 		}
 		else if (program.is_subcommand_used(read_command)) {
-			flashPath = flash_command.get("-o");
-			cmId = flash_command.get<uint8_t>("-e");
-			start = flash_command.get<unsigned long>("-s");
-			datasize = flash_command.get<unsigned long>("-sz");
+			flashPath = read_command.get("-o");
+			cmId = read_command.get<uint8_t>("-e");
+			start = read_command.get<unsigned long>("-s");
+			datasize = read_command.get<unsigned long>("-sz");
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
 			runMode = RunMode::Test;
 		}
 		else if (program.is_subcommand_used(pin_command)) {
-			pinStart = flash_command.get<unsigned long>("-s");
+			pinStart = pin_command.get<unsigned long>("-s");
 			runMode = RunMode::Pin;
 		}
 		else if (program.is_subcommand_used(wakeup_command)) {

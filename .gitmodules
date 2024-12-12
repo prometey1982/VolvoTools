@@ -1,6 +1,6 @@
 [submodule "Registry"]
 	path = Registry
-	url = git@github.com:m4x1m1l14n/Registry.git
+	url = git@github.com:prometey1982/Registry.git
 [submodule "fast-cpp-csv-parser"]
 	path = fast-cpp-csv-parser
 	url = git@github.com:ben-strasser/fast-cpp-csv-parser.git
