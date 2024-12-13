@@ -23,7 +23,7 @@ namespace {
     }
     bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
                                  const std::vector<PASSTHRU_MSG> &msgs,
-                                 uint8_t toCheck) {
+                                 uint8_t toCheck, size_t count = 10) {
   channel.clearRx();
   unsigned long msgsNum = msgs.size();
   const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
@@ -31,7 +31,7 @@ namespace {
     throw std::runtime_error("write msgs error");
   }
   std::vector<PASSTHRU_MSG> received_msgs(1);
-  for (size_t i = 0; i < 10; ++i) {
+  for (size_t i = 0; i < count; ++i) {
     channel.readMsgs(received_msgs, 3000);
     for (const auto &msg : received_msgs) {
       if (msg.Data[5] == toCheck) {
@@ -41,7 +41,7 @@ namespace {
   }
   return false;
 }
-bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
+bool writeMessagesAndCheckAnswer2(j2534::J2534Channel &channel,
                                  const std::vector<PASSTHRU_MSG> &msgs,
                                  uint8_t toCheck5, uint8_t toCheck6) {
   unsigned long msgsNum = msgs.size();
@@ -373,7 +373,7 @@ void D2Flasher::writeChunk(common::ECUType ecuType,
   setCurrentProgress(endOffset);
   writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
-  if (!writeMessagesAndCheckAnswer(
+  if (!writeMessagesAndCheckAnswer2(
           *_channel1,
           common::D2Messages::createCalculateChecksumMsg(ecuType, endOffset)
               .toPassThruMsgs(protocolId, flags),
@@ -389,7 +389,7 @@ void D2Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
           *_channel1,
           common::D2Messages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
                                                                      flags),
-          toCheck))
+          toCheck, 30))
     throw std::runtime_error("Can't erase memory");
 }
 
