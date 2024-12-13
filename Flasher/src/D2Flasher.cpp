@@ -43,13 +43,13 @@ namespace {
 }
 bool writeMessagesAndCheckAnswer2(j2534::J2534Channel &channel,
                                  const std::vector<PASSTHRU_MSG> &msgs,
-                                 uint8_t toCheck5, uint8_t toCheck6) {
+                                 uint8_t toCheck5, uint8_t toCheck6, size_t count = 10) {
   unsigned long msgsNum = msgs.size();
   const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
     throw std::runtime_error("write msgs error");
   }
-  for (int i = 0; i < 10; ++i) {
+  for (int i = 0; i < count; ++i) {
     std::vector<PASSTHRU_MSG> received_msgs(1);
     channel.readMsgs(received_msgs, 3000);
     for (const auto &read : received_msgs) {
@@ -393,6 +393,18 @@ void D2Flasher::eraseMemory(common::ECUType ecuType, uint32_t offset,
     throw std::runtime_error("Can't erase memory");
 }
 
+void D2Flasher::eraseMemory2(common::ECUType ecuType, uint32_t offset,
+    unsigned long protocolId, unsigned long flags,
+    uint8_t toCheck, uint8_t toCheck2) {
+    writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
+    if (!writeMessagesAndCheckAnswer2(
+        *_channel1,
+        common::D2Messages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
+            flags),
+        toCheck, toCheck2, 30))
+        throw std::runtime_error("Can't erase memory");
+}
+
 void D2Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
                               unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
@@ -406,7 +418,7 @@ void D2Flasher::writeFlashMe7(const std::vector<uint8_t> &bin,
 void D2Flasher::writeFlashMe9(const std::vector<uint8_t> &bin,
                               unsigned long protocolId, unsigned long flags) {
   const auto ecuType = common::ECUType::ECM_ME;
-  eraseMemory(ecuType, 0x20000, protocolId, flags, 0x0);
+  eraseMemory2(ecuType, 0x20000, protocolId, flags, 0xF9, 0x0);
   writeChunk(ecuType, bin, 0x20000, 0x90000, protocolId, flags);
   writeChunk(ecuType, bin, 0xA0000, 0x1F0000, protocolId, flags);
 }

@@ -104,6 +104,9 @@ private:
   void eraseMemory(common::ECUType ecuType, uint32_t offset,
                    unsigned long protocolId, unsigned long flags,
                    uint8_t toCheck);
+  void eraseMemory2(common::ECUType ecuType, uint32_t offset,
+      unsigned long protocolId, unsigned long flags,
+      uint8_t toCheck, uint8_t toCheck2);
   void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
                      unsigned long flags);
   void writeFlashMe9(const std::vector<uint8_t> &bin, unsigned long protocolId,
