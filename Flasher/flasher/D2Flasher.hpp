@@ -1,5 +1,8 @@
 #pragma once
 
+#include "FlasherCallback.hpp"
+#include "VBF.hpp"
+
 #include <common/CMType.hpp>
 #include <common/D2Messages.hpp>
 
@@ -16,32 +19,6 @@ class J2534Channel;
 } // namespace j2534
 
 namespace flasher {
-
-class FlasherCallback {
-public:
-  FlasherCallback() = default;
-  virtual ~FlasherCallback() = default;
-
-  virtual void OnFlashProgress(std::chrono::milliseconds timePoint,
-                               size_t currentValue, size_t maxValue) = 0;
-  virtual void OnMessage(const std::string &message) = 0;
-};
-
-struct VBFChunk {
-  uint32_t writeOffset;
-  std::vector<uint8_t> data;
-  uint32_t crc;
-
-  VBFChunk(uint32_t writeOffset, const std::vector<uint8_t> data)
-      : writeOffset(writeOffset), data(data), crc() {}
-};
-
-struct VBF {
-  uint32_t jumpAddr;
-  std::vector<VBFChunk> chunks;
-  VBF(uint32_t jumpAddr, const std::vector<VBFChunk> &chunks)
-      : jumpAddr(jumpAddr), chunks(chunks) {}
-};
 
 class D2Flasher {
 public:

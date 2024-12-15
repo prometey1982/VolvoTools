@@ -48,7 +48,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 
 	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
 	pin_command.add_description("Bruteforce ECM PIN code");
-	pin_command.add_argument("-s", "--start").scan<'x', unsigned long>().default_value(0).help("Start PIN");
+	pin_command.add_argument("-s", "--start").scan<'x', unsigned long>().default_value(static_cast<unsigned long>(0)).help("Start PIN");
 
 	argparse::ArgumentParser wakeup_command("wakeup", "1.0", argparse::default_arguments::help);
 	wakeup_command.add_description("Wake up CAN network");
