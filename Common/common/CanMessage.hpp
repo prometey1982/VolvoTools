@@ -13,17 +13,17 @@ public:
   static constexpr size_t CanPayloadSize = 8;
   using DataType = std::array<uint8_t, CanPayloadSize>;
 
-protected:
-  explicit CanMessage(uint32_t canId, unsigned long protocolId, const std::vector<DataType> &data);
-  explicit CanMessage(uint32_t canId, unsigned long protocolId, std::vector<DataType> &&data) noexcept;
+  explicit CanMessage(uint32_t canId, const std::vector<DataType>& data);
+  explicit CanMessage(uint32_t canId, std::vector<DataType>&& data) noexcept;
+  explicit CanMessage(uint32_t canId, const DataType& data);
 
+  virtual std::vector<PASSTHRU_MSG>
+      toPassThruMsgs(unsigned long ProtocolID, unsigned long Flags) const override;
+
+protected:
   const std::vector<DataType> &data() const;
 
-  uint32_t getCanId() const;
-
 private:
-  uint32_t _canId;
-  unsigned long _protocolId;
   const std::vector<DataType> _data;
 };
 

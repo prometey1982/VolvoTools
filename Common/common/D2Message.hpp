@@ -55,9 +55,6 @@ public:
   explicit D2Message(const std::vector<DataType> &data);
   explicit D2Message(std::vector<DataType> &&data);
   explicit D2Message(const std::vector<uint8_t> &data);
-
-  virtual std::vector<PASSTHRU_MSG>
-  toPassThruMsgs(unsigned long ProtocolID, unsigned long Flags) const override;
 };
 
 } // namespace common

@@ -3,6 +3,7 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 #include <flasher/D2Flasher.hpp>
+#include <flasher/UDSFlasher.hpp>
 
 #include <argparse/argparse.hpp>
 #include <algorithm>
@@ -551,28 +552,8 @@ void doSomeStuff(j2534::J2534& j2534)
 {
 	const unsigned long baudrate = 500000;
 	unsigned long protocolId = CAN;
-	j2534::J2534Channel channel(j2534, protocolId, CAN_ID_BOTH, baudrate, 0);
-	PASSTHRU_MSG msg;
-	memset(&msg, 0, sizeof(msg));
-	msg.ProtocolID = protocolId;
-	msg.DataSize = 4;
-	msg.Data[2] = 7;
-	unsigned long msg_id;
-	channel.startMsgFilter(PASS_FILTER, &msg, &msg, nullptr, msg_id);
-#if 1
-	if (!switchToDiagSession(channel, protocolId, { 0, 0, 0xd3, 0x5d, 0x6f })) {
-		std::cout << "failed to switch" << std::endl;
-		return;
-	}
-#endif
-	memset(&msg, 0, sizeof(msg));
-	if (sendMessage(channel, protocolId, { 0x07, 0xe0, 0x8, 0x23, 0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2 }) != STATUS_NOERROR)
-	{
-		std::cout << "failed to get memory write" << std::endl;
-		return;
-	}
-	const auto messages = readMessages(channel, 20);
-
+	flasher::UDSFlasher flasher(j2534, 0x7E0, { 0, 0, 0xd3, 0x5d, 0x6f }, flasher::VBF(0, {}), flasher::VBF(0, {}));
+	flasher.flash();
 }
 
 uint16_t crc16(const uint8_t* data_p, size_t length) {

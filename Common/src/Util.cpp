@@ -168,6 +168,9 @@ openChannel(j2534::J2534 &j2534, unsigned long ProtocolID, unsigned long Flags,
       makePassThruMsg(ProtocolID, Flags, {0x00, 0x00, 0x00, 0x01});
   unsigned long msgId;
   channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
+  PASSTHRU_MSG msgFilter2 =
+      makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x07, 0x00 });
+  channel->startMsgFilter(PASS_FILTER, &msgFilter2, &msgFilter2, nullptr, msgId);
   if (AdditionalConfiguration && ProtocolID == CAN_XON_XOFF) {
     startXonXoffMessageFiltering(*channel, Flags);
     config.resize(1);
@@ -216,6 +219,9 @@ std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534 &j2534,
     unsigned long msgId;
     channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr,
                             msgId);
+    PASSTHRU_MSG msgFilter2 =
+        makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x07, 0x00 });
+    channel->startMsgFilter(PASS_FILTER, &msgFilter2, &msgFilter2, nullptr, msgId);
     return std::move(channel);
   }
   return {};

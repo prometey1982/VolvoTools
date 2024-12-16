@@ -3,6 +3,7 @@
 #include "FlasherStep.hpp"
 #include "VBF.hpp"
 
+#include <array>
 #include <memory>
 #include <mutex>
 
@@ -17,7 +18,7 @@ class UDSStep;
 
 class UDSFlasher {
 public:
-    UDSFlasher(j2534::J2534 &j2534, uint32_t cmId, const std::vector<uint8_t>& pin, const VBF& bootloader, const VBF& flash);
+    UDSFlasher(j2534::J2534 &j2534, uint32_t cmId, const std::array<uint8_t, 5>& pin, const VBF& bootloader, const VBF& flash);
     ~UDSFlasher();
 
     void flash();
@@ -34,7 +35,7 @@ private:
 private:
     j2534::J2534& _j2534;
     uint32_t _cmId;
-    std::vector<uint8_t> _pin;
+    std::array<uint8_t, 5> _pin;
     VBF _bootloader;
     VBF _flash;
     mutable std::mutex _mutex;
