@@ -1,0 +1,13 @@
+#include "common/VBFParser.hpp"
+
+namespace common {
+
+VBFParser::VBFParser()
+{
+}
+
+VBF VBFParser::parse(const std::vector<uint8_t>& data)
+{
+}
+
+} // namespace common

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace flasher {
 
 enum class FlasherStep {
@@ -12,5 +14,7 @@ enum class FlasherStep {
     WakeUp,
     CloseChannels
 };
+
+std::string toString(FlasherStep step);
 
 } // namespace flasher

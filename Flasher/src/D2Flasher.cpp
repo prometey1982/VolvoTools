@@ -224,16 +224,22 @@ void D2Flasher::selectAndWriteBootloader(common::CMType cmType,
   std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-VBF D2Flasher::getSBL(common::CMType cmType) const {
+common::VBF D2Flasher::getSBL(common::CMType cmType) const {
+    auto makeHeader = [](uint32_t callAddr) -> common::VBFHeader
+        {
+            common::VBFHeader header;
+            header.call = callAddr;
+            return header;
+        };
   switch (cmType) {
   case common::CMType::ECM_ME7:
-    return VBF(0x31C000,
-               {VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
+      return common::VBF(makeHeader(0x31C000),
+               { common::VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
   case common::CMType::ECM_ME9_P1:
-    return VBF(0x7F81D0,
-               {VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
+    return common::VBF(makeHeader(0x7F81D0),
+               { common::VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
   default:
-    return VBF(0, {});
+      return common::VBF({}, {});
   }
 }
 
@@ -309,7 +315,7 @@ void D2Flasher::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
   throw std::runtime_error("CM didn't response with correct answer");
 }
 
-void D2Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
+void D2Flasher::writeSBL(common::ECUType ecuType, const common::VBF &bootloader,
                          unsigned long protocolId, unsigned long flags) {
   messageToCallbacks("Writing bootloader");
   for (size_t i = 0; i < bootloader.chunks.size(); ++i) {
@@ -340,7 +346,7 @@ void D2Flasher::writeSBL(common::ECUType ecuType, const VBF &bootloader,
             0xB1))
       throw std::runtime_error("Can't read memory after bootloader");
   }
-  writeDataOffsetAndCheckAnswer(ecuType, bootloader.jumpAddr, protocolId,
+  writeDataOffsetAndCheckAnswer(ecuType, bootloader.header.call, protocolId,
                                 flags);
   if (!writeMessagesAndCheckAnswer(
           *_channel1,
@@ -502,7 +508,12 @@ void D2Flasher::setState(State newState) {
 }
 
 void D2Flasher::messageToCallbacks(const std::string &message) {
-  for (const auto &callback : _callbacks) {
+  decltype(_callbacks) tmpCallbacks;
+  {
+    std::unique_lock<std::mutex> lock(_mutex);
+    tmpCallbacks = _callbacks;
+  }
+  for (const auto &callback : tmpCallbacks) {
     callback->OnMessage(message);
   }
 }

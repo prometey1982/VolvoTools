@@ -1,11 +1,15 @@
 #include <common/D2Messages.hpp>
+#include <common/VBFParser.hpp>
 #include <common/Util.hpp>
+
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
+
 #include <flasher/D2Flasher.hpp>
 #include <flasher/UDSFlasher.hpp>
 
 #include <argparse/argparse.hpp>
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -45,6 +49,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	read_command.add_argument("-e", "--ecu").scan<'x', uint8_t>().help("ECU id to read");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
+	test_command.add_argument("-p", "--pin").scan<'x', unsigned long>().default_value(static_cast<unsigned long>(0)).help("PIN to unlock ECU");
 	test_command.add_description("Test purposes");
 
 	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
@@ -73,6 +78,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
+			pinStart = test_command.get<unsigned long>("-p");
 			runMode = RunMode::Test;
 		}
 		else if (program.is_subcommand_used(pin_command)) {
@@ -175,6 +181,9 @@ public:
 		size_t maxValue) override {}
 	void OnMessage(const std::string& message) override {
 		std::cout << std::endl << message;
+	}
+	void OnFlasherStep(flasher::FlasherStep step) override {
+		std::cout << std::endl << flasher::toString(step);
 	}
 };
 
@@ -548,12 +557,26 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 	return false;
 }
 
-void doSomeStuff(j2534::J2534& j2534)
+void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 {
 	const unsigned long baudrate = 500000;
 	unsigned long protocolId = CAN;
-	flasher::UDSFlasher flasher(j2534, 0x7E0, { 0, 0, 0xd3, 0x5d, 0x6f }, flasher::VBF(0, {}), flasher::VBF(0, {}));
+	FlasherCallback callback;
+	flasher::UDSFlasher flasher(j2534, 0x7E0, { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, common::VBF({}, {}), common::VBF({}, {}));
+	flasher.registerCallback(callback);
 	flasher.flash();
+	while (flasher.getState() ==
+		flasher::UDSFlasher::State::InProgress) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::cout << ".";
+	}
+	const bool success = flasher.getState() ==
+		flasher::UDSFlasher::State::Done;
+	std::cout << std::endl
+		<< ((success)
+			? "Flashing done"
+			: "Flashing error. Try again.")
+		<< std::endl;
 }
 
 uint16_t crc16(const uint8_t* data_p, size_t length) {
@@ -668,6 +691,13 @@ int main(int argc, const char* argv[]) {
 	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
+	common::VBFParser parser;
+//	std::ifstream inpVbf("D:\\misc\\denso\\p3\\30788272_p3_3.2_sbl.vbf");
+	std::ifstream inpVbf("D:\\misc\\vbf files\\6G9N-14C273-CA.vbf", std::ios_base::binary);
+
+	parser.parse(inpVbf);
+	return 0;
+
 #if 0
 	fill_crc_map();
 //	findMultiplePins();
@@ -748,7 +778,7 @@ int main(int argc, const char* argv[]) {
 							<< std::endl;
 					}
 					else if (runMode == RunMode::Test) {
-						doSomeStuff(*j2534);
+						doSomeStuff(*j2534, pinStart);
 					}
 				}
 				catch (const std::exception& ex) {

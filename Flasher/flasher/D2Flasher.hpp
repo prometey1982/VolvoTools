@@ -1,10 +1,10 @@
 #pragma once
 
 #include "FlasherCallback.hpp"
-#include "VBF.hpp"
 
 #include <common/CMType.hpp>
 #include <common/D2Messages.hpp>
+#include <common/VBF.hpp>
 
 #include <condition_variable>
 #include <mutex>
@@ -60,7 +60,7 @@ protected:
   void setCurrentProgress(size_t currentProgress);
   void setMaximumProgress(size_t maximumProgress);
 
-  virtual VBF getSBL(common::CMType cmType) const;
+  virtual common::VBF getSBL(common::CMType cmType) const;
 
 private:
   void canGoToSleep(unsigned long protocolId, unsigned long flags);
@@ -73,7 +73,7 @@ private:
                                      uint32_t writeOffset,
                                      unsigned long protocolId,
                                      unsigned long flags);
-  void writeSBL(common::ECUType ecuType, const VBF &sbl,
+  void writeSBL(common::ECUType ecuType, const common::VBF &sbl,
                 unsigned long protocolId, unsigned long flags);
   void writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &bin,
                   uint32_t beginOffset, uint32_t endOffset,
