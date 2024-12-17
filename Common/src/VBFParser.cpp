@@ -24,7 +24,11 @@ namespace common {
 			const auto lowered = tolower(value);
 			if (lowered == "can_standard")
 				return FrameFormat::CAN_STANDARD;
+			else if (lowered == "standard")
+				return FrameFormat::CAN_STANDARD;
 			else if (lowered == "can_extended")
+				return FrameFormat::CAN_EXTENDED;
+			else if (lowered == "extended")
 				return FrameFormat::CAN_EXTENDED;
 			return FrameFormat::UNKNOWN;
 		}
@@ -73,6 +77,7 @@ namespace common {
 				| (x3::lit("ecu_address") >> '=' >> x3::lit("0x") >> x3::hex[([](auto& ctx) { x3::_val(ctx).ecuAddress = x3::_attr(ctx); })] >> ';')
 				| (x3::lit("ecu_addr") >> '=' >> x3::lit("0x") >> x3::hex[([](auto& ctx) { x3::_val(ctx).ecuAddress = x3::_attr(ctx); })] >> ';')
 				| (x3::lit("frame_format") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx)); })] >> ';')
+				| (x3::lit("can_frame_format") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx)); })] >> ';')
 				| (x3::lit("call") >> '=' >> x3::lit("0x") >> x3::hex[([](auto& ctx) { x3::_val(ctx).call = x3::_attr(ctx); })] >> ';')
 				| (x3::lit("jmp") >> '=' >> x3::lit("0x") >> x3::hex[([](auto& ctx) { x3::_val(ctx).call = x3::_attr(ctx); })] >> ';')
 				| (x3::lit("file_checksum") >> '=' >> x3::lit("0x") >> x3::hex[([](auto& ctx) { x3::_val(ctx).fileChecksum = x3::_attr(ctx); })] >> ';')) >> '}';
