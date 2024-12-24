@@ -3,7 +3,7 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
-#include <common/CanMessage.hpp>
+#include <common/UDSMessage.hpp>
 #include <common/Util.hpp>
 
 #include <optional>
@@ -11,502 +11,374 @@
 
 namespace flasher {
 
-namespace {
-j2534::J2534Channel& getChannel(uint32_t cmId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-{
-    static const std::unordered_map<uint32_t, size_t> CMMap = {
-        {0x7E0, 0}
-    };
-    return *channels[CMMap.at(cmId)];
-}
-}
+	namespace {
 
-class UDSStep {
-public:
-    UDSStep(FlasherStep step, size_t maximumProgress, bool skipOnError)
-        : _step{ step }
-        , _currentProgress{}
-        , _maximumProgress{ maximumProgress }
-        , _skipOnError{ skipOnError }
-    {
-    }
+		j2534::J2534Channel& getChannel(uint32_t cmId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+		{
+			static const std::unordered_map<uint32_t, size_t> CMMap = {
+				{0x7E0, 0}
+			};
+			return *channels[CMMap.at(cmId)];
+		}
+	}
 
-    bool process(bool previousFailed)
-    {
-        bool result = true;
-        if (!(previousFailed && _skipOnError)) {
-            try {
-                result = processImpl();
-            }
-            catch (...) {
-                result = false;
-            }
-        }
-        setCurrentProgress(getMaximumProgress());
-        return result;
-    }
+	class OpenChannelsStep : public common::UDSProtocolStep {
+	public:
+		OpenChannelsStep(j2534::J2534& j2534, uint32_t cmId, std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+			: UDSProtocolStep{ common::UDSStepType::OpenChannels, 100, true }
+			, _j2534{ j2534 }
+			, _cmId{ cmId }
+			, _channels{ channels }
+		{
+		}
 
-    size_t getCurrentProgress() const
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        return _currentProgress;
-    }
+		bool processImpl() override
+		{
+			_channels.emplace_back(common::openUDSChannel(_j2534, 500000, _cmId));
+			_channels.emplace_back(common::openLowSpeedChannel(_j2534, CAN_ID_BOTH));
+			return true;
+		}
 
-    size_t getMaximumProgress() const
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        return _maximumProgress;
-    }
+	private:
+		j2534::J2534& _j2534;
+		uint32_t _cmId;
+		std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+	};
 
-    FlasherStep getStep() const
-    {
-        return _step;
-    }
+	class CloseChannelsStep : public common::UDSProtocolStep {
+	public:
+		CloseChannelsStep(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+			: UDSProtocolStep{ common::UDSStepType::CloseChannels, 100, false }
+			, _channels{ channels }
+		{
+		}
 
-protected:
-    virtual bool processImpl() = 0;
+		bool processImpl() override
+		{
+			_channels.clear();
+			return true;
+		}
 
-    void setCurrentProgress(size_t currentProgress)
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        _currentProgress = currentProgress;
-    }
+	private:
+		std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+	};
 
-    void setMaximumProgress(size_t maximumProgress)
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        _maximumProgress = maximumProgress;
-    }
+	class FallingAsleepStep : public common::UDSProtocolStep {
+	public:
+		FallingAsleepStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+			: UDSProtocolStep{ common::UDSStepType::FallingAsleep, 100, true }
+			, _channels{ channels }
+		{
+		}
 
-private:
-    FlasherStep _step;
-    mutable std::mutex _mutex;
+		bool processImpl() override
+		{
+			std::vector<std::vector<unsigned long>> msgIds(_channels.size());
+			for (size_t i = 0; i < _channels.size(); ++i) {
+				const auto ids = _channels[i]->startPeriodicMsgs(common::UDSMessage(0x7DF, { 0x10, 0x02 }), 5);
+				if (ids.empty()) {
+					return false;
+				}
+				msgIds[i] = ids;
+			}
+			std::this_thread::sleep_for(std::chrono::seconds(2));
+			for (size_t i = 0; i < _channels.size(); ++i) {
+				_channels[i]->stopPeriodicMsg(msgIds[i]);
+			}
+			return true;
+		}
 
-    size_t _currentProgress;
-    size_t _maximumProgress;
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+	};
 
-    bool _skipOnError;
-};
+	class KeepAliveStep : public common::UDSProtocolStep {
+	public:
+		KeepAliveStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId)
+			: UDSProtocolStep{ common::UDSStepType::FallingAsleep, 100, true }
+			, _channels{ channels }
+			, _cmId{ cmId }
+		{
+		}
 
-class OpenChannelsStep : public UDSStep {
-public:
-    OpenChannelsStep(j2534::J2534& j2534, std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-        : UDSStep{ FlasherStep::OpenChannels, 100, true }
-        , _j2534{ j2534 }
-        , _channels{ channels }
-    {
-    }
+		bool processImpl() override
+		{
+			const auto& channel = getChannel(_cmId, _channels);
+			if (channel.startPeriodicMsgs(common::UDSMessage(0x7DF, { 0x3E, 0x80 }), 1900).empty())
+			{
+				return false;
+			}
+			return true;
+		}
 
-    bool processImpl() override
-    {
-        _channels.emplace_back(common::openChannel(_j2534, CAN, CAN_ID_BOTH, 500000,
-            true));
-        _channels.emplace_back(common::openLowSpeedChannel(_j2534, CAN_ID_BOTH));
-        return true;
-    }
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+		uint32_t _cmId;
+	};
 
-private:
-    j2534::J2534& _j2534;
-    std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-};
+	class WakeUpStep : public common::UDSProtocolStep {
+	public:
+		WakeUpStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+			: UDSProtocolStep{ common::UDSStepType::WakeUp, 100, false }
+			, _channels{ channels }
+		{
+		}
 
-class CloseChannelsStep : public UDSStep {
-public:
-    CloseChannelsStep(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-        : UDSStep{ FlasherStep::CloseChannels, 100, false }
-        , _channels{ channels }
-    {
-    }
+		bool processImpl() override
+		{
+			return true;
+		}
 
-    bool processImpl() override
-    {
-        _channels.clear();
-        return true;
-    }
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+	};
 
-private:
-    std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-};
+	class AuthorizingStep : public common::UDSProtocolStep {
+	public:
+		AuthorizingStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+			uint32_t cmId, const std::array<uint8_t, 5>& pin)
+			: UDSProtocolStep{ common::UDSStepType::Authorizing, 100, true }
+			, _channels{ channels }
+			, _cmId{ cmId }
+			, _pin{ pin }
+		{
+		}
 
-class FallingAsleepStep : public UDSStep {
-public:
-    FallingAsleepStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-        : UDSStep{ FlasherStep::FallingAsleep, 100, true }
-        , _channels{ channels }
-    {
-    }
+		bool processImpl() override
+		{
+			const auto& channel = getChannel(_cmId, _channels);
+			channel.clearRx();
+			common::UDSMessage requestSeedMsg(_cmId, { 0x27, 0x01 });
+			unsigned long numMsgs;
+			if (channel.writeMsgs(requestSeedMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+				return false;
+			}
+			const auto seedResponse = common::readMessageCheckAndGet(channel, { 0x67 }, { 0x01 });
+			std::array<uint8_t, 3> seed = { seedResponse[0], seedResponse[1], seedResponse[2] };
+			uint32_t key = generateKey(_pin, seed);
+			channel.clearRx();
+			common::UDSMessage sendKeyMsg(_cmId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
+			if (channel.writeMsgs(sendKeyMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+				return false;
+			}
+			return common::readMessageAndCheck(channel, { 0x67 }, { 0x02 }, 10);
+		}
 
-    bool processImpl() override
-    {
-        std::vector<unsigned long> msg_id(_channels.size());
-        for(size_t i = 0; i < _channels.size(); ++i) {
-            PASSTHRU_MSG msg;
+	private:
+		uint32_t generateKeyImpl(uint32_t hash, uint32_t input)
+		{
+			for (size_t i = 0; i < 32; ++i)
+			{
+				const bool is_bit_set = (hash ^ input) & 1;
+				input >>= 1;
+				hash >>= 1;
+				if (is_bit_set)
+					hash = (hash | 0x800000) ^ 0x109028;
+			}
+			return hash;
+		}
 
-            memset(&msg, 0, sizeof(msg));
-            msg.ProtocolID = _channels[i]->getProtocolId();
-            msg.DataSize = 12;
-            msg.Data[2] = 0x7;
-            msg.Data[3] = 0xE0;// 0xDF;
-            msg.Data[4] = 0x02;
-            msg.Data[5] = 0x10;
-            msg.Data[6] = 0x02;
-            if (_channels[i]->startPeriodicMsg(msg, msg_id[i], 5) != STATUS_NOERROR)
-            {
-                return false;
-            }
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        for (size_t i = 0; i < _channels.size(); ++i) {
-            _channels[i]->stopPeriodicMsg(msg_id[i]);
-        }
-        return true;
-    }
+		uint32_t generateKey(const std::array<uint8_t, 5>& pin_array, const std::array<uint8_t, 3>& seed_array)
+		{
+			const uint32_t high_part = pin_array[4] << 24 | pin_array[3] << 16 | pin_array[2] << 8 | pin_array[1];
+			const uint32_t low_part = pin_array[0] << 24 | seed_array[2] << 16 | seed_array[1] << 8 | seed_array[0];
+			unsigned int hash = 0xC541A9;
+			hash = generateKeyImpl(hash, low_part);
+			hash = generateKeyImpl(hash, high_part);
+			uint32_t result = ((hash & 0xF00000) >> 12) | hash & 0xF000 | (uint8_t)(16 * hash)
+				| ((hash & 0xFF0) << 12) | ((hash & 0xF0000) >> 16);
+			return result;
+		}
 
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-};
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+		uint32_t _cmId;
+		const std::array<uint8_t, 5>& _pin;
+	};
 
-class KeepAliveStep : public UDSStep {
-public:
-    KeepAliveStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId)
-        : UDSStep{ FlasherStep::FallingAsleep, 100, true }
-        , _channels{ channels }
-        , _cmId{ cmId }
-    {
-    }
+	class DataTransferStep : public common::UDSProtocolStep {
+		static size_t getMaximumSize(const common::VBF& data)
+		{
+			size_t result = 0;
+			for (const auto chunk : data.chunks) {
+				result += chunk.data.size();
+			}
+			return result;
+		}
+	public:
+		DataTransferStep(common::UDSStepType step, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId,
+			const common::VBF& data)
+			: UDSProtocolStep{ step, getMaximumSize(data), true }
+			, _channels{ channels }
+			, _cmId{ cmId }
+			, _data{ data }
+		{
+		}
 
-    bool processImpl() override
-    {
-        const auto& channel = getChannel(_cmId, _channels);
-        PASSTHRU_MSG msg;
-        memset(&msg, 0, sizeof(msg));
-        msg.ProtocolID = channel.getProtocolId();
-        msg.DataSize = 12;
-        msg.Data[2] = 0x7;
-        msg.Data[3] = 0xDF;
-        msg.Data[4] = 0x02;
-        msg.Data[5] = 0x3E;
-        msg.Data[6] = 0x80;
-        unsigned long msg_id;
-        if (channel.startPeriodicMsg(msg, msg_id, 1900) != STATUS_NOERROR)
-        {
-            return false;
-        }
-        return true;
-    }
+		bool processImpl() override
+		{
+			const auto& channel = getChannel(_cmId, _channels);
+			for (const auto& chunk : _data.chunks) {
+				const auto startAddr = chunk.writeOffset;
+				const auto dataSize = chunk.data.size();
+				common::UDSMessage requestDownloadMsg(_cmId, { 0x34, 0x00, 0x44,
+					(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF });
+				unsigned long numMsgs;
+				channel.clearRx();
+				if (channel.writeMsgs(requestDownloadMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return false;
+				}
+				const auto downloadResponse = common::readMessageCheckAndGet(channel, { 0x74 }, { 0x20 }, 10);
+				if (downloadResponse.empty()) {
+					return false;
+				}
+				const size_t maxSizeToTransfer = common::encode(downloadResponse[1], downloadResponse[0]) - 2;
+				uint8_t chunkIndex = 1;
+				for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+					const auto chunkEnd = std::min(i + maxSizeToTransfer, chunk.data.size());
+					std::vector<uint8_t> data{ 0x36, chunkIndex };
+					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
+					common::UDSMessage transferMsg(_cmId, std::move(data));
+					channel.clearRx();
+					if (channel.writeMsgs(transferMsg, numMsgs, 60000) != STATUS_NOERROR || numMsgs < 1) {
+						return false;
+					}
+					if (!common::readMessageAndCheck(channel, { 0x76 }, { chunkIndex }, 10)) {
+						return false;
+					}
+				}
+				common::UDSMessage transferExitMsg(_cmId, { 0x37 });
+				channel.clearRx();
+				if (channel.writeMsgs(transferExitMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return false;
+				}
+				if (!common::readMessageAndCheck(channel, { 0x77 }, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 10)) {
+					return false;
+				}
+			}
 
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-};
+			return true;
+		}
 
-class WakeUpStep : public UDSStep {
-public:
-    WakeUpStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-        : UDSStep{ FlasherStep::WakeUp, 100, false }
-        , _channels{ channels }
-    {
-    }
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+		uint32_t _cmId;
+		const common::VBF& _data;
+	};
 
-    bool processImpl() override
-    {
-        return true;
-    }
+	class FlashErasingStep : public common::UDSProtocolStep {
+	public:
+		FlashErasingStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId, const common::VBF& flash)
+			: UDSProtocolStep{ common::UDSStepType::FlashErasing, 100 * flash.chunks.size(), true }
+			, _channels{ channels }
+			, _cmId{ cmId }
+			, _flash{ flash }
+		{
+		}
 
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-};
+		bool processImpl() override
+		{
+			const auto& channel = getChannel(_cmId, _channels);
+			for (const auto& chunk : _flash.chunks) {
+				const auto eraseAddr = common::toVector(chunk.writeOffset);
+				const auto eraseSize = common::toVector(chunk.data.size());
+				common::UDSMessage eraseRoutineMsg(_cmId, { 0x31, 0x01, 0xff, 0x00,
+					eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
+					eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
+				unsigned long numMsgs;
+				if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return false;
+				}
+				if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0xff, 0x00, 0x00, 0x00 }, {}, 10)) {
+					return false;
+				}
+			}
+			return true;
+		}
 
-class AuthorizingStep : public UDSStep {
-public:
-    AuthorizingStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
-        uint32_t cmId, const std::array<uint8_t, 5>& pin)
-        : UDSStep{ FlasherStep::Authorizing, 100, true }
-        , _channels{ channels }
-        , _cmId{ cmId }
-        , _pin{ pin }
-    {
-    }
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+		uint32_t _cmId;
+		const common::VBF& _flash;
+	};
 
-    bool processImpl() override
-    {
-        const auto& channel = getChannel(_cmId, _channels);
-        channel.clearRx();
-        common::CanMessage requestSeedMsg(_cmId, { 0x02, 0x27, 0x01 });
-        unsigned long numMsgs;
-        if (channel.writeMsgs(requestSeedMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-            return false;
-        }
-        std::vector<PASSTHRU_MSG> read_msgs;
-        read_msgs.resize(1);
-        if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
-        {
-            return false;
-        }
-        std::array<uint8_t, 3> seed = { read_msgs[0].Data[7], read_msgs[0].Data[8], read_msgs[0].Data[9] };
-        uint32_t key = generateKey(_pin, seed);
-        channel.clearRx();
-        common::CanMessage sendKeyMsg(_cmId, { 0x05, 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
-        if (channel.writeMsgs(sendKeyMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-            return false;
-        }
-        read_msgs.resize(1);
-        if (channel.readMsgs(read_msgs) != STATUS_NOERROR || read_msgs.empty())
-        {
-            return false;
-        }
-        const auto& answer_data = read_msgs[0].Data;
-        if (answer_data[4] == 2 && answer_data[5] == 0x67 && answer_data[6] == 2)
-        {
-            return true;
-        }
-        return false;
-    }
+	class StartRoutineStep : public common::UDSProtocolStep {
+	public:
+		StartRoutineStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId, const common::VBFHeader& header)
+			: UDSProtocolStep{ common::UDSStepType::BootloaderStarting, 100, true }
+			, _channels{ channels }
+			, _cmId{ cmId }
+			, _header{ header }
+		{
+		}
 
-private:
-    uint32_t generateKeyImpl(uint32_t hash, uint32_t input)
-    {
-        for (size_t i = 0; i < 32; ++i)
-        {
-            const bool is_bit_set = (hash ^ input) & 1;
-            input >>= 1;
-            hash >>= 1;
-            if (is_bit_set)
-                hash = (hash | 0x800000) ^ 0x109028;
-        }
-        return hash;
-    }
+		bool processImpl() override
+		{
+			const auto& channel = getChannel(_cmId, _channels);
+			const auto callAddr = common::toVector(_header.call);
+			common::UDSMessage startRoutineMsg(_cmId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
+			unsigned long numMsgs;
+			if (channel.writeMsgs(startRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+				return false;
+			}
+			if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
+				return false;
+			}
+			return true;
+		}
 
-    uint32_t generateKey(const std::array<uint8_t, 5>& pin_array, const std::array<uint8_t, 3>& seed_array)
-    {
-        const uint32_t high_part = pin_array[4] << 24 | pin_array[3] << 16 | pin_array[2] << 8 | pin_array[1];
-        const uint32_t low_part = pin_array[0] << 24 | seed_array[2] << 16 | seed_array[1] << 8 | seed_array[0];
-        unsigned int hash = 0xC541A9;
-        hash = generateKeyImpl(hash, low_part);
-        hash = generateKeyImpl(hash, high_part);
-        uint32_t result = ((hash & 0xF00000) >> 12) | hash & 0xF000 | (uint8_t)(16 * hash)
-            | ((hash & 0xFF0) << 12) | ((hash & 0xF0000) >> 16);
-        return result;
-    }
+	private:
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+		uint32_t _cmId;
+		const common::VBFHeader& _header;
+	};
 
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-    const std::array<uint8_t, 5>& _pin;
-};
+	UDSFlasher::UDSFlasher(j2534::J2534& j2534, uint32_t cmId, const std::array<uint8_t, 5>& pin,
+		const common::VBF& bootloader, const common::VBF& flash)
+		: UDSProtocolBase{ j2534, cmId }
+		, _pin{ pin }
+		, _bootloader{ bootloader }
+		, _flash{ flash }
+	{
+		registerStep(std::make_unique<OpenChannelsStep>(getJ2534(), getCmId(), _channels));
+		registerStep(std::make_unique<FallingAsleepStep>(_channels));
+		registerStep(std::make_unique<KeepAliveStep>(_channels, getCmId()));
+		registerStep(std::make_unique<AuthorizingStep>(_channels, getCmId(), _pin));
+		registerStep(std::make_unique<DataTransferStep>(common::UDSStepType::BootloaderLoading, _channels, getCmId(), _bootloader));
+		registerStep(std::make_unique<StartRoutineStep>(_channels, getCmId(), _bootloader.header));
+		registerStep(std::make_unique<FlashErasingStep>(_channels, getCmId(), _flash));
+		registerStep(std::make_unique<DataTransferStep>(common::UDSStepType::FlashLoading, _channels, getCmId(), _flash));
+		registerStep(std::make_unique<WakeUpStep>(_channels));
+		registerStep(std::make_unique<CloseChannelsStep>(_channels));
+	}
 
-class DataTransferStep : public UDSStep {
-    static size_t getMaximumSize(const common::VBF& data)
-    {
-        size_t result = 0;
-        for (const auto chunk : data.chunks) {
-            result += chunk.data.size();
-        }
-        return result;
-    }
-public:
-    DataTransferStep(FlasherStep step, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId,
-        const common::VBF& data)
-        : UDSStep{ step, getMaximumSize(data), true }
-        , _channels{ channels }
-        , _cmId{ cmId }
-        , _data{ data }
-    {
-    }
+	UDSFlasher::~UDSFlasher()
+	{
+	}
+#if 0
+	void UDSFlasher::registerCallback(FlasherCallback& callback)
+	{
+		std::unique_lock<std::mutex> lock{ getMutex() };
+		_callbacks.push_back(&callback);
+	}
 
-    bool processImpl() override
-    {
-        return true;
-    }
+	void UDSFlasher::unregisterCallback(FlasherCallback& callback)
+	{
+		std::unique_lock<std::mutex> lock{ getMutex() };
+		_callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
+			_callbacks.end());
+	}
 
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-    const common::VBF& _data;
-};
-
-class BootloaderActivatingStep : public UDSStep {
-public:
-    BootloaderActivatingStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
-        uint32_t cmId, const common::VBF& bootloader)
-        : UDSStep{ FlasherStep::BootloaderLoading, 100, true }
-        , _channels{ channels }
-        , _cmId{ cmId }
-        , _startAddress{ bootloader.header.call }
-    {
-    }
-
-    bool processImpl() override
-    {
-        return true;
-    }
-
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-    uint32_t _startAddress;
-};
-
-class FlashErasingStep : public UDSStep {
-public:
-    FlashErasingStep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId, const common::VBF& flash)
-        : UDSStep{ FlasherStep::FlashErasing, 100 * flash.chunks.size(), true}
-        , _channels{ channels }
-        , _cmId{ cmId }
-        , _flash{ flash }
-    {
-    }
-
-    bool processImpl() override
-    {
-        return true;
-    }
-
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-    const common::VBF& _flash;
-};
-
-class RequestDownloadStep : public UDSStep {
-public:
-    RequestDownloadStep(FlasherStep step, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint32_t cmId)
-        : UDSStep{ step, 100, true }
-        , _channels{ channels }
-        , _cmId{ cmId }
-    {
-    }
-
-    bool processImpl() override
-    {
-        const auto& channel = getChannel(_cmId, _channels);
-        common::CanMessage requestDownloadMsg(_cmId, { 0x02, 0x27, 0x01 });
-        unsigned long numMsgs;
-        if (channel.writeMsgs(requestDownloadMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
-    uint32_t _cmId;
-};
-
-UDSFlasher::UDSFlasher(j2534::J2534 &j2534, uint32_t cmId, const std::array<uint8_t, 5>& pin,
-    const common::VBF& bootloader, const common::VBF& flash)
-	: _j2534{ j2534 }
-	, _cmId{ cmId }
-	, _pin{ pin }
-	, _bootloader{ bootloader }
-	, _flash{ flash }
-    , _currentState{ State::Initial }
-{
-    _steps.emplace_back(new OpenChannelsStep(_j2534, _channels));
-    _steps.emplace_back(new FallingAsleepStep(_channels));
-    _steps.emplace_back(new KeepAliveStep(_channels, _cmId));
-    _steps.emplace_back(new AuthorizingStep(_channels, _cmId, _pin));
-    _steps.emplace_back(new DataTransferStep(FlasherStep::BootloaderLoading, _channels, _cmId, _bootloader));
-    _steps.emplace_back(new BootloaderActivatingStep(_channels, _cmId, _bootloader));
-    _steps.emplace_back(new FlashErasingStep(_channels, _cmId, _flash));
-    _steps.emplace_back(new DataTransferStep(FlasherStep::FlashLoading, _channels, _cmId, _flash));
-    _steps.emplace_back(new WakeUpStep(_channels));
-    _steps.emplace_back(new CloseChannelsStep(_channels));
-}
-
-UDSFlasher::~UDSFlasher()
-{
-    if (_flasherThread.joinable()) {
-        _flasherThread.join();
-    }
-}
-
-void UDSFlasher::flash()
-{
-    setState(State::InProgress);
-    _flasherThread = std::thread([this] {
-        bool failed = false;
-        std::optional<FlasherStep> oldStep;
-        for (const auto& step : _steps) {
-            if (oldStep != step->getStep()) {
-                stepToCallbacks(step->getStep());
-                oldStep = step->getStep();
-            }
-            const bool currentStepFailed = !step->process(failed);
-            failed |= currentStepFailed;
-        }
-        if (failed) {
-            setState(State::Error);
-        }
-        else {
-            setState(State::Done);
-        }
-    });
-}
-
-UDSFlasher::State UDSFlasher::getState() const
-{
-    std::unique_lock<std::mutex> lock(_mutex);
-    return _currentState;
-}
-
-size_t UDSFlasher::getCurrentProgress() const
-{
-    size_t result = 0;
-    for (const auto& step : _steps) {
-        result += step->getCurrentProgress();
-    }
-    return result;
-}
-
-size_t UDSFlasher::getMaximumProgress() const
-{
-    size_t result = 0;
-    for (const auto& step : _steps) {
-        result += step->getMaximumProgress();
-    }
-    return result;
-}
-
-void UDSFlasher::setState(State newState)
-{
-    std::unique_lock<std::mutex> lock(_mutex);
-    _currentState = newState;
-}
-
-void UDSFlasher::registerCallback(FlasherCallback& callback)
-{
-    std::unique_lock<std::mutex> lock{ _mutex };
-    _callbacks.push_back(&callback);
-}
-
-void UDSFlasher::unregisterCallback(FlasherCallback& callback)
-{
-    std::unique_lock<std::mutex> lock{ _mutex };
-    _callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
-        _callbacks.end());
-}
-
-void UDSFlasher::messageToCallbacks(const std::string& message) {
-    decltype(_callbacks) tmpCallbacks;
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        tmpCallbacks = _callbacks;
-    }
-    for (const auto& callback : tmpCallbacks) {
-        callback->OnMessage(message);
-    }
-}
-
-void UDSFlasher::stepToCallbacks(FlasherStep step) {
-    decltype(_callbacks) tmpCallbacks;
-    {
-        std::unique_lock<std::mutex> lock(_mutex);
-        tmpCallbacks = _callbacks;
-    }
-    for (const auto& callback : tmpCallbacks) {
-        callback->OnFlasherStep(step);
-    }
-}
+	void UDSFlasher::messageToCallbacks(const std::string& message) {
+		decltype(_callbacks) tmpCallbacks;
+		{
+			std::unique_lock<std::mutex> lock(getMutex());
+			tmpCallbacks = _callbacks;
+		}
+		for (const auto& callback : tmpCallbacks) {
+			callback->OnMessage(message);
+		}
+	}
+#endif
 
 } // namespace flasher

@@ -35,6 +35,7 @@ namespace common {
 		FrameFormat frameFormat{ FrameFormat::UNKNOWN };
 		uint32_t call{};
 		uint32_t fileChecksum{};
+		std::vector<std::pair<uint32_t, uint32_t>> erase;
 	};
 
 } // namespace common

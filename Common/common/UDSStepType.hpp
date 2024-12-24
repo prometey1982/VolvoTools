@@ -2,19 +2,20 @@
 
 #include <string>
 
-namespace flasher {
+namespace common {
 
-enum class FlasherStep {
+enum class UDSStepType {
     OpenChannels,
     FallingAsleep,
     Authorizing,
     BootloaderLoading,
+    BootloaderStarting,
     FlashErasing,
     FlashLoading,
     WakeUp,
     CloseChannels
 };
 
-std::string toString(FlasherStep step);
+std::string toString(UDSStepType stepType);
 
-} // namespace flasher
+} // namespace common

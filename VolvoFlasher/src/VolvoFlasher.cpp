@@ -1,6 +1,7 @@
 #include <common/D2Messages.hpp>
 #include <common/VBFParser.hpp>
 #include <common/Util.hpp>
+#include <common/UDSProtocolCallback.hpp>
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -173,17 +174,29 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 	return TRUE;
 }
 
-class FlasherCallback final : public flasher::FlasherCallback {
+class UDSFlasherCallback final : public common::UDSProtocolCallback {
 public:
-	FlasherCallback() = default;
+	UDSFlasherCallback() = default;
 
-	void OnFlashProgress(std::chrono::milliseconds timePoint, size_t currentValue,
+	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
 		size_t maxValue) override {}
 	void OnMessage(const std::string& message) override {
 		std::cout << std::endl << message;
 	}
-	void OnFlasherStep(flasher::FlasherStep step) override {
-		std::cout << std::endl << flasher::toString(step);
+	void OnStep(common::UDSStepType step) override {
+		std::cout << std::endl << common::toString(step);
+	}
+};
+
+class FlasherCallback final : public flasher::FlasherCallback {
+public:
+	FlasherCallback() = default;
+
+	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
+		size_t maxValue) override {
+	}
+	void OnMessage(const std::string& message) override {
+		std::cout << std::endl << message;
 	}
 };
 
@@ -559,19 +572,24 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 
 void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 {
+	common::VBFParser vbfParser;
+	std::ifstream inpVbf("D:\\misc\\denso\\p3\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
+	const common::VBF bootloader = vbfParser.parse(inpVbf);
+	std::ifstream flashVbf("D:\\misc\\denso\\p3\\test2.vbf ", std::ios_base::binary);
+	const common::VBF flash = vbfParser.parse(flashVbf);
 	const unsigned long baudrate = 500000;
 	unsigned long protocolId = CAN;
-	FlasherCallback callback;
-	flasher::UDSFlasher flasher(j2534, 0x7E0, { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, common::VBF({}, {}), common::VBF({}, {}));
+	UDSFlasherCallback callback;
+	flasher::UDSFlasher flasher(j2534, 0x7E0, { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
 	flasher.registerCallback(callback);
-	flasher.flash();
+	flasher.start();
 	while (flasher.getState() ==
-		flasher::UDSFlasher::State::InProgress) {
+		common::UDSProtocolBase::State::InProgress) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
 	const bool success = flasher.getState() ==
-		flasher::UDSFlasher::State::Done;
+		common::UDSProtocolBase::State::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Flashing done"
@@ -691,13 +709,6 @@ int main(int argc, const char* argv[]) {
 	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
-	common::VBFParser parser;
-//	std::ifstream inpVbf("D:\\misc\\denso\\p3\\30788272_p3_3.2_sbl.vbf");
-	std::ifstream inpVbf("D:\\misc\\vbf files\\6G9N-14C273-CA.vbf", std::ios_base::binary);
-
-	parser.parse(inpVbf);
-	return 0;
-
 #if 0
 	fill_crc_map();
 //	findMultiplePins();

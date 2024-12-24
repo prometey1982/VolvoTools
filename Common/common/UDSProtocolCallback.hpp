@@ -1,18 +1,21 @@
 #pragma once
 
+#include "UDSProtocolStep.hpp"
+
 #include <chrono>
 #include <string>
 
-namespace flasher {
+namespace common {
 
-class FlasherCallback {
+class UDSProtocolCallback {
 public:
-  FlasherCallback() = default;
-  virtual ~FlasherCallback() = default;
+  UDSProtocolCallback() = default;
+  virtual ~UDSProtocolCallback() = default;
 
   virtual void OnProgress(std::chrono::milliseconds timePoint,
                                size_t currentValue, size_t maxValue) = 0;
   virtual void OnMessage(const std::string &message) = 0;
+  virtual void OnStep(UDSStepType stepType) {}
 };
 
-} // namespace flasher
+} // namespace common
