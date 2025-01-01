@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(Common VERSION 1.0.0 LANGUAGES CXX)
 
 find_package(Boost REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 
@@ -22,4 +23,4 @@ if (WIN32)
 endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME} j2534 Registry boost::boost)
+target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost)

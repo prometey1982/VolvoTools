@@ -1,0 +1,4817 @@
+Configuration: 
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          Address: '00'
+          CSTimeout: 9000
+          ERASETimeout: 9000
+          Name: NON Not Configured ECU LS
+          ORGTimeout: 9000
+          PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 68
+      - 
+        BaudRate: 250
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU HS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 11
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, diesel
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 12
+            Name: ETM - Electronic Trottle Module
+          - 
+            Address: 50
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            MasterECU: 1
+            Name: CDM - Can and Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TCM - Transmission Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, petrol
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 68
+    Name: P80
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU MS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 18
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module ->P1010A
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 1F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module P1010A->
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 23
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TRM - Trailer Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 29
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CCM - Climat Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: KVM - Keyless Vehicle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, left/driver
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, right
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 40
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CEM - Central Electronic Module (PJB micro B)
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 42
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CRM - Convertible Roof Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 43
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DDM - Driver Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 45
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PDM - Passenger Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 46
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: REM - Rear Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 47
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: UEM - Upper Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 49
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 51
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DIM - Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 52
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AEM - Accessories Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 54
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ICM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 58
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SRS - Airbag
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 60
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUM - Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 62
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RTI - Road Traffic Information
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 63
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PAM - Parking Assist Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 64
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PHM - Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 65
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ATM - Antenna Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 66
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MMM - Multi Media Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 68
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUB - Sub Woofer
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 69
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP1 - Media Player 1
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP2 - Media Player 2
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUD - Audio Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 71
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RDAR - Digital Audio Radio System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 72
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: GPS - Global Positioning System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 73
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TMC - Traffic Message Channel Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 74
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AFM - Am/Fm Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 75
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IAM - Integrated Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7B
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUU - Accessory USB Unit
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7C
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BPM - Bluetooth Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: FF
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IGM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 60
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU HS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: '01'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BCM - Brake Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 0B
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ADM - Additive Dosing Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 11
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, diesel
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 12
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ETM - Electronic Trottle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 1A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DEM - Differential Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 20
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUM - Suspension Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 28
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SAS - Steering Angle Sensor
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 30
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: EPS - Electrical Power Steering
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 49
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P1x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 50
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            MasterECU: 1
+            Name: CEM - Central Electronic Module (PJB micro A)
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TCM - Transmission Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 70
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: HCM - Headlamp Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, petrol
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 80
+    Name: P1x (D2) - Elsys 1
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU MS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 1F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 23
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TRM - Trailer Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 29
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CCM - Climat Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: KVM - Keyless Vehicle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSL / PSM - Power Seat Module, left/driver
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSR - Power Seat Module, right
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 40
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CEM - Central Electronic Module (PJB micro B)
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 42
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CRM - Convertible Roof Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 43
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DDM - Driver Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 45
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PDM - Passenger Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 49
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P2x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 51
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DIM - Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 52
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AEM - Accessories Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 54
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ICM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 58
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SRS - Airbag
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 63
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PAM - Parking Assist Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 64
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PHM - Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 66
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MMM - Multi Media Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 68
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUB - Sub Woofer
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUD - Audio Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 71
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RDAR - Digital Audio Radio System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 75
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IAM - Integrated Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7B
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUU - Accessory USB Unit
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7C
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BPM - Bluetooth Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 60
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM (VCC), PCM - Powertrain Control Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM (VCC), ABS - Anit-Lock Brake System (ABS) Control Module
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS (VCC), SASM - Steering Angle Sensor Module
+          - 
+            Address: 50
+            CANIdentifier: 726
+            Name: CEM (VCC), BCM - Body Control Module
+          - 
+            Address: 76
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: P1010 (D2/GGD) - Elsys 2
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU LS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 18
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 29
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CCM - Climat Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: KVM - Keyless Vehicle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, left/driver
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, right
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 40
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            MasterECU: 1
+            Name: CEM - Central Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 43
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DDM - Driver Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 45
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PDM - Passenger Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 46
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: REM - Rear Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 47
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: UEM - Upper Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 48
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P2x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 51
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DIM - Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 52
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AEM - Accessories Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 54
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ICM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 58
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SRS - Airbag
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 60
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUM - Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 62
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RTI - Road Traffic Informtion
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 64
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PHM - Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 65
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ATM - Antenna Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 66
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MMM - Multi Media Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 68
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUB - Sub Woofer
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 69
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP1 - Media Player 1
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP2 - Media Player 2
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUD - Audio Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 72
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: GPS - Global Positioning System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 73
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TMC - Traffic Message Channel Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 74
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AFM - Am/Fm Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: FF
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IGM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 68
+      - 
+        BaudRate: 250
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU HS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: '01'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BCM - Brake Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 11
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, diesel
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 12
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ETM - Electronic Trottle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 1A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DEM - Differential Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 20
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUM - Suspension Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 28
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SAS - Steering Angle Sensor
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 30
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: EPS - Electrical Power Steering
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 49
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P1x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 50
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CEM - Central Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TCM - Transmission Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 70
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: HCM - Headlamp Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, petrol
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 68
+    Name: P2x -2004w20 (CAN-HS 250kbit/s)
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU LS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 18
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 29
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CCM - Climat Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: KVM - Keyless Vehicle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, left/driver
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 2F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, right
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 40
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CEM - Central Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 43
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DDM - Driver Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 45
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PDM - Passenger Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 46
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: REM - Rear Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 47
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: UEM - Upper Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 48
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P2x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 51
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DIM - Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 52
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AEM - Accessories Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 54
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ICM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 58
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SRS - Airbag
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 60
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUM - Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 62
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RTI - Road Traffic Informtion
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 64
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PHM - Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 65
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ATM - Antenna Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 66
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MMM - Multi Media Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 67
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PAC - Park Assist Camera
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 68
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUB - Sub Woofer
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 69
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP1 - Media Player 1
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP2 - Media Player 2
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUD - Audio Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 72
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: GPS - Global Positioning System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 73
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TMC - Traffic Message Channel Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 74
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AFM - Am/Fm Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7C
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BPM - Bluetooth Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: FF
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IGM - Infotainment Control Module (?)
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU HS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: '01'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: BCM - Brake Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 11
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, diesel
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 12
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ETM - Electronic Trottle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 1A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DEM - Differential Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 20
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUM - Suspension Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 28
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SAS - Steering Angle Sensor
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 30
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: EPS - Electrical Power Steering
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 49
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P1x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 50
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            MasterECU: 1
+            Name: CEM - Central Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 6E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TCM - Transmission Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 70
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: HCM - Headlamp Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+          - 
+            Address: 7A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ECM - Engine Control Module, petrol
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+        SWDLProtocol: CAN
+        SamplePoint: 80
+    Name: P2x 2004w20- (CAN-HS 500kbit/s)
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: NON Not Configured ECU MS
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 18
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CPM - Combustion Preheater Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 29
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CCM - Climat Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 2D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: KVM - Keyless Vehicle Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 2E
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, left/driver
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 2F
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PSM - Power Seat Module, right
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 40
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: CEM - Central Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 43
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DDM - Driver Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 45
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PDM - Passenger Door Module, front
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 46
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: REM - Rear Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 47
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: UEM - Upper Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 48
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SWM - Steering Wheel Module P2x
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 51
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: DIM - Driver Information Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 52
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AEM - Accessories Electronic Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 54
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ICM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 58
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SRS - Airbag
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 60
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUM - Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 62
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: RTI - Road Traffic Informtion
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 64
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PHM - Phone Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 65
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: ATM - Antenna Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 66
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MMM - Multi Media Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 67
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: PAC - Park Assist Camera
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 68
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SUB - Sub Woofer
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 69
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP1 - Media Player 1
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 6A
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: MP2 - Media Player 2
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 6D
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUD - Audio Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 71
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: SDARS - Satellite Digital Audio Radio System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 72
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: GPS - Global Positioning System
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 73
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: TMC - Traffic Message Channel Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 74
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AFM - Am/Fm Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 75
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IAM - Integrated Audio Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: 7B
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: AUU - Accessory USB Unit
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+          - 
+            Address: FF
+            CSTimeout: 9000
+            ERASETimeout: 9000
+            Name: IGM - Infotainment Control Module
+            ORGTimeout: 9000
+            PBLTimeout: 9000
+            SwdlIssue: 1
+        SWDLProtocol: CAN
+        SamplePoint: 68
+      - 
+        AllowInvalidDiagnosticSessionControl: 1
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            Name: NON Not Configured ECU HS
+            SwdlIssue: 1
+          - 
+            Address: '01'
+            Name: BCM - Brake Control Module
+            SwdlIssue: 1
+          - 
+            Address: 10
+            Name: ECM - Engine Control Module
+            SwdlIssue: 1
+          - 
+            Address: 1A
+            Name: DEM - Differential Electronic Module
+            SwdlIssue: 1
+          - 
+            Address: 32
+            Name: SAS - Steering Angle Sensor
+            SwdlIssue: 1
+          - 
+            Address: 76
+            Name: HCM - Headlamp Control Module
+            SwdlIssue: 1
+          - 
+            Address: 50
+            MasterECU: 1
+            Name: CEM - Central Electronic Module
+            SwdlIssue: 1
+          - 
+            Address: 18
+            Name: TCM - Transmission Control Module
+            SwdlIssue: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: P28 - V8/SI6
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 782
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: Y285/Y286/Y381
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 0
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 782
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: Y413
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+            SBLInPBL: 1
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: E0
+            CANIdentifier: 764
+            Name: FLR - Forward Looking Radar
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y283/Y352 (Sub-Tester = IAM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 80
+      Name: IAM - Integrated Audio Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y283/Y352 (Sub-Tester = ICM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: IHU - Infotainment Control Module
+            SBLInPBL: 1
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Park Assist Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: IHU - Infotainment Control Module
+    Name: P313 (SubTester = ICM/IHU)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: IHU - Infotainment Control Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+            SBLInPBL: 1
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Park Assist Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: IHU - Infotainment Control Module
+    Name: P313 (SubTester = IAM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 80
+      Name: IHU - Infotainment Control Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 59
+            CANIdentifier: 794
+            Name: PPM - Pedestrian Protection Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Park Assist Module
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM/ACC (VCC), CCM - Cruise Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y555 (Sub-Tester = IAM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 80
+      Name: IAM - Integrated Audio Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: 59
+            CANIdentifier: 794
+            Name: PPM - Pedestrian Protection Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Park Assist Module
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM/ACC (VCC), CCM - Cruise Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y555 (Sub-Tester = ICM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 94
+            CANIdentifier: 7C7
+            Name: ACCM - Air Conditioning Control Module
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 0C
+            CANIdentifier: '7E4'
+            Name: BECM - Battery Energy Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: E0
+            CANIdentifier: 764
+            Name: FLR - Forward Looking Radar
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: CA
+            CANIdentifier: 745
+            Name: IEM - Inverter Electric rear axle drive Module
+          - 
+            Address: CC
+            CANIdentifier: 746
+            Name: DCDC - Direct Current Module
+          - 
+            Address: CE
+            CANIdentifier: 747
+            Name: IGM - Inverter Generator Module
+          - 
+            Address: CD
+            CANIdentifier: 753
+            Name: OBC - On Board Charger
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y312H (Sub-Tester = IAM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 80
+      Name: IAM - Integrated Audio Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM - Climate Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM - Combustion Preheater Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF - High Level Display Front
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM - Keyless Vehicle Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC - Park Assist Camera
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT - Power Operated Tailgate
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM - Power Seat Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU HS
+          - 
+            Address: 94
+            CANIdentifier: 7C7
+            Name: ACCM - Air Conditioning Control Module
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM - Brake Control Module
+          - 
+            Address: 0C
+            CANIdentifier: '7E4'
+            Name: BECM - Battery Energy Control Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM - Central Electronic Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM - Closing Velocity Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM - Differential Electronic Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM - Driver Information Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB - Electrical Parking Brake
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS - Electrical Power Steering
+          - 
+            Address: E0
+            CANIdentifier: 764
+            Name: FLR - Forward Looking Radar
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: FSM - Forward Sensing Module
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: "HCM - Headlamp Control Module #1"
+          - 
+            Address: CA
+            CANIdentifier: 745
+            Name: IEM - Inverter Electric rear axle drive Module
+          - 
+            Address: CC
+            CANIdentifier: 746
+            Name: DCDC - Direct Current Module
+          - 
+            Address: CE
+            CANIdentifier: 747
+            Name: IGM - Inverter Generator Module
+          - 
+            Address: CD
+            CANIdentifier: 753
+            Name: OBC - On Board Charger
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS - Steering Angle Sensor
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS - Supplementary Restraint System Module
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM - Suspension Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Gateway_SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+    Name: Y312H (Sub-Tester = ICM)
+    SubTester: 
+      CANIdentifier: 784
+      ECUAddress: 61
+      Name: ICM - Infotainment Control Module
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Infotainment Control Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM - Multimedia Module
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM - Integrated Audio Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR - Remote Digital Audio Receiver
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB - Subwoofer Module
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD - Audio Control Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+            SBLInPBL: 1
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU - Accessory USB Unit
+          - 
+            Address: 8B
+            CANIdentifier: 784
+            Name: RSE - Rear Seat Entertainment
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM - Bluetooth Phone Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM - Phone / Telematics Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          Address: '00'
+          CANIdentifier: 700
+          Name: NON Not Configured ECU HS
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: EUCD (Y20-MOST)
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Information Center Module
+          - 
+            Address: '06'
+            CANIdentifier: 7B2
+            Name: HUD - Head Up Display
+          - 
+            Address: '07'
+            CANIdentifier: 750
+            Name: FCM - Fuel Cell Control Module
+          - 
+            Address: '08'
+            CANIdentifier: 752
+            Name: CTCM - Coolant Temperature Control Module
+          - 
+            Address: '09'
+            CANIdentifier: 704
+            Name: AVCM - Active Vibration Control Module
+          - 
+            Address: 0A
+            CANIdentifier: ''
+            Name: REDCM - Reductant Control Module
+          - 
+            Address: 0B
+            CANIdentifier: 7C0
+            Name: FACM - Fuel Additive Control Module
+          - 
+            Address: 0C
+            CANIdentifier: '7E4'
+            Name: BECM - Battery Energy Control Module
+          - 
+            Address: 0D
+            CANIdentifier: 725
+            Name: PMM - Powertrain Control Monitor Module
+          - 
+            Address: 0E
+            CANIdentifier: 780
+            Name: SGM - Starter / Generator Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM (VCC), AHCM - Auxiliary Heater Control Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM (VCC), PCM - Powertrain Control Module
+          - 
+            Address: 11
+            CANIdentifier: '7E6'
+            Name: SPCM - Secondary Powertrain Control Module
+          - 
+            Address: 12
+            CANIdentifier: ''
+            Name: TACM - Throttle Actuator Control Module
+          - 
+            Address: 14
+            CANIdentifier: ''
+            Name: GPCM - Glow Plug Control Module
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: ACC/FSM (VCC), CCM - Cruise Control Module
+          - 
+            Address: 16
+            CANIdentifier: '7E5'
+            Name: AFCM - Alternative Fuel Control Module
+          - 
+            Address: 17
+            CANIdentifier: 714
+            Name: HSWM - Heated Steering Wheel Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+          - 
+            Address: 19
+            CANIdentifier: 761
+            Name: TCCM - Transfer Case Control Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM (VCC), RDCM - Rear Differential Control Module
+          - 
+            Address: 1B
+            CANIdentifier: 732
+            Name: GSM - Gear Shift Module
+          - 
+            Address: 1C
+            CANIdentifier: 792
+            Name: TOS (VCC), ATCM - All Terrain Control Module
+          - 
+            Address: 1D
+            CANIdentifier: 715
+            Name: CLM - Column Lock Module
+          - 
+            Address: 1E
+            CANIdentifier: 703
+            Name: AWD - All Wheel Drive Module
+          - 
+            Address: 1F
+            CANIdentifier: 717
+            Name: RLCMA - Rear Lighting Control Module A
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM (VCC), VDM - Vehicle Dynamics Control Module
+          - 
+            Address: 21
+            CANIdentifier: 706
+            Name: IPMA - Image Processing Module A
+          - 
+            Address: 22
+            CANIdentifier: '7E7'
+            Name: SOBDMB - Secondary OBD Control Module B
+          - 
+            Address: 23
+            CANIdentifier: 757
+            Name: TBM - Trailer Brake Control Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 26
+            CANIdentifier: 7F1
+            Name: PCU - Pyrotechnic Control Unit
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM (VCC), ABS - Anit-Lock Brake System (ABS) Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB (VCC), PBM - Park Brake Control Module
+          - 
+            Address: 2B
+            CANIdentifier: 7D3
+            Name: RLM - Ride Level Control Module
+          - 
+            Address: 2C
+            CANIdentifier: 7D2
+            Name: ARCM - Active Roll Control Module
+          - 
+            Address: 2E
+            CANIdentifier: 710
+            Name: CHCM - Chassis Control Module
+          - 
+            Address: 2F
+            CANIdentifier: 773
+            Name: CHCMB - Chassis Control Module B
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS (VCC), PSCM - Power Steering Control Module
+          - 
+            Address: 31
+            CANIdentifier: 7C5
+            Name: SECM - Steering Effort Control Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS (VCC), SASM - Steering Angle Sensor Module
+          - 
+            Address: 38
+            CANIdentifier: 786
+            Name: SUMB - Suspension Control Module B
+          - 
+            Address: 3A
+            CANIdentifier: 762
+            Name: YRM - Yaw Rate Sensor Module
+          - 
+            Address: 44
+            CANIdentifier: 724
+            Name: SCCM - Steering Column Control Module
+          - 
+            Address: 47
+            CANIdentifier: 7A0
+            Name: FCIMB - Front Controls Interface Module B
+          - 
+            Address: 49
+            CANIdentifier: 7C2
+            Name: RSM - Remote Start Module
+          - 
+            Address: 4B
+            CANIdentifier: 7A7
+            Name: FCIM - Front Controls Interface Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM (VCC), RFA - Remote Function Actuator
+          - 
+            Address: 50
+            CANIdentifier: ''
+            Name: ABCM - Auxiliary Body Control Module
+          - 
+            Address: 51
+            CANIdentifier: 723
+            Name: EMM - Energy Management Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM (VCC), BCM - Body Control Module
+          - 
+            Address: 53
+            CANIdentifier: 7B7
+            Name: BCMB - Body Control Module B
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS (VCC), RCM - Restraints Control Module
+          - 
+            Address: 59
+            CANIdentifier: 794
+            Name: ICS - Impact Classification System
+          - 
+            Address: 5A
+            CANIdentifier: 765
+            Name: OCS - Restraints Occupant Classification System Module
+          - 
+            Address: 5B
+            CANIdentifier: 7D1
+            Name: SPMA - Seatbelt Pretensioner Control Module A
+          - 
+            Address: 5C
+            CANIdentifier: 7D4
+            Name: SPMB - Seatbelt Pretensioner Control Module B
+          - 
+            Address: 5D
+            CANIdentifier: 7B5
+            Name: ILCM - Interior Lighting Control Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM (VCC), IPC - Instrument Panel Cluster (IPC) Control Module
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 64
+            CANIdentifier: 7B1
+            Name: IPMB - Image Processing Module B
+          - 
+            Address: 67
+            CANIdentifier: ''
+            Name: TMC - Traffic Message Channel Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM (VCC), NCM - Navigation Control Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM (VCC), FDSM - Front Distance Sensing Module
+          - 
+            Address: 6B
+            CANIdentifier: 7A6
+            Name: FDM - Front Display Interface Module
+          - 
+            Address: 6D
+            CANIdentifier: 705
+            Name: RDUM - Remote Driver Utility Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF (VCC), FCDIM  - Front Control/Display Interface Module
+          - 
+            Address: 70
+            CANIdentifier: 796
+            Name: "FLM - Front Lighting Control Module "
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: HCM - Headlamp Control Module A
+          - 
+            Address: 72
+            CANIdentifier: 7C3
+            Name: HCMB - Headlamp Control Module B
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM (VCC), ACM - Audio Front Control Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR (VCC), SARM - Satellite Radio Module
+          - 
+            Address: 82
+            CANIdentifier: 770
+            Name: CDP - Compact Disc Player / Changer Module
+          - 
+            Address: 83
+            CANIdentifier: ''
+            Name: DPM - DVD Player / Changer Module
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB (VCC), AAMB - Audio Amplifier Module B
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD (VCC), AAM - Audio Amplifier Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+          - 
+            Address: 88
+            CANIdentifier: ''
+            Name: ANT - Antenna Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU (VCC), APIM - Accessory Protocol Interface Module
+          - 
+            Address: 8A
+            CANIdentifier: 767
+            Name: FEM - Front Entertainment Control Moule
+          - 
+            Address: 8B
+            CANIdentifier: 771
+            Name: REM - Rear Entertainment Control Module
+          - 
+            Address: 8C
+            CANIdentifier: 774
+            Name: RACM - Rear Audio Control Module
+          - 
+            Address: 8D
+            CANIdentifier: 7D5
+            Name: DACMC - Digital Audio Control Module C
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM (VCC), TEL - Telephone Control Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM (VCC), TCU - Telematic Control Unit Module
+          - 
+            Address: 92
+            CANIdentifier: 772
+            Name: SPRM - Speech Recognition Module
+          - 
+            Address: 94
+            CANIdentifier: 7C7
+            Name: ACCM - Air Conditioning Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM (VCC), HVAC - HVAC Control Module
+          - 
+            Address: 99
+            CANIdentifier: 785
+            Name: RHVAC - Rear HVAC Control Module
+          - 
+            Address: 9C
+            CANIdentifier: 776
+            Name: SCME - Seat Control Module E
+          - 
+            Address: 9D
+            CANIdentifier: 777
+            Name: SCMF - Seat Control Module F
+          - 
+            Address: 9E
+            CANIdentifier: 712
+            Name: SCMG - Seat Control Module G
+          - 
+            Address: 9F
+            CANIdentifier: 713
+            Name: SCMH - Seat Control Module H
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM (VCC), DSM - Driver Front Seat Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: A6
+            CANIdentifier: 7A3
+            Name: PSM - Passenger Front Seat Module
+          - 
+            Address: A8
+            CANIdentifier: 742
+            Name: DRDM - Driver Rear Door Module
+          - 
+            Address: AA
+            CANIdentifier: 702
+            Name: SCMC - Seat Control Module C
+          - 
+            Address: AC
+            CANIdentifier: 743
+            Name: PRDM - Passenger Rear Door Module
+          - 
+            Address: AE
+            CANIdentifier: 763
+            Name: SCMD - Seat Control Module D
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT (VCC), RGTM - Rear Gate / Trunk Module
+          - 
+            Address: B0
+            CANIdentifier: 7A2
+            Name: LPDM - Left Power Sliding Door Module
+          - 
+            Address: B1
+            CANIdentifier: 7B3
+            Name: RPDM - Right Power Sliding Door Module
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: B3
+            CANIdentifier: ''
+            Name: SCM - Sunroof Control Module
+          - 
+            Address: B5
+            CANIdentifier: ''
+            Name: FPAM - Front Parking Assist Control Module
+          - 
+            Address: B6
+            CANIdentifier: ''
+            Name: IRVM - Inside Rearview Mirror Module
+          - 
+            Address: B7
+            CANIdentifier: 787
+            Name: FTCM - Folding Top Control Module
+          - 
+            Address: B8
+            CANIdentifier: 790
+            Name: MRCM - Movable Roof Control Module
+          - 
+            Address: BA
+            CANIdentifier: 766
+            Name: RBM - Running Board Control Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC (VCC), CMR - Camera Module - Rear
+          - 
+            Address: C0
+            CANIdentifier: 722
+            Name: VIM - Vehicle Immobilizer Control Module
+          - 
+            Address: C1
+            CANIdentifier: 755
+            Name: VSM - Vehicle Security Control Module
+          - 
+            Address: C8
+            CANIdentifier: ''
+            Name: UNUSED - Reserved for EVSE (Utility Connection Services)
+          - 
+            Address: C9
+            CANIdentifier: ''
+            Name: ACAC - AC to AC Converter Control Module
+          - 
+            Address: CA
+            CANIdentifier: 745
+            Name: ACDCA - AC to DC Converter Control Module A
+          - 
+            Address: CB
+            CANIdentifier: ''
+            Name: UNUSED - Reserved for EVSE (Energy Storage Management)
+          - 
+            Address: CC
+            CANIdentifier: 746
+            Name: DCDC - DC to DC Converter Control Module
+          - 
+            Address: CD
+            CANIdentifier: 753
+            Name: HDCDC - High Voltage DC-DC Converter Control Module
+          - 
+            Address: CE
+            CANIdentifier: 747
+            Name: ACDCB - AC to DC Converter Control Module B
+          - 
+            Address: D8
+            CANIdentifier: 716
+            Name: GWM - Gateway Module A
+          - 
+            Address: DA
+            CANIdentifier: 751
+            Name: TPM - Tire Pressure Monitor Module
+          - 
+            Address: DB
+            CANIdentifier: 701
+            Name: GPSM - Global Positioning System Module
+          - 
+            Address: E0
+            CANIdentifier: ''
+            Name: "SM01 - ECU Specific Subnode #01"
+          - 
+            Address: E1
+            CANIdentifier: ''
+            Name: "SM02 - ECU Specific Subnode #02"
+          - 
+            Address: E2
+            CANIdentifier: ''
+            Name: "SM03 - ECU Specific Subnode #03"
+          - 
+            Address: E3
+            CANIdentifier: ''
+            Name: "SM04 - ECU Specific Subnode #04"
+          - 
+            Address: E4
+            CANIdentifier: ''
+            Name: "SM05 - ECU Specific Subnode #05"
+          - 
+            Address: E5
+            CANIdentifier: ''
+            Name: "SM06 - ECU Specific Subnode #06"
+          - 
+            Address: E6
+            CANIdentifier: ''
+            Name: "SM07 - ECU Specific Subnode #07"
+          - 
+            Address: E7
+            CANIdentifier: ''
+            Name: "SM08 - ECU Specific Subnode #08"
+          - 
+            Address: E8
+            CANIdentifier: ''
+            Name: "SM09 - ECU Specific Subnode #09"
+          - 
+            Address: E9
+            CANIdentifier: ''
+            Name: "SM10 - ECU Specific Subnode #10"
+          - 
+            Address: EA
+            CANIdentifier: ''
+            Name: "SM11 - ECU Specific Subnode #11"
+          - 
+            Address: EB
+            CANIdentifier: ''
+            Name: "SM12 - ECU Specific Subnode #12"
+          - 
+            Address: EC
+            CANIdentifier: ''
+            Name: "SM13 - ECU Specific Subnode #13"
+          - 
+            Address: ED
+            CANIdentifier: ''
+            Name: "SM14 - ECU Specific Subnode #14"
+          - 
+            Address: EE
+            CANIdentifier: ''
+            Name: "SM15 - ECU Specific Subnode #15"
+          - 
+            Address: EF
+            CANIdentifier: ''
+            Name: "SM16 - ECU Specific Subnode #16"
+          - 
+            Address: F1
+            CANIdentifier: ''
+            Name: TSTR - Diagnostic Tester
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '00'
+            CANIdentifier: 700
+            Name: NON Not Configured ECU MS
+          - 
+            Address: '06'
+            CANIdentifier: 7B2
+            Name: HUD - Head Up Display
+          - 
+            Address: '07'
+            CANIdentifier: 750
+            Name: FCM - Fuel Cell Control Module
+          - 
+            Address: '08'
+            CANIdentifier: 752
+            Name: CTCM - Coolant Temperature Control Module
+          - 
+            Address: '09'
+            CANIdentifier: 704
+            Name: AVCM - Active Vibration Control Module
+          - 
+            Address: 0A
+            CANIdentifier: ''
+            Name: REDCM - Reductant Control Module
+          - 
+            Address: 0B
+            CANIdentifier: 7C0
+            Name: FACM - Fuel Additive Control Module
+          - 
+            Address: 0C
+            CANIdentifier: '7E4'
+            Name: BECM - Battery Energy Control Module
+          - 
+            Address: 0D
+            CANIdentifier: 725
+            Name: PMM - Powertrain Control Monitor Module
+          - 
+            Address: 0E
+            CANIdentifier: 780
+            Name: SGM - Starter / Generator Control Module
+          - 
+            Address: 0F
+            CANIdentifier: '7E3'
+            Name: CPM (VCC), AHCM - Auxiliary Heater Control Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM (VCC), PCM - Powertrain Control Module
+          - 
+            Address: 11
+            CANIdentifier: '7E6'
+            Name: SPCM - Secondary Powertrain Control Module
+          - 
+            Address: 12
+            CANIdentifier: ''
+            Name: TACM - Throttle Actuator Control Module
+          - 
+            Address: 14
+            CANIdentifier: ''
+            Name: GPCM - Glow Plug Control Module
+          - 
+            Address: 15
+            CANIdentifier: 764
+            Name: ACC/FSM (VCC), CCM - Cruise Control Module
+          - 
+            Address: 16
+            CANIdentifier: '7E5'
+            Name: AFCM - Alternative Fuel Control Module
+          - 
+            Address: 17
+            CANIdentifier: 714
+            Name: HSWM - Heated Steering Wheel Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+          - 
+            Address: 19
+            CANIdentifier: 761
+            Name: TCCM - Transfer Case Control Module
+          - 
+            Address: 1A
+            CANIdentifier: 795
+            Name: DEM (VCC), RDCM - Rear Differential Control Module
+          - 
+            Address: 1B
+            CANIdentifier: 732
+            Name: GSM - Gear Shift Module
+          - 
+            Address: 1C
+            CANIdentifier: 792
+            Name: TOS (VCC), ATCM - All Terrain Control Module
+          - 
+            Address: 1D
+            CANIdentifier: 715
+            Name: CLM - Column Lock Module
+          - 
+            Address: 1E
+            CANIdentifier: 703
+            Name: AWD - All Wheel Drive Module
+          - 
+            Address: 1F
+            CANIdentifier: 717
+            Name: RLCMA - Rear Lighting Control Module A
+          - 
+            Address: 20
+            CANIdentifier: 721
+            Name: SUM (VCC), VDM - Vehicle Dynamics Control Module
+          - 
+            Address: 21
+            CANIdentifier: 706
+            Name: IPMA - Image Processing Module A
+          - 
+            Address: 22
+            CANIdentifier: '7E7'
+            Name: SOBDMB - Secondary OBD Control Module B
+          - 
+            Address: 23
+            CANIdentifier: 757
+            Name: TBM - Trailer Brake Control Module
+          - 
+            Address: 24
+            CANIdentifier: 791
+            Name: TRM - Trailer Module
+          - 
+            Address: 26
+            CANIdentifier: 7F1
+            Name: PCU - Pyrotechnic Control Unit
+          - 
+            Address: 28
+            CANIdentifier: 760
+            Name: BCM (VCC), ABS - Anit-Lock Brake System (ABS) Control Module
+          - 
+            Address: 2A
+            CANIdentifier: 756
+            Name: EPB (VCC), PBM - Park Brake Control Module
+          - 
+            Address: 2B
+            CANIdentifier: 7D3
+            Name: RLM - Ride Level Control Module
+          - 
+            Address: 2C
+            CANIdentifier: 7D2
+            Name: ARCM - Active Roll Control Module
+          - 
+            Address: 2E
+            CANIdentifier: 710
+            Name: CHCM - Chassis Control Module
+          - 
+            Address: 2F
+            CANIdentifier: 773
+            Name: CHCMB - Chassis Control Module B
+          - 
+            Address: 30
+            CANIdentifier: 730
+            Name: EPS (VCC), PSCM - Power Steering Control Module
+          - 
+            Address: 31
+            CANIdentifier: 7C5
+            Name: SECM - Steering Effort Control Module
+          - 
+            Address: 32
+            CANIdentifier: 797
+            Name: SAS (VCC), SASM - Steering Angle Sensor Module
+          - 
+            Address: 38
+            CANIdentifier: 786
+            Name: SUMB - Suspension Control Module B
+          - 
+            Address: 3A
+            CANIdentifier: 762
+            Name: YRM - Yaw Rate Sensor Module
+          - 
+            Address: 44
+            CANIdentifier: 724
+            Name: SCCM - Steering Column Control Module
+          - 
+            Address: 47
+            CANIdentifier: 7A0
+            Name: FCIMB - Front Controls Interface Module B
+          - 
+            Address: 49
+            CANIdentifier: 7C2
+            Name: RSM - Remote Start Module
+          - 
+            Address: 4B
+            CANIdentifier: 7A7
+            Name: FCIM - Front Controls Interface Module
+          - 
+            Address: 4C
+            CANIdentifier: 731
+            Name: KVM (VCC), RFA - Remote Function Actuator
+          - 
+            Address: 50
+            CANIdentifier: ''
+            Name: ABCM - Auxiliary Body Control Module
+          - 
+            Address: 51
+            CANIdentifier: 723
+            Name: EMM - Energy Management Module
+          - 
+            Address: 52
+            CANIdentifier: 726
+            Name: CEM (VCC), BCM - Body Control Module
+          - 
+            Address: 53
+            CANIdentifier: 7B7
+            Name: BCMB - Body Control Module B
+          - 
+            Address: 58
+            CANIdentifier: 737
+            Name: SRS (VCC), RCM - Restraints Control Module
+          - 
+            Address: 59
+            CANIdentifier: 794
+            Name: ICS - Impact Classification System
+          - 
+            Address: 5A
+            CANIdentifier: 765
+            Name: OCS - Restraints Occupant Classification System Module
+          - 
+            Address: 5B
+            CANIdentifier: 7D1
+            Name: SPMA - Seatbelt Pretensioner Control Module A
+          - 
+            Address: 5C
+            CANIdentifier: 7D4
+            Name: SPMB - Seatbelt Pretensioner Control Module B
+          - 
+            Address: 5D
+            CANIdentifier: 7B5
+            Name: ILCM - Interior Lighting Control Module
+          - 
+            Address: 60
+            CANIdentifier: 720
+            Name: DIM (VCC), IPC - Instrument Panel Cluster (IPC) Control Module
+          - 
+            Address: 61
+            CANIdentifier: 784
+            Name: ICM - Information Center Module
+          - 
+            Address: 62
+            CANIdentifier: 7C4
+            Name: SODL - Side Obstacle Detection Control Module - Left
+          - 
+            Address: 63
+            CANIdentifier: 7C6
+            Name: SODR - Side Obstacle Detection Control Module - Right
+          - 
+            Address: 64
+            CANIdentifier: 7B1
+            Name: IPMB - Image Processing Module B
+          - 
+            Address: 67
+            CANIdentifier: ''
+            Name: TMC - Traffic Message Channel Module
+          - 
+            Address: 68
+            CANIdentifier: 784
+            Name: MMM (VCC), NCM - Navigation Control Module
+          - 
+            Address: 69
+            CANIdentifier: 793
+            Name: CVM (VCC), FDSM - Front Distance Sensing Module
+          - 
+            Address: 6B
+            CANIdentifier: 7A6
+            Name: FDM - Front Display Interface Module
+          - 
+            Address: 6D
+            CANIdentifier: 705
+            Name: RDUM - Remote Driver Utility Module
+          - 
+            Address: 6E
+            CANIdentifier: 7A5
+            Name: HLDF (VCC), FCDIM  - Front Control/Display Interface Module
+          - 
+            Address: 70
+            CANIdentifier: 796
+            Name: "FLM - Front Lighting Control Module "
+          - 
+            Address: 71
+            CANIdentifier: 734
+            Name: HCM - Headlamp Control Module A
+          - 
+            Address: 72
+            CANIdentifier: 7C3
+            Name: HCMB - Headlamp Control Module B
+          - 
+            Address: 80
+            CANIdentifier: 784
+            Name: IAM (VCC), ACM - Audio Front Control Module
+          - 
+            Address: 81
+            CANIdentifier: 784
+            Name: RDAR (VCC), SARM - Satellite Radio Module
+          - 
+            Address: 82
+            CANIdentifier: 770
+            Name: CDP - Compact Disc Player / Changer Module
+          - 
+            Address: 83
+            CANIdentifier: ''
+            Name: DPM - DVD Player / Changer Module
+          - 
+            Address: 84
+            CANIdentifier: 784
+            Name: SUB (VCC), AAMB - Audio Amplifier Module B
+          - 
+            Address: 85
+            CANIdentifier: 784
+            Name: DABM - Digital Audio Broadcast Module
+          - 
+            Address: 86
+            CANIdentifier: 784
+            Name: AUD (VCC), AAM - Audio Amplifier Module
+          - 
+            Address: 87
+            CANIdentifier: 784
+            Name: TVM - Television Module
+          - 
+            Address: 88
+            CANIdentifier: ''
+            Name: ANT - Antenna Control Module
+          - 
+            Address: 89
+            CANIdentifier: 784
+            Name: AUU (VCC), APIM - Accessory Protocol Interface Module
+          - 
+            Address: 8A
+            CANIdentifier: 767
+            Name: FEM - Front Entertainment Control Moule
+          - 
+            Address: 8B
+            CANIdentifier: 771
+            Name: REM - Rear Entertainment Control Module
+          - 
+            Address: 8C
+            CANIdentifier: 774
+            Name: RACM - Rear Audio Control Module
+          - 
+            Address: 8D
+            CANIdentifier: 7D5
+            Name: DACMC - Digital Audio Control Module C
+          - 
+            Address: 90
+            CANIdentifier: 784
+            Name: BPM (VCC), TEL - Telephone Control Module
+          - 
+            Address: 91
+            CANIdentifier: 754
+            Name: PHM/TEM (VCC), TCU - Telematic Control Unit Module
+          - 
+            Address: 92
+            CANIdentifier: 772
+            Name: SPRM - Speech Recognition Module
+          - 
+            Address: 94
+            CANIdentifier: 7C7
+            Name: ACCM - Air Conditioning Control Module
+          - 
+            Address: 98
+            CANIdentifier: 733
+            Name: CCM (VCC), HVAC - HVAC Control Module
+          - 
+            Address: 99
+            CANIdentifier: 785
+            Name: RHVAC - Rear HVAC Control Module
+          - 
+            Address: 9C
+            CANIdentifier: 776
+            Name: SCME - Seat Control Module E
+          - 
+            Address: 9D
+            CANIdentifier: 777
+            Name: SCMF - Seat Control Module F
+          - 
+            Address: 9E
+            CANIdentifier: 712
+            Name: SCMG - Seat Control Module G
+          - 
+            Address: 9F
+            CANIdentifier: 713
+            Name: SCMH - Seat Control Module H
+          - 
+            Address: A0
+            CANIdentifier: 740
+            Name: DDM - Driver Front Door Module
+          - 
+            Address: A2
+            CANIdentifier: 744
+            Name: PSM (VCC), DSM - Driver Front Seat Module
+          - 
+            Address: A4
+            CANIdentifier: 741
+            Name: PDM - Passenger Front Door Module
+          - 
+            Address: A6
+            CANIdentifier: 7A3
+            Name: PSM - Passenger Front Seat Module
+          - 
+            Address: A8
+            CANIdentifier: 742
+            Name: DRDM - Driver Rear Door Module
+          - 
+            Address: AA
+            CANIdentifier: 702
+            Name: SCMC - Seat Control Module C
+          - 
+            Address: AC
+            CANIdentifier: 743
+            Name: PRDM - Passenger Rear Door Module
+          - 
+            Address: AE
+            CANIdentifier: 763
+            Name: SCMD - Seat Control Module D
+          - 
+            Address: AF
+            CANIdentifier: 775
+            Name: POT (VCC), RGTM - Rear Gate / Trunk Module
+          - 
+            Address: B0
+            CANIdentifier: 7A2
+            Name: LPDM - Left Power Sliding Door Module
+          - 
+            Address: B1
+            CANIdentifier: 7B3
+            Name: RPDM - Right Power Sliding Door Module
+          - 
+            Address: B2
+            CANIdentifier: 736
+            Name: PAM - Parking Assist Control Module
+          - 
+            Address: B3
+            CANIdentifier: ''
+            Name: SCM - Sunroof Control Module
+          - 
+            Address: B5
+            CANIdentifier: ''
+            Name: FPAM - Front Parking Assist Control Module
+          - 
+            Address: B6
+            CANIdentifier: ''
+            Name: IRVM - Inside Rearview Mirror Module
+          - 
+            Address: B7
+            CANIdentifier: 787
+            Name: FTCM - Folding Top Control Module
+          - 
+            Address: B8
+            CANIdentifier: 790
+            Name: MRCM - Movable Roof Control Module
+          - 
+            Address: BA
+            CANIdentifier: 766
+            Name: RBM - Running Board Control Module
+          - 
+            Address: BB
+            CANIdentifier: 7C1
+            Name: PAC (VCC), CMR - Camera Module - Rear
+          - 
+            Address: C0
+            CANIdentifier: 722
+            Name: VIM - Vehicle Immobilizer Control Module
+          - 
+            Address: C1
+            CANIdentifier: 755
+            Name: VSM - Vehicle Security Control Module
+          - 
+            Address: C8
+            CANIdentifier: ''
+            Name: UNUSED - Reserved for EVSE (Utility Connection Services)
+          - 
+            Address: C9
+            CANIdentifier: ''
+            Name: ACAC - AC to AC Converter Control Module
+          - 
+            Address: CA
+            CANIdentifier: 745
+            Name: ACDCA - AC to DC Converter Control Module A
+          - 
+            Address: CB
+            CANIdentifier: ''
+            Name: UNUSED - Reserved for EVSE (Energy Storage Management)
+          - 
+            Address: CC
+            CANIdentifier: 746
+            Name: DCDC - DC to DC Converter Control Module
+          - 
+            Address: CD
+            CANIdentifier: 753
+            Name: HDCDC - High Voltage DC-DC Converter Control Module
+          - 
+            Address: CE
+            CANIdentifier: 747
+            Name: ACDCB - AC to DC Converter Control Module B
+          - 
+            Address: D8
+            CANIdentifier: 716
+            Name: GWM - Gateway Module A
+          - 
+            Address: DA
+            CANIdentifier: 751
+            Name: TPM - Tire Pressure Monitor Module
+          - 
+            Address: DB
+            CANIdentifier: 701
+            Name: GPSM - Global Positioning System Module
+          - 
+            Address: E0
+            CANIdentifier: ''
+            Name: "SM01 - ECU Specific Subnode #01"
+          - 
+            Address: E1
+            CANIdentifier: ''
+            Name: "SM02 - ECU Specific Subnode #02"
+          - 
+            Address: E2
+            CANIdentifier: ''
+            Name: "SM03 - ECU Specific Subnode #03"
+          - 
+            Address: E3
+            CANIdentifier: ''
+            Name: "SM04 - ECU Specific Subnode #04"
+          - 
+            Address: E4
+            CANIdentifier: ''
+            Name: "SM05 - ECU Specific Subnode #05"
+          - 
+            Address: E5
+            CANIdentifier: ''
+            Name: "SM06 - ECU Specific Subnode #06"
+          - 
+            Address: E6
+            CANIdentifier: ''
+            Name: "SM07 - ECU Specific Subnode #07"
+          - 
+            Address: E7
+            CANIdentifier: ''
+            Name: "SM08 - ECU Specific Subnode #08"
+          - 
+            Address: E8
+            CANIdentifier: ''
+            Name: "SM09 - ECU Specific Subnode #09"
+          - 
+            Address: E9
+            CANIdentifier: ''
+            Name: "SM10 - ECU Specific Subnode #10"
+          - 
+            Address: EA
+            CANIdentifier: ''
+            Name: "SM11 - ECU Specific Subnode #11"
+          - 
+            Address: EB
+            CANIdentifier: ''
+            Name: "SM12 - ECU Specific Subnode #12"
+          - 
+            Address: EC
+            CANIdentifier: ''
+            Name: "SM13 - ECU Specific Subnode #13"
+          - 
+            Address: ED
+            CANIdentifier: ''
+            Name: "SM14 - ECU Specific Subnode #14"
+          - 
+            Address: EE
+            CANIdentifier: ''
+            Name: "SM15 - ECU Specific Subnode #15"
+          - 
+            Address: EF
+            CANIdentifier: ''
+            Name: "SM16 - ECU Specific Subnode #16"
+          - 
+            Address: F1
+            CANIdentifier: ''
+            Name: TSTR - Diagnostic Tester
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: EUCD/C1MCA - Generic
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 29
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          Address: '00'
+          Name: NON Not Configured ECU LH
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: 15765-2 Not configured ECU HS
+CurrentConfiguration: 9

@@ -19,32 +19,27 @@ namespace common {
 
 	UDSProtocolBase::~UDSProtocolBase()
 	{
-		if (_thread.joinable()) {
-			_thread.join();
-		}
 	}
 
-	void UDSProtocolBase::start()
+	void UDSProtocolBase::run()
 	{
 		setState(State::InProgress);
-		_thread = std::thread([this] {
-			bool failed = false;
-			std::optional<UDSStepType> oldStepType;
-			for (const auto& step : _steps) {
-				if (oldStepType != step->getStepType()) {
-					stepToCallbacks(step->getStepType());
-					oldStepType = step->getStepType();
-				}
-				const bool currentStepFailed = !step->process(failed);
-				failed |= currentStepFailed;
+		bool failed = false;
+		std::optional<UDSStepType> oldStepType;
+		for (const auto& step : _steps) {
+			if (oldStepType != step->getStepType()) {
+				stepToCallbacks(step->getStepType());
+				oldStepType = step->getStepType();
 			}
-			if (failed) {
-				setState(State::Error);
-			}
-			else {
-				setState(State::Done);
-			}
-			});
+			const bool currentStepFailed = !step->process(failed);
+			failed |= currentStepFailed;
+		}
+		if (failed) {
+			setState(State::Error);
+		}
+		else {
+			setState(State::Done);
+		}
 	}
 
 	void UDSProtocolBase::registerCallback(UDSProtocolCallback& callback)
