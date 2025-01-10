@@ -24,6 +24,8 @@ namespace common {
 
     std::vector<uint8_t> toVector(uint32_t value);
 
+    std::string toLower(std::string data);
+
 #ifdef UNICODE
     std::wstring toPlatformString(const std::string& str);
     std::string fromPlatformString(const std::wstring& str);

@@ -144,12 +144,26 @@ namespace logger {
         }
     };
 
-    std::unique_ptr<LoggerImpl> createLoggerImpl(LoggerType loggerType,
-        j2534::J2534& j2534) {
-        switch (loggerType) {
-        case LoggerType::LT_D2:
+    std::unique_ptr<LoggerImpl> createLoggerImpl(common::CarPlatform carPlatform,
+        uint32_t cmId, const std::string& cmInfo, j2534::J2534& j2534)
+    {
+        using common::CarPlatform;
+        if (cmId == 0x7A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P1
+            || carPlatform == CarPlatform::P2 || carPlatform == CarPlatform::P2_250)) {
             return std::make_unique<D2LoggerImpl>(j2534);
-        case LoggerType::LT_UDS:
+        }
+        if (cmId == 0x6A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
+            || carPlatform == CarPlatform::P2_250)) {
+            if (common::toLower(cmInfo) == "aw55") {
+                throw std::runtime_error("Need to implement logger for aw55");
+                return {};
+            }
+            else if (common::toLower(cmInfo) == "tf80") {
+                throw std::runtime_error("Need to implement logger for tf80");
+                return {};
+            }
+        }
+        if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford) {
             return std::make_unique<UDSLoggerImpl>(j2534);
         }
         throw std::runtime_error("Not implemented");
@@ -171,9 +185,14 @@ namespace logger {
         }
     }
 
-    Logger::Logger(j2534::J2534& j2534, common::CarPlatform carPlatform)
-        : _j2534{ j2534 }, _loggingThread{}, _stopped{ true },
-        _loggerImpl(createLoggerImpl(getLoggerType(carPlatform), j2534)) {
+    Logger::Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo)
+        : _j2534{ j2534 }
+        , _carPlatform{ carPlatform }
+        , _cmId{ cmId }
+        , _cmInfo{ cmInfo }
+        , _loggingThread{}
+        , _stopped{ true }
+        , _loggerImpl(createLoggerImpl(_carPlatform, _cmId, _cmInfo, j2534)) {
     }
 
     Logger::~Logger() { stop(); }

@@ -17,7 +17,7 @@ void LoggerApplication::start(unsigned long baudrate,
                               const LogParameters &params,
                               const std::vector<LoggerCallback *> &callbacks) {
   _j2534 = j2534;
-  _logger = std::make_unique<Logger>(*_j2534, common::CarPlatform::P2);
+  _logger = std::make_unique<Logger>(*_j2534, common::CarPlatform::P2, 0x7A, std::string());
   for (const auto &callback : callbacks) {
     _logger->registerCallback(*callback);
   }

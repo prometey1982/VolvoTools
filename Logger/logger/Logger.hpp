@@ -26,7 +26,7 @@ namespace logger {
 
 	class Logger final {
 	public:
-		explicit Logger(j2534::J2534& j2534, common::CarPlatform carPlatform);
+		explicit Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo);
 		~Logger();
 
 		void registerCallback(LoggerCallback& callback);
@@ -55,6 +55,9 @@ namespace logger {
 
 	private:
 		j2534::J2534& _j2534;
+		common::CarPlatform _carPlatform;
+		uint32_t _cmId;
+		std::string _cmInfo;
 		LogParameters _parameters;
 		std::thread _loggingThread;
 		std::thread _callbackThread;

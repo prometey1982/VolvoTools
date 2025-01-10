@@ -9,6 +9,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <algorithm>
 #include <codecvt>
 #include <locale>
 #include <unordered_map>
@@ -37,6 +38,12 @@ namespace common {
         const uint8_t byte3 = (value & 0xFF00) >> 8;
         const uint8_t byte4 = (value & 0xFF);
         return { byte1, byte2, byte3, byte4 };
+    }
+
+    std::string toLower(std::string data) {
+        std::transform(data.begin(), data.end(), data.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+        return data;
     }
 
 #ifdef UNICODE
@@ -454,6 +461,7 @@ namespace common {
             return CAN;
         else if (input == "15765-2")
             return ISO15765;
+        return CAN;
     }
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input)
