@@ -5,6 +5,7 @@
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
 #include <common/UDSProtocolBase.hpp>
+#include <common/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -125,10 +126,12 @@ namespace logger {
 
     class UDSLoggerImpl : public LoggerImpl, private common::UDSProtocolBase {
     public:
-        UDSLoggerImpl(j2534::J2534& j2534)
+        UDSLoggerImpl(j2534::J2534& j2534, uint32_t cmId)
             : LoggerImpl(j2534)
-            , UDSProtocolBase(j2534, 0x7E0)
+            , UDSProtocolBase(j2534, cmId)
         {
+            registerStep(std::make_unique<common::OpenChannelsStep>(getJ2534(), getCmId(), _channels));
+            registerStep(std::make_unique<common::CloseChannelsStep>(_channels));
         }
 
     private:
@@ -142,6 +145,8 @@ namespace logger {
             std::vector<uint32_t> result;
             return result;
         }
+
+        std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
     };
 
     std::unique_ptr<LoggerImpl> createLoggerImpl(common::CarPlatform carPlatform,
@@ -164,7 +169,7 @@ namespace logger {
             }
         }
         if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford) {
-            return std::make_unique<UDSLoggerImpl>(j2534);
+            return std::make_unique<UDSLoggerImpl>(j2534, cmId);
         }
         throw std::runtime_error("Not implemented");
     }
