@@ -72,8 +72,7 @@ namespace logger {
 		std::deque<LogRecord> _loggedRecords;
 		std::vector<LoggerCallback*> _callbacks;
 
-		std::unique_ptr<j2534::J2534Channel> _channel1;
-		std::unique_ptr<j2534::J2534Channel> _channel3;
+		std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
 	};
 
 } // namespace logger

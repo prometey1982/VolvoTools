@@ -7,6 +7,7 @@ enum class CarPlatform
     Undefined,
     P80,
     P1,
+    P1_UDS,
     P2,
     P2_250,
     P2_UDS,

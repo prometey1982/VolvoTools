@@ -437,8 +437,58 @@ namespace common {
     {
         static const std::unordered_map<uint32_t, size_t> CMMap = {
             {0x10, 0},
+            {0x7A, 0},
+            {0x6E, 0},
         };
         return *channels[CMMap.at(ecuId)];
+    }
+
+    static std::string getCarPlatformName(CarPlatform carPlatform)
+    {
+        switch (carPlatform) {
+        case CarPlatform::P80:
+            return "P80";
+        case CarPlatform::P1:
+            return "P1x (D2) - Elsys 1";
+        case CarPlatform::P1_UDS:
+            return "P1010 (D2/GGD) - Elsys 2";
+        case CarPlatform::P2_250:
+            return "P2x -2004w20 (CAN-HS 250kbit/s)";
+        case CarPlatform::P2:
+            return "P2x 2004w20- (CAN-HS 500kbit/s)";
+        case CarPlatform::P2_UDS:
+            return "P28 - V8/SI6";
+        case CarPlatform::P3:
+            return "Y285/Y286/Y381";
+        case CarPlatform::SPA:
+            return "EUCD/C1MCA - Generic";
+        }
+        return {};
+    }
+
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    {
+        const auto platformName = getCarPlatformName(carPlatform);
+        const auto confIt = std::find_if(configurationInfo.cbegin(), configurationInfo.cend(), [&platformName](const ConfigurationInfo& info) {
+            return info.name == platformName;
+            });
+        if (confIt == configurationInfo.cend()) {
+            throw std::runtime_error("Unknown platform " + platformName);
+        }
+        for (const auto& busInfo : confIt->busInfo) {
+            for (const auto& ecuInfo : busInfo.ecuInfo) {
+                if (ecuInfo.ecuId == cmId) {
+                    for (const auto& channel : channels) {
+                        if (busInfo.baudrate == channel->getBaudrate()) {
+                            return *channel;
+                        }
+                    }
+                    throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
+                }
+            }
+        }
+        throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << cmId + ", for platform = " << platformName).str());
     }
 
     static std::string getNonEmptyHexIntString(const std::string& input)
@@ -464,11 +514,9 @@ namespace common {
         return CAN;
     }
 
-    std::vector<ConfigurationInfo> loadConfiguration(std::istream& input)
+    static std::vector<ConfigurationInfo> loadConfigurationImpl(const YAML::Node& node)
     {
         std::vector<ConfigurationInfo> result;
-
-        auto node = YAML::Load(input);
         auto confNodes = node["Configuration"];
         for (const auto& confNode : confNodes) {
             ConfigurationInfo info;
@@ -494,8 +542,17 @@ namespace common {
             }
             result.emplace_back(std::move(info));
         }
-
         return result;
+    }
+
+    std::vector<ConfigurationInfo> loadConfiguration(std::istream& input)
+    {
+        return loadConfigurationImpl(YAML::Load(input));
+    }
+
+    std::vector<ConfigurationInfo> loadConfiguration(const std::string& input)
+    {
+        return loadConfigurationImpl(YAML::Load(input));
     }
 
 } // namespace common

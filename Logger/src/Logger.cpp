@@ -2,6 +2,7 @@
 
 #include "logger/LoggerCallback.hpp"
 
+#include <common/CommonData.hpp>
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
 #include <common/UDSProtocolBase.hpp>
@@ -138,6 +139,7 @@ namespace logger {
         virtual void
             registerParameters(j2534::J2534Channel& /*channel*/,
                 const LogParameters& /*parameters*/) override {
+            run();
         }
         virtual std::vector<uint32_t>
             requestMemory(j2534::J2534Channel& /*channel*/,
@@ -228,9 +230,11 @@ namespace logger {
         const unsigned long protocolId = CAN;
         const unsigned long flags = CAN_29BIT_ID;
 
-        _channel1 = common::openChannel(_j2534, protocolId, flags, baudrate);
-        if (baudrate != 500000)
-            _channel3 = common::openBridgeChannel(_j2534);
+        _channels.emplace_back(common::openChannel(_j2534, protocolId, flags, baudrate));
+
+        if (baudrate != 500000) {
+            _channels.emplace_back(common::openBridgeChannel(_j2534));
+        }
 
         registerParameters();
 
@@ -257,12 +261,13 @@ namespace logger {
         if (_callbackThread.joinable())
             _callbackThread.join();
 
-        _channel1.reset();
-        _channel3.reset();
+        _channels.clear();
     }
 
     void Logger::registerParameters() {
-        _loggerImpl->registerParameters(*_channel1, _parameters);
+        const auto configurationInfo = common::loadConfiguration(common::CommonData::commonConfiguration);
+        auto& channel = common::getChannelByEcuId(configurationInfo, _carPlatform, _cmId, _channels);
+        _loggerImpl->registerParameters(channel, _parameters);
     }
 
     void Logger::logFunction() {
@@ -272,6 +277,8 @@ namespace logger {
                 callback->onStatusChanged(true);
             }
         }
+        const auto configurationInfo = common::loadConfiguration(common::CommonData::commonConfiguration);
+        auto& channel = common::getChannelByEcuId(configurationInfo, _carPlatform, _cmId, _channels);
         const auto startTimepoint{ std::chrono::steady_clock::now() };
         for (size_t timeoffset = 0;; timeoffset += 50) {
             {
@@ -279,9 +286,9 @@ namespace logger {
                 if (_stopped)
                     break;
             }
-            _channel1->clearRx();
-            _channel1->clearTx();
-            auto logRecord = _loggerImpl->requestMemory(*_channel1, _parameters);
+            channel.clearRx();
+            channel.clearTx();
+            auto logRecord = _loggerImpl->requestMemory(channel, _parameters);
             const auto now{ std::chrono::steady_clock::now() };
             pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
                 now - startTimepoint),

@@ -66,7 +66,10 @@ namespace common {
     CarPlatform getPlatfromFromVIN(const std::string& vin);
 
     j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input);
+    std::vector<ConfigurationInfo> loadConfiguration(const std::string& input);
 
 } // namespace common

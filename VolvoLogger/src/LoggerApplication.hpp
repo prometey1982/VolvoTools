@@ -1,5 +1,7 @@
 #pragma once
 
+#include <common/CarPlatform.hpp>
+
 #include <memory>
 #include <string>
 #include <vector>
@@ -19,6 +21,8 @@ public:
 
   void start(unsigned long baudrate, const std::shared_ptr<j2534::J2534> &j2534,
              const LogParameters &params,
+             common::CarPlatform carPlatform,
+             uint32_t cmId,
              const std::vector<LoggerCallback *> &callbacks);
   void stop();
 
