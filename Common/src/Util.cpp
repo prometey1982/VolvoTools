@@ -212,7 +212,7 @@ namespace common {
     }
 
     std::unique_ptr<j2534::J2534Channel>
-        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t cmId) {
+        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId) {
         const unsigned long protocolId = ISO15765;
         const unsigned long flags = ISO15765_FRAME_PAD;
         auto channel{ std::make_unique<j2534::J2534Channel>(j2534, protocolId, 0,
@@ -226,13 +226,15 @@ namespace common {
         config[2].Value = (Baudrate == 500000 ? 80 : 68);
         channel->setConfig(config);
 
+        const uint32_t responseCanId = canId + 0x8;
+
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
             makePassThruMsg(protocolId, flags, { 0xFF, 0xFF, 0xFF, 0xFF });
         PASSTHRU_MSG patternMsg =
-            makePassThruMsg(protocolId, flags, { 0x00, 0x00, 0x07, 0xE8 });
+            makePassThruMsg(protocolId, flags, toVector(responseCanId));
         PASSTHRU_MSG flowMsg =
-            makePassThruMsg(protocolId, flags, { 0x00, 0x00, 0x07, 0xE0 });
+            makePassThruMsg(protocolId, flags, toVector(canId));
         channel->startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId);
 
         return std::move(channel);
@@ -466,8 +468,7 @@ namespace common {
         return {};
     }
 
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId)
     {
         const auto platformName = getCarPlatformName(carPlatform);
         const auto confIt = std::find_if(configurationInfo.cbegin(), configurationInfo.cend(), [&platformName](const ConfigurationInfo& info) {
@@ -478,17 +479,24 @@ namespace common {
         }
         for (const auto& busInfo : confIt->busInfo) {
             for (const auto& ecuInfo : busInfo.ecuInfo) {
-                if (ecuInfo.ecuId == cmId) {
-                    for (const auto& channel : channels) {
-                        if (busInfo.baudrate == channel->getBaudrate()) {
-                            return *channel;
-                        }
-                    }
-                    throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
+                if (ecuInfo.ecuId == ecuId) {
+                    return { busInfo, ecuInfo };
                 }
             }
         }
-        throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << cmId + ", for platform = " << platformName).str());
+        throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << ecuId + ", for platform = " << platformName).str());
+    }
+
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    {
+        const auto [busInfo, ecuInfo] = getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId);
+        for (const auto& channel : channels) {
+            if (busInfo.baudrate == channel->getBaudrate()) {
+                return *channel;
+            }
+        }
+        throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
     }
 
     static std::string getNonEmptyHexIntString(const std::string& input)

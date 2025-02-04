@@ -41,7 +41,7 @@ namespace common {
             unsigned long Baudrate, bool AdditionalConfiguration = false);
 
     std::unique_ptr<j2534::J2534Channel>
-        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t cmId);
+        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId);
 
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
         unsigned long Flags);
@@ -64,6 +64,8 @@ namespace common {
         size_t retryCount = 10);
 
     CarPlatform getPlatfromFromVIN(const std::string& vin);
+
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId);
 
     j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
     j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,

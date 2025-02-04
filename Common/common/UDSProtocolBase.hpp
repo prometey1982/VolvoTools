@@ -18,7 +18,7 @@ namespace common {
 
     class UDSProtocolBase {
     public:
-        UDSProtocolBase(j2534::J2534& j2534, uint32_t cmId);
+        UDSProtocolBase(j2534::J2534& j2534, uint32_t canId);
         virtual ~UDSProtocolBase();
 
         void run();
@@ -34,7 +34,7 @@ namespace common {
 
     protected:
         j2534::J2534& getJ2534() const;
-        uint32_t getCmId() const;
+        uint32_t getCanId() const;
 
         void registerStep(std::unique_ptr<UDSProtocolStep>&& step);
         void setState(State newState);
@@ -45,7 +45,7 @@ namespace common {
         void stepToCallbacks(common::UDSStepType stepType);
 
         j2534::J2534& _j2534;
-        uint32_t _cmId;
+        uint32_t _canId;
         mutable std::mutex _mutex;
         State _currentState;
         std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;

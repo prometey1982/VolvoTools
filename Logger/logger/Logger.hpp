@@ -3,6 +3,7 @@
 #include "LogParameters.hpp"
 
 #include <common/CarPlatform.hpp>
+#include <common/ConfigurationInfo.hpp>
 
 #include <chrono>
 #include <condition_variable>
@@ -54,6 +55,7 @@ namespace logger {
 		void callbackFunction();
 
 	private:
+		const std::vector<common::ConfigurationInfo> _configurationInfo;
 		j2534::J2534& _j2534;
 		common::CarPlatform _carPlatform;
 		uint32_t _cmId;

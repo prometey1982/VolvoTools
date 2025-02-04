@@ -19,14 +19,14 @@ namespace flasher {
         , _bootloader{ bootloader }
         , _flash{ flash }
     {
-        registerStep(std::make_unique<common::OpenChannelsStep>(getJ2534(), getCmId(), _channels));
+        registerStep(std::make_unique<common::OpenChannelsStep>(getJ2534(), getCanId(), _channels));
         registerStep(std::make_unique<common::FallingAsleepStep>(_channels));
-        registerStep(std::make_unique<common::KeepAliveStep>(_channels, getCmId()));
-        registerStep(std::make_unique<common::AuthorizingStep>(_channels, getCmId(), _pin));
-        registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::BootloaderLoading, _channels, getCmId(), _bootloader));
-        registerStep(std::make_unique<common::StartRoutineStep>(_channels, getCmId(), _bootloader.header));
-        registerStep(std::make_unique<common::FlashErasingStep>(_channels, getCmId(), _flash));
-        registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::FlashLoading, _channels, getCmId(), _flash));
+        registerStep(std::make_unique<common::KeepAliveStep>(_channels, getCanId()));
+        registerStep(std::make_unique<common::AuthorizingStep>(_channels, getCanId(), _pin));
+        registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::BootloaderLoading, _channels, getCanId(), _bootloader));
+        registerStep(std::make_unique<common::StartRoutineStep>(_channels, getCanId(), _bootloader.header));
+        registerStep(std::make_unique<common::FlashErasingStep>(_channels, getCanId(), _flash));
+        registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::FlashLoading, _channels, getCanId(), _flash));
         registerStep(std::make_unique<common::WakeUpStep>(_channels));
         registerStep(std::make_unique<common::CloseChannelsStep>(_channels));
     }

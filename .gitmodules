@@ -10,3 +10,6 @@
 [submodule "argparse"]
 	path = argparse
 	url = https://github.com/prometey1982/argparse.git
+[submodule "libintelhex"]
+	path = libintelhex
+	url = git@github.com:prometey1982/libintelhex.git

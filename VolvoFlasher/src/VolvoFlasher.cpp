@@ -572,12 +572,12 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 
 void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 {
-	std::ifstream confStream("D:\\misc\\programming\\VolvoTools\\Common\\common\\data.yaml ");
+	std::ifstream confStream("C:\\misc\\programming\\VolvoTools2\\Common\\common\\data.yaml ");
 	[[maybe_unused]] auto conf = common::loadConfiguration(confStream);
 	common::VBFParser vbfParser;
-	std::ifstream inpVbf("D:\\misc\\denso\\p3\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
+	std::ifstream inpVbf("C:\\misc\\Volvo tools\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
 	const common::VBF bootloader = vbfParser.parse(inpVbf);
-	std::ifstream flashVbf("D:\\misc\\denso\\p3\\test2.vbf ", std::ios_base::binary);
+	std::ifstream flashVbf("c:\\misc\\denso\\p3\\test2.vbf ", std::ios_base::binary);
 	const common::VBF flash = vbfParser.parse(flashVbf);
 	const unsigned long baudrate = 500000;
 	unsigned long protocolId = CAN;

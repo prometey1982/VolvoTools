@@ -6,13 +6,14 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <algorithm>
 #include <optional>
 
 namespace common {
 
-	UDSProtocolBase::UDSProtocolBase(j2534::J2534& j2534, uint32_t cmId)
+	UDSProtocolBase::UDSProtocolBase(j2534::J2534& j2534, uint32_t canId)
 		: _j2534{ j2534 }
-		, _cmId{ cmId }
+		, _canId{ canId }
 		, _currentState{ UDSProtocolBase::State::Initial }
 	{
 	}
@@ -84,9 +85,9 @@ namespace common {
 		return _j2534;
 	}
 
-	uint32_t UDSProtocolBase::getCmId() const
+	uint32_t UDSProtocolBase::getCanId() const
 	{
-		return _cmId;
+		return _canId;
 	}
 
 	void UDSProtocolBase::registerStep(std::unique_ptr<UDSProtocolStep>&& step)

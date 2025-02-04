@@ -3,6 +3,9 @@ project(VolvoFlasher VERSION 1.0.0 LANGUAGES CXX)
 
 #find_package(Boost REQUIRED)
  
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 
 set(SOURCE
