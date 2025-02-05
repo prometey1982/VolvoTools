@@ -5,6 +5,7 @@
 #include <common/CommonData.hpp>
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
+#include <common/UDSMessage.hpp>
 #include <common/UDSProtocolBase.hpp>
 #include <common/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
@@ -146,30 +147,107 @@ namespace logger {
 		UDSLoggerImpl(j2534::J2534& j2534, uint32_t canId)
 			: LoggerImpl(j2534)
 			, UDSProtocolBase(j2534, canId)
+			, _didBase(0xF200)
 		{
 		}
 
 	private:
 		virtual void
-			registerParameters([[maybe_unused]] j2534::J2534Channel& channel,
-				[[maybe_unused]] const LogParameters& parameters) override {
+			registerParameters(j2534::J2534Channel& channel,
+				const LogParameters& parameters) override {
+
+			common::UDSMessage diagSessionRequest(getCanId(), { 0x10, 0x03 });
+			unsigned long numMsgs;
+			if (channel.writeMsgs(diagSessionRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+				return;
+			}
+			std::vector<PASSTHRU_MSG> read_msgs;
+			read_msgs.resize(1);
+			if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
+			{
+				return;
+			}
+			uint16_t did = _didBase;
+			for (const auto& param : parameters.parameters()) {
+				common::UDSMessage clearDDDIRequest(getCanId(), { 0x2C, 0x03, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) });
+				if (channel.writeMsgs(clearDDDIRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return;
+				}
+				read_msgs.resize(1);
+				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
+				{
+					return;
+				}
+				constexpr uint8_t addrLength = 4;
+				constexpr uint8_t dataLength = 2;
+				constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
+				std::vector<uint8_t> formattedParams{ 0x2C, 0x02, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did), dataFormat };
+				const auto formattedAddr = common::toVector(param.addr());
+				formattedParams.insert(formattedParams.end(), formattedAddr.cbegin(), formattedAddr.cend());
+				formattedParams.push_back(static_cast<uint8_t>(param.size() >> 8));
+				formattedParams.push_back(static_cast<uint8_t>(param.size()));
+				common::UDSMessage registerMessage(getCanId(), formattedParams);
+				if (channel.writeMsgs(registerMessage, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return;
+				}
+				read_msgs.resize(1);
+				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
+				{
+					return;
+				}
+				_didList.push_back(did++);
+			}
 		}
 		virtual std::vector<uint32_t>
-			requestMemory([[maybe_unused]] j2534::J2534Channel& channel,
-				[[maybe_unused]] const LogParameters& parameters) override {
+			requestMemory(j2534::J2534Channel& channel,
+				const LogParameters& parameters) override {
 			std::vector<uint32_t> result;
+			size_t paramIndex = 0;
+			size_t paramOffset = 0;
+			uint32_t value = 0;
+			for (const auto& did : _didList) {
+				common::UDSMessage requestDidRequest(getCanId(), { 0x22, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) });
+				unsigned long numMsgs;
+				if (channel.writeMsgs(requestDidRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+					return result;
+				}
+				std::vector<PASSTHRU_MSG> read_msgs;
+				read_msgs.resize(1);//parameters.parameters()[paramIndex].size() > 2 ? 2 : 1);
+				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
+				{
+					return result;
+				}
+				for (const auto& msg : read_msgs) {
+					for (size_t i = 7; i < msg.DataSize; ++i) {
+						const auto& param = parameters.parameters()[paramIndex];
+						value += msg.Data[i] << ((param.size() - paramOffset - 1) * 8);
+						++paramOffset;
+						if (paramOffset >= param.size()) {
+							result.push_back(value);
+							++paramIndex;
+							paramOffset = 0;
+							value = 0;
+						}
+						if (paramIndex >= parameters.parameters().size()) {
+							return result;
+						}
+					}
+				}
+			}
 			return result;
 		}
 
 		virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(unsigned long baudrate) override {
 			std::vector<std::unique_ptr<j2534::J2534Channel>> result;
 
-//			result.emplace_back(common::openUDSChannel(getJ2534(), baudrate, getCanId()));
+			result.emplace_back(common::openUDSChannel(getJ2534(), baudrate, getCanId()));
 
 			return result;
 		}
 
 		std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
+		const uint16_t _didBase;
+		std::vector<uint16_t> _didList;
 	};
 
 	std::unique_ptr<LoggerImpl> createLoggerImpl(const std::vector<common::ConfigurationInfo>& configurationInfo,

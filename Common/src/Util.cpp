@@ -32,6 +32,12 @@ namespace common {
         return byte1 + (byte2 << 8) + (byte3 << 16) + (byte4 << 24);
     }
 
+    std::vector<uint8_t> toVector(uint16_t value) {
+        const uint8_t byte1 = (value & 0xFF00) >> 8;
+        const uint8_t byte2 = (value & 0xFF);
+        return { byte1, byte2 };
+    }
+
     std::vector<uint8_t> toVector(uint32_t value) {
         const uint8_t byte1 = (value & 0xFF000000) >> 24;
         const uint8_t byte2 = (value & 0xFF0000) >> 16;

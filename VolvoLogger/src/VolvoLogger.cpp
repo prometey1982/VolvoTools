@@ -20,10 +20,10 @@ public:
 
   void onLogMessage(std::chrono::milliseconds timePoint,
                     const std::vector<double> &values) override {
-    std::cout << (timePoint.count() / 1000.0) << ",";
+    std::cout << std::fixed << std::setprecision(2) << (timePoint.count() / 1000.0) << ",";
 
     for (size_t i = 0; i < _printLimit && i < values.size(); ++i) {
-      std::cout << std::setprecision(2) << values[i] << ",";
+      std::cout << std::fixed << std::setprecision(2) << values[i] << ",";
     }
     std::cout << std::endl;
   }

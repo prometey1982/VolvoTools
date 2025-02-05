@@ -22,6 +22,7 @@ namespace common {
     uint32_t encode(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0,
         uint8_t byte4 = 0);
 
+    std::vector<uint8_t> toVector(uint16_t value);
     std::vector<uint8_t> toVector(uint32_t value);
 
     std::string toLower(std::string data);
