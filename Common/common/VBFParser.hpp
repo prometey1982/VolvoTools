@@ -9,7 +9,7 @@ class VBFParser {
 public:
     VBFParser() = default;
     VBF parse(std::istream& data) const;
-    VBF parse(const std::vector<uint8_t>& data) const;
+    VBF parse(const std::vector<char>& data) const;
 };
 
 } // namespace common

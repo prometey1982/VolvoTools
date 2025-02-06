@@ -151,12 +151,12 @@ namespace common {
 		data.seekg(0, data.end);
 		const istream::pos_type fileSize = data.tellg();
 		data.seekg(0, ios::beg);
-		std::vector<uint8_t> content(fileSize);
-		data.read(reinterpret_cast<char*>(content.data()), content.size());
+		std::vector<char> content(fileSize);
+		data.read(content.data(), content.size());
 		return parseVBF(content.begin(), content.end());
 	}
 
-	VBF VBFParser::parse(const std::vector<uint8_t>& data) const
+	VBF VBFParser::parse(const std::vector<char>& data) const
 	{
 		return parseVBF(data.begin(), data.end());
 	}

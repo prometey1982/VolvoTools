@@ -48,7 +48,7 @@ namespace logger {
 
 		unsigned long getNumberOfCanMessages(const LogParameters& parameters) const {
 			double totalDataLength =
-				std::accumulate(parameters.parameters().cbegin(), parameters.parameters().cend(), 0,
+				std::accumulate(parameters.parameters().cbegin(), parameters.parameters().cend(), static_cast<size_t>(0),
 					[](size_t prevValue, const auto& param) {
 						return prevValue + param.size();
 					});
