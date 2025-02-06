@@ -215,7 +215,7 @@ namespace common {
         const auto& channel = getChannelByEcuId(_cmId, _channels);
         for (const auto& chunk : _flash.chunks) {
             const auto eraseAddr = toVector(chunk.writeOffset);
-            const auto eraseSize = toVector(chunk.data.size());
+            const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
             UDSMessage eraseRoutineMsg(_cmId, { 0x31, 0x01, 0xff, 0x00,
                 eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
                 eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
