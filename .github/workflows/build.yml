@@ -1,0 +1,114 @@
+name: Build VolvoTools
+'on':
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - master
+jobs:
+  build-x86:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Conan and detect profile
+        run: |
+          pip install conan
+          conan profile detect --force
+      - name: Install dependencies
+        run: >-
+          conan install . --build=missing --profile=default -s arch=x86 -s
+          compiler.cppstd=17
+      - name: Configure CMake
+        run: cmake --preset conan-default -A Win32
+      - name: Build project
+        run: |
+          cd build
+          cmake --build . --config Release --parallel 4 || exit 1
+      - name: Rename binaries with architecture suffix
+        shell: pwsh
+        run: |
+          $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
+          foreach ($binary in $binaries) {
+            $newName = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName) + "_x86" + [System.IO.Path]::GetExtension($binary.FullName)
+            Rename-Item -Path $binary.FullName -NewName $newName
+          }
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VolvoTools_Build_x86
+          path: build/**/Release/*.exe
+          if-no-files-found: warn
+  build-x64:
+    runs-on: windows-2022
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install Conan and detect profile
+        run: |
+          pip install conan
+          conan profile detect --force
+      - name: Install dependencies
+        run: >-
+          conan install . --build=missing --profile=default -s
+          compiler.cppstd=17
+      - name: Configure CMake
+        run: cmake --preset conan-default -A x64
+      - name: Build project
+        run: |
+          cd build
+          cmake --build . --config Release --parallel 4 || exit 1
+      - name: Rename binaries with architecture suffix
+        shell: pwsh
+        run: |
+          $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
+          foreach ($binary in $binaries) {
+            $newName = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName) + "_x64" + [System.IO.Path]::GetExtension($binary.FullName)
+            Rename-Item -Path $binary.FullName -NewName $newName
+          }
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: VolvoTools_Build_x64
+          path: build/**/Release/*.exe
+          if-no-files-found: warn
+  release:
+    needs:
+      - build-x86
+      - build-x64
+    runs-on: windows-2022
+    if: 'startsWith(github.ref, ''refs/tags/'')'
+    steps:
+      - name: Download x64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: VolvoTools_Build_x64
+          path: artifacts/x64
+      - name: Download x86 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: VolvoTools_Build_x86
+          path: artifacts/x86
+      - name: List artifacts directory
+        run: ls -R artifacts
+      - name: Check if artifacts exist
+        shell: pwsh
+        run: >
+          $artifacts = Get-ChildItem -Path artifacts -Filter "*.exe" -Recurse
+          -ErrorAction SilentlyContinue
+
+          if (-not $artifacts) {
+            Write-Error "No artifacts found!"
+            exit 1
+          }
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/Release/*.exe
