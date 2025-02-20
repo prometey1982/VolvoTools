@@ -66,6 +66,8 @@ namespace common {
 
     CarPlatform getPlatfromFromVIN(const std::string& vin);
 
+    CarPlatform parseCarPlatform(std::string input);
+
     std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId);
 
     j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);

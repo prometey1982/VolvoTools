@@ -441,6 +441,28 @@ namespace common {
         return result;
     }
 
+    CarPlatform parseCarPlatform(std::string input)
+    {
+        input = toLower(input);
+        if ("p1" == input)
+            return common::CarPlatform::P1;
+        else if ("p1_uds" == input)
+            return common::CarPlatform::P1_UDS;
+        else if ("p2" == input)
+            return common::CarPlatform::P2;
+        else if ("p2_250" == input)
+            return common::CarPlatform::P2_250;
+        else if ("p2_uds" == input)
+            return common::CarPlatform::P2_UDS;
+        else if ("p3" == input)
+            return common::CarPlatform::P3;
+        else if ("spa" == input)
+            return common::CarPlatform::SPA;
+        else if ("ford" == input)
+            return common::CarPlatform::Ford;
+        return common::CarPlatform::Undefined;
+    }
+
     j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
         static const std::unordered_map<uint32_t, size_t> CMMap = {
