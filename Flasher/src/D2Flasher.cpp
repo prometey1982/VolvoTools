@@ -106,7 +106,6 @@ void D2Flasher::flash(common::CMType cmType, unsigned long baudrate,
                       const std::vector<uint8_t> &bin) {
   messageToCallbacks("Initializing");
   const unsigned long protocolId = CAN;
-  //  const unsigned long protocolId = CAN_XON_XOFF;
   const unsigned long flags = CAN_29BIT_ID;
 
   openChannels(baudrate, true);
@@ -125,7 +124,6 @@ void D2Flasher::read(uint8_t cmId, unsigned long baudrate,
     unsigned long startPos, unsigned long size, std::vector<uint8_t>& bin) {
     messageToCallbacks("Initializing");
     const unsigned long protocolId = CAN;
-    //  const unsigned long protocolId = CAN_XON_XOFF;
     const unsigned long flags = CAN_29BIT_ID;
 
     openChannels(baudrate, true);
@@ -166,8 +164,6 @@ size_t D2Flasher::getMaximumProgress() const {
 
 void D2Flasher::openChannels(unsigned long baudrate,
                              bool additionalConfiguration) {
-  // const unsigned long protocolId = CAN_XON_XOFF;
-  //  const unsigned long protocolId = CAN_PS;
   const unsigned long protocolId = CAN;
   const unsigned long flags = CAN_29BIT_ID;
 

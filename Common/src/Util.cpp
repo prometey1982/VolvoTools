@@ -2,6 +2,7 @@
 
 #include "common/BusConfiguration.hpp"
 #include "common/ECUInfo.hpp"
+#include "common/UDSError.hpp"
 
 #include <Registry/include/Registry.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -424,13 +425,16 @@ namespace common {
         {
             switch (vin[3])
             {
+            case 'A':
+                result = CarPlatform::P3;
+                break;
             case 'L':
                 result = CarPlatform::P80;
                 break;
             case 'T':
             case 'R':
             case 'S':
-            case 'С':
+            case 'C':
                 result = CarPlatform::P2;
                 break;
             case 'M':
@@ -461,16 +465,6 @@ namespace common {
         else if ("ford" == input)
             return common::CarPlatform::Ford;
         return common::CarPlatform::Undefined;
-    }
-
-    j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-    {
-        static const std::unordered_map<uint32_t, size_t> CMMap = {
-            {0x10, 0},
-            {0x7A, 0},
-            {0x6E, 0},
-        };
-        return *channels[CMMap.at(ecuId)];
     }
 
     static std::string getCarPlatformName(CarPlatform carPlatform)
@@ -515,16 +509,22 @@ namespace common {
         throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << ecuId + ", for platform = " << platformName).str());
     }
 
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
         const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
         const auto [busInfo, ecuInfo] = getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId);
-        for (const auto& channel : channels) {
-            if (busInfo.baudrate == channel->getBaudrate()) {
-                return *channel;
+        for(size_t i = 0; i < channels.size(); ++i) {
+            if (busInfo.baudrate == channels[i]->getBaudrate()) {
+                return i;
             }
         }
         throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
+    }
+
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    {
+        return *channels[getChannelIndexByEcuId(configurationInfo, carPlatform, ecuId, channels)];
     }
 
     static std::string getNonEmptyHexIntString(const std::string& input)
@@ -589,6 +589,36 @@ namespace common {
     std::vector<ConfigurationInfo> loadConfiguration(const std::string& input)
     {
         return loadConfigurationImpl(YAML::Load(input));
+    }
+
+    void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize)
+    {
+        if(dataSize < 7 || data[4] != 0x7F || data[5] != requestId) {
+            return;
+        }
+        throw UDSError(data[6]);
+    }
+
+    CarPlatform parsePlatform(std::string input)
+    {
+        input = toLower(input);
+        if ("p1" == input)
+            return common::CarPlatform::P1;
+        else if ("p1_uds" == input)
+            return common::CarPlatform::P1_UDS;
+        else if ("p2" == input)
+            return common::CarPlatform::P2;
+        else if ("p2_250" == input)
+            return common::CarPlatform::P2_250;
+        else if ("p2_uds" == input)
+            return common::CarPlatform::P2_UDS;
+        else if ("p3" == input)
+            return common::CarPlatform::P3;
+        else if ("spa" == input)
+            return common::CarPlatform::SPA;
+        else if ("ford" == input)
+            return common::CarPlatform::Ford;
+        return common::CarPlatform::Undefined;
     }
 
 } // namespace common

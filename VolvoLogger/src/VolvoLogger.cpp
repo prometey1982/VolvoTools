@@ -34,27 +34,6 @@ private:
   const size_t _printLimit;
 };
 
-static common::CarPlatform parsePlatform(std::string input) {
-    input = common::toLower(input);
-    if ("p1" == input)
-        return common::CarPlatform::P1;
-    else if ("p1_uds" == input)
-        return common::CarPlatform::P1_UDS;
-    else if ("p2" == input)
-        return common::CarPlatform::P2;
-    else if ("p2_250" == input)
-        return common::CarPlatform::P2_250;
-    else if ("p2_uds" == input)
-        return common::CarPlatform::P2_UDS;
-    else if ("p3" == input)
-        return common::CarPlatform::P3;
-    else if ("spa" == input)
-        return common::CarPlatform::SPA;
-    else if ("ford" == input)
-        return common::CarPlatform::Ford;
-    return common::CarPlatform::Undefined;
-}
-
 static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
                    unsigned long &baudrate, std::string &paramsFilePath,
                    std::string &outputPath, unsigned &printCount, common::CarPlatform& carPlatform, uint8_t& cmId) {
@@ -74,7 +53,7 @@ static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
       paramsFilePath = program.get<std::string>("-v");
       outputPath = program.get<std::string>("-o");
       printCount = program.get<unsigned>("-p");
-      carPlatform = parsePlatform(program.get<std::string>("-f"));
+      carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
       cmId = program.get<uint8_t>("-e");
       return true;
   }

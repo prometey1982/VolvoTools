@@ -70,11 +70,17 @@ namespace common {
 
     std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId);
 
-    j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+
+    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
         const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input);
     std::vector<ConfigurationInfo> loadConfiguration(const std::string& input);
+
+    void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize);
+
+    CarPlatform parseCarPlatform(std::string input);
 
 } // namespace common
