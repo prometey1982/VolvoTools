@@ -13,7 +13,10 @@ set(SOURCE
   ${SUB_SOURCES}
 )
 
-add_executable(${PROJECT_NAME} ${SOURCE})
+FILE(GLOB HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h*)
+FILE(GLOB PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h*)
+
+add_library(${PROJECT_NAME} ${SOURCE} ${HEADERS} ${PRIVATE_HEADERS})
 
 if (WIN32)
     target_compile_definitions(${PROJECT_NAME} PRIVATE   
