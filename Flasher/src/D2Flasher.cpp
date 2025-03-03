@@ -2,6 +2,8 @@
 
 #include <common/Util.hpp>
 #include <common/D2Message.hpp>
+#include <common/SBL.hpp>
+#include <common/VBFParser.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
@@ -195,7 +197,7 @@ void D2Flasher::selectAndWriteBootloader(common::CMType cmType,
     bootloaderOffset = 0x7F81D0;
     ecuType = common::ECUType::ECM_ME;
     break;
-  case common::CMType::TCM_AW55:
+  case common::CMType::TCM_AW55_P2:
   case common::CMType::TCM_TF80_P2:
     bootloaderOffset = 0xFFFF8200;
     ecuType = common::ECUType::TCM;
@@ -221,6 +223,7 @@ void D2Flasher::selectAndWriteBootloader(common::CMType cmType,
 }
 
 common::VBF D2Flasher::getSBL(common::CMType cmType) const {
+  common::VBFParser parser;
     auto makeHeader = [](uint32_t callAddr) -> common::VBFHeader
         {
             common::VBFHeader header;
@@ -229,11 +232,9 @@ common::VBF D2Flasher::getSBL(common::CMType cmType) const {
         };
   switch (cmType) {
   case common::CMType::ECM_ME7:
-      return common::VBF(makeHeader(0x31C000),
-               { common::VBFChunk(0x31C000, common::D2Messages::me7BootLoader)});
+    return parser.parse(common::SBLData::P2_ME7_SBL);
   case common::CMType::ECM_ME9_P1:
-    return common::VBF(makeHeader(0x7F81D0),
-               { common::VBFChunk(0x7F81D0, common::D2Messages::me9BootLoader)});
+    return parser.parse(common::SBLData::P1_ME9_SBL);
   default:
       return common::VBF({}, {});
   }
@@ -449,7 +450,7 @@ void D2Flasher::flasherFunction(common::CMType cmType, const std::vector<uint8_t
     case common::CMType::ECM_ME9_P1:
       writeFlashMe9(bin, protocolId, flags);
       break;
-    case common::CMType::TCM_AW55:
+    case common::CMType::TCM_AW55_P2:
     case common::CMType::TCM_TF80_P2:
       writeFlashTCM(bin, protocolId, flags);
       break;

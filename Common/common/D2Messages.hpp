@@ -42,9 +42,6 @@ struct D2Messages {
   static const D2Message goToSleepCanRequest;
   static const D2Message startTCMAdaptMsg;
   static const D2Message enableCommunicationMsg;
-
-  static const std::vector<uint8_t> me7BootLoader;
-  static const std::vector<uint8_t> me9BootLoader;
 };
 
 } // namespace common

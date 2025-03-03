@@ -161,4 +161,9 @@ namespace common {
 		return parseVBF(data.begin(), data.end());
 	}
 
+    VBF VBFParser::parse(const std::vector<uint8_t>& data) const
+    {
+        return parseVBF(reinterpret_cast<const char*>(data.data()), reinterpret_cast<const char*>(data.data()) + data.size());
+    }
+
 } // namespace common
