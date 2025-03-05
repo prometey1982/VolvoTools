@@ -1,5 +1,7 @@
 #pragma once
 
+#include "GenericProcessState.hpp"
+#include "GenericProcess.hpp"
 #include "UDSProtocolStep.hpp"
 
 #include <cinttypes>
@@ -16,19 +18,16 @@ namespace common {
     class UDSProtocolCallback;
     class UDSProtocolStep;
 
-    class UDSProtocolBase {
+    class UDSProtocolBase: public GenericProcess {
     public:
         UDSProtocolBase(j2534::J2534& j2534, uint32_t canId);
         virtual ~UDSProtocolBase();
 
         void run();
 
-        enum class State { Initial, InProgress, Done, Error };
-
         void registerCallback(UDSProtocolCallback& callback);
         void unregisterCallback(UDSProtocolCallback& callback);
 
-        State getState() const;
         size_t getCurrentProgress() const;
         size_t getMaximumProgress() const;
 
@@ -37,7 +36,6 @@ namespace common {
         uint32_t getCanId() const;
 
         void registerStep(std::unique_ptr<UDSProtocolStep>&& step);
-        void setState(State newState);
 
         std::mutex& getMutex() const;
 
@@ -47,7 +45,6 @@ namespace common {
         j2534::J2534& _j2534;
         uint32_t _canId;
         mutable std::mutex _mutex;
-        State _currentState;
         std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
         std::vector<std::unique_ptr<UDSProtocolStep>> _steps;
         std::vector<UDSProtocolCallback*> _callbacks;

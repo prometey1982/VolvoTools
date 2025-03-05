@@ -8,6 +8,7 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <algorithm>
+#include <numeric>
 #include <time.h>
 
 namespace {
@@ -79,7 +80,7 @@ uint8_t calculateCheckSum(const std::vector<uint8_t> &bin, size_t beginOffset,
 
 namespace flasher {
 D2Flasher::D2Flasher(j2534::J2534 &j2534)
-    : _j2534{j2534}, _currentState{State::Initial}, _currentProgress{0},
+    : _j2534{j2534}, _currentProgress{0},
       _maximumProgress{0} {}
 
 D2Flasher::~D2Flasher() { stop(); }
@@ -115,11 +116,20 @@ void D2Flasher::flash(common::CMType cmType, unsigned long baudrate,
   setMaximumProgress(bin.size());
   setCurrentProgress(0);
 
-  setState(State::InProgress);
+  setState(common::GenericProcessState::InProgress);
 
   _flasherThread = std::thread([this, cmType, bin, protocolId, flags] {
     flasherFunction(cmType, bin, protocolId, flags);
   });
+}
+
+void D2Flasher::flash(common::CMType cmType, unsigned long baudrate,
+                      const common::VBF &bin) {
+  if(bin.chunks.size() != 1) {
+    throw std::runtime_error("Supported only full flash mode");
+  }
+
+  flash(cmType, baudrate, bin.chunks[0].data);
 }
 
 void D2Flasher::read(uint8_t cmId, unsigned long baudrate,
@@ -133,7 +143,7 @@ void D2Flasher::read(uint8_t cmId, unsigned long baudrate,
     setMaximumProgress(size);
     setCurrentProgress(0);
 
-    setState(State::InProgress);
+    setState(common::GenericProcessState::InProgress);
 
     _flasherThread = std::thread([this, cmId, &bin, protocolId, flags, startPos, size] {
         readFunction(cmId, bin, protocolId, flags, startPos, size);
@@ -147,11 +157,6 @@ void D2Flasher::stop() {
   }
   resetChannels();
   messageToCallbacks("Flasher stopped");
-}
-
-D2Flasher::State D2Flasher::getState() const {
-  std::unique_lock<std::mutex> lock{_mutex};
-  return _currentState;
 }
 
 size_t D2Flasher::getCurrentProgress() const {
@@ -456,11 +461,11 @@ void D2Flasher::flasherFunction(common::CMType cmType, const std::vector<uint8_t
       break;
     }
     canWakeUp();
-    setState(State::Done);
+    setState(common::GenericProcessState::Done);
   } catch (std::exception &ex) {
     canWakeUp();
     messageToCallbacks(ex.what());
-    setState(State::Error);
+    setState(common::GenericProcessState::Error);
   }
 }
 
@@ -489,19 +494,14 @@ void D2Flasher::readFunction(uint8_t cmId, std::vector<uint8_t>& bin,
         }
         messageToCallbacks("Wakeup CAN");
         canWakeUp();
-        setState(State::Done);
+        setState(common::GenericProcessState::Done);
     }
     catch (std::exception& ex) {
         messageToCallbacks("Wakeup CAN");
         canWakeUp();
         messageToCallbacks(ex.what());
-        setState(State::Error);
+        setState(common::GenericProcessState::Error);
     }
-}
-
-void D2Flasher::setState(State newState) {
-  std::unique_lock<std::mutex> lock{_mutex};
-  _currentState = newState;
 }
 
 void D2Flasher::messageToCallbacks(const std::string &message) {

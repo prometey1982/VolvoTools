@@ -2,6 +2,7 @@
 
 #include "FlasherCallback.hpp"
 
+#include <common/GenericProcess.hpp>
 #include <common/CMType.hpp>
 #include <common/D2Messages.hpp>
 #include <common/VBF.hpp>
@@ -20,7 +21,7 @@ class J2534Channel;
 
 namespace flasher {
 
-class D2Flasher {
+class D2Flasher: public common::GenericProcess {
 public:
   explicit D2Flasher(j2534::J2534 &j2534);
   ~D2Flasher();
@@ -33,14 +34,13 @@ public:
   void flash(common::CMType cmType, unsigned long baudrate,
              const std::vector<uint8_t> &bin);
 
+  void flash(common::CMType cmType, unsigned long baudrate,
+             const common::VBF &bin);
+
   void read(uint8_t cmId, unsigned long baudrate,
       unsigned long startPos, unsigned long size, std::vector<uint8_t>& bin);
 
   void stop();
-
-  enum class State { Initial, InProgress, Done, Error };
-
-  State getState() const;
 
   size_t getCurrentProgress() const;
   size_t getMaximumProgress() const;
@@ -52,8 +52,6 @@ protected:
   void selectAndWriteBootloader(common::CMType cmType, unsigned long protocolId,
                                 unsigned long flags);
   void canWakeUp();
-
-  void setState(State newState);
 
   void messageToCallbacks(const std::string &message);
 
@@ -110,8 +108,6 @@ private:
   j2534::J2534 &_j2534;
   mutable std::mutex _mutex;
   std::condition_variable _cond;
-
-  State _currentState;
 
   size_t _currentProgress;
   size_t _maximumProgress;

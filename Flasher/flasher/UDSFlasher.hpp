@@ -25,16 +25,6 @@ namespace flasher {
 
         void start();
 
-#if 0
-        void registerCallback(FlasherCallback& callback);
-        void unregisterCallback(FlasherCallback& callback);
-        void messageToCallbacks(const std::string& message);
-        void stepToCallbacks(common::UDSStepType stepType);
-#endif
-
-    private:
-        void setState(State newState);
-
     private:
         std::array<uint8_t, 5> _pin;
         common::VBF _bootloader;

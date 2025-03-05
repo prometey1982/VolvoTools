@@ -540,13 +540,13 @@ void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 	flasher.registerCallback(callback);
 	flasher.start();
 	while (flasher.getState() !=
-		common::UDSProtocolBase::State::Done && flasher.getState() !=
-		common::UDSProtocolBase::State::Error) {
+        common::GenericProcessState::Done && flasher.getState() !=
+        common::GenericProcessState::Error) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
 	const bool success = flasher.getState() ==
-		common::UDSProtocolBase::State::Done;
+        common::GenericProcessState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Flashing done"
@@ -569,13 +569,13 @@ void UDSFlash(const std::vector<common::ConfigurationInfo>& configurationInfo, c
 	flasher.registerCallback(callback);
 	flasher.start();
 	while (flasher.getState() !=
-		common::UDSProtocolBase::State::Done && flasher.getState() !=
-		common::UDSProtocolBase::State::Error) {
+        common::GenericProcessState::Done && flasher.getState() !=
+        common::GenericProcessState::Error) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
 	const bool success = flasher.getState() ==
-		common::UDSProtocolBase::State::Done;
+        common::GenericProcessState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Flashing done"
@@ -597,13 +597,13 @@ void D2Flash(const std::string& flashPath, j2534::J2534& j2534, unsigned long ba
 		: common::CMType::ECM_ME7;
 	flasher.flash(cmType, baudrate, bin);
 	while (flasher.getState() ==
-		flasher::D2Flasher::State::InProgress) {
+        common::GenericProcessState::InProgress) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
 	std::cout << std::endl
 		<< ((flasher.getState() ==
-			flasher::D2Flasher::State::Done)
+            common::GenericProcessState::Done)
 			? "Flashing done"
 			: "Flashing error. Try again.")
 		<< std::endl;
@@ -641,12 +641,12 @@ void readFlash(j2534::J2534& j2534, uint8_t cmId, unsigned long baudrate, const 
 	std::vector<uint8_t> bin;
 	flasher.read(cmId, baudrate, start, datasize, bin);
 	while (flasher.getState() ==
-		flasher::D2Flasher::State::InProgress) {
+        common::GenericProcessState::InProgress) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
 	const bool success = flasher.getState() ==
-		flasher::D2Flasher::State::Done;
+        common::GenericProcessState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Reading done"

@@ -14,7 +14,6 @@ namespace common {
 	UDSProtocolBase::UDSProtocolBase(j2534::J2534& j2534, uint32_t canId)
 		: _j2534{ j2534 }
 		, _canId{ canId }
-		, _currentState{ UDSProtocolBase::State::Initial }
 	{
 	}
 
@@ -24,7 +23,7 @@ namespace common {
 
 	void UDSProtocolBase::run()
 	{
-		setState(State::InProgress);
+        setState(GenericProcessState::InProgress);
 		bool failed = false;
 		std::optional<UDSStepType> oldStepType;
 		for (const auto& step : _steps) {
@@ -36,10 +35,10 @@ namespace common {
 			failed |= currentStepFailed;
 		}
 		if (failed) {
-			setState(State::Error);
+            setState(GenericProcessState::Error);
 		}
 		else {
-			setState(State::Done);
+            setState(GenericProcessState::Done);
 		}
 	}
 
@@ -54,12 +53,6 @@ namespace common {
 		std::unique_lock<std::mutex> lock(_mutex);
 		_callbacks.erase(std::remove(_callbacks.begin(), _callbacks.end(), &callback),
 			_callbacks.end());
-	}
-
-	UDSProtocolBase::State UDSProtocolBase::getState() const
-	{
-		std::unique_lock<std::mutex> lock(_mutex);
-		return _currentState;
 	}
 
 	size_t UDSProtocolBase::getCurrentProgress() const
@@ -96,12 +89,6 @@ namespace common {
 		_steps.emplace_back(std::move(step));
 	}
 
-	void UDSProtocolBase::setState(State newState)
-	{
-		std::unique_lock<std::mutex> lock(_mutex);
-		_currentState = newState;
-	}
-
 	std::mutex& UDSProtocolBase::getMutex() const
 	{
 		return _mutex;
@@ -115,7 +102,7 @@ namespace common {
 			tmpCallbacks = _callbacks;
 		}
 		for (const auto& callback : tmpCallbacks) {
-			callback->OnStep(step);
+            callback->OnStep(step);
 		}
 	}
 
