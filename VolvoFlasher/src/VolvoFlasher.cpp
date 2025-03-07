@@ -8,6 +8,7 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <flasher/D2Flasher.hpp>
+#include <flasher/D2Reader.hpp>
 #include <flasher/UDSFlasher.hpp>
 
 #include <argparse/argparse.hpp>
@@ -191,16 +192,59 @@ public:
 	}
 };
 
-class D2FlasherCallback final : public flasher::FlasherCallback {
+class FlasherCallback final : public flasher::FlasherCallback {
 public:
-	D2FlasherCallback() = default;
+    FlasherCallback() = default;
 
 	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
 		size_t maxValue) override {
 	}
-	void OnMessage(const std::string& message) override {
-		std::cout << std::endl << message;
-	}
+
+    void OnState(flasher::FlasherState state) override {
+        std::cout << std::endl;
+        using flasher::FlasherState;
+        switch(state) {
+        case FlasherState::Initial:
+            std::cout << "Starting";
+            break;
+        case FlasherState::OpenChannels:
+            std::cout << "Open channels";
+            break;
+        case FlasherState::FallAsleep:
+            std::cout << "Go to sleeep";
+            break;
+        case FlasherState::Authorize:
+            std::cout << "Authorizing";
+            break;
+        case FlasherState::LoadBootloader:
+            std::cout << "Bootloader loading";
+            break;
+        case FlasherState::StartBootloader:
+            std::cout << "Bootloader starting";
+            break;
+        case FlasherState::EraseFlash:
+            std::cout << "Flash erasing";
+            break;
+        case FlasherState::WriteFlash:
+            std::cout << "Flash writing";
+            break;
+        case FlasherState::ReadFlash:
+            std::cout << "Flash reading";
+            break;
+        case FlasherState::WakeUp:
+            std::cout << "Waking up";
+            break;
+        case FlasherState::CloseChannels:
+            std::cout << "Close channels";
+            break;
+        case FlasherState::Done:
+            std::cout << "Done";
+            break;
+        case FlasherState::Error:
+            std::cout << "Error";
+            break;
+        }
+    }
 };
 
 void writeBinToFile(const std::vector<uint8_t>& bin, const std::string& path) {
@@ -536,17 +580,17 @@ void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
 	common::CommonStepData stepData { {}, configurationInfo, carPlatform, ecuId, std::get<1>(ecuInfo).canId, 0 };
 	flasher::UDSFlasher flasher(j2534, std::move(stepData), { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
-	UDSFlasherCallback callback;
+    FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
-	while (flasher.getState() !=
-        common::GenericProcessState::Done && flasher.getState() !=
-        common::GenericProcessState::Error) {
+    while (flasher.getCurrentState() !=
+        flasher::FlasherState::Done && flasher.getCurrentState() !=
+        flasher::FlasherState::Error) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
-	const bool success = flasher.getState() ==
-        common::GenericProcessState::Done;
+    const bool success = flasher.getCurrentState() ==
+                         flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Flashing done"
@@ -565,22 +609,28 @@ void UDSFlash(const std::vector<common::ConfigurationInfo>& configurationInfo, c
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
 	common::CommonStepData stepData{ {}, configurationInfo, carPlatform, ecuId, std::get<1>(ecuInfo).canId, 0 };
 	flasher::UDSFlasher flasher(j2534, std::move(stepData), { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
-	UDSFlasherCallback callback;
+    FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
-	while (flasher.getState() !=
-        common::GenericProcessState::Done && flasher.getState() !=
-        common::GenericProcessState::Error) {
+    while (flasher.getCurrentState() !=
+        flasher::FlasherState::Done && flasher.getCurrentState() !=
+        flasher::FlasherState::Error) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
-	const bool success = flasher.getState() ==
-        common::GenericProcessState::Done;
+    const bool success = flasher.getCurrentState() ==
+        flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Flashing done"
 			: "Flashing error. Try again.")
 		<< std::endl;
+}
+
+common::VBF vbfForFlasher(const std::vector<uint8_t>& input, common::CMType cmType)
+{
+    (void)cmType;
+    return common::VBF({}, { { 0x0, input } });
 }
 
 void D2Flash(const std::string& flashPath, j2534::J2534& j2534, unsigned long baudrate)
@@ -589,21 +639,25 @@ void D2Flash(const std::string& flashPath, j2534::J2534& j2534, unsigned long ba
 		std::ios_base::binary | std::ios_base::in);
 	std::vector<uint8_t> bin{ std::istreambuf_iterator<char>(input), {} };
 
-	D2FlasherCallback callback;
-	flasher::D2Flasher flasher(j2534);
+    const common::CMType cmType = bin.size() == 2048 * 1024
+                                      ? common::CMType::ECM_ME9_P1
+                                      : common::CMType::ECM_ME7;
+
+    const auto vbf = vbfForFlasher(bin, cmType);
+
+    FlasherCallback callback;
+    flasher::D2Flasher flasher(j2534, baudrate, cmType, vbf);
 	flasher.registerCallback(callback);
-	const common::CMType cmType = bin.size() == 2048 * 1024
-		? common::CMType::ECM_ME9_P1
-		: common::CMType::ECM_ME7;
-	flasher.flash(cmType, baudrate, bin);
-	while (flasher.getState() ==
-        common::GenericProcessState::InProgress) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		std::cout << ".";
-	}
-	std::cout << std::endl
-		<< ((flasher.getState() ==
-            common::GenericProcessState::Done)
+    flasher.start();
+    while (flasher.getCurrentState() !=
+               flasher::FlasherState::Done && flasher.getCurrentState() !=
+                  flasher::FlasherState::Error) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << ".";
+    }
+    std::cout << std::endl
+        << ((flasher.getCurrentState() ==
+            flasher::FlasherState::Done)
 			? "Flashing done"
 			: "Flashing error. Try again.")
 		<< std::endl;
@@ -635,18 +689,19 @@ void fill_crc_map()
 
 void readFlash(j2534::J2534& j2534, uint8_t cmId, unsigned long baudrate, const std::string& flashPath, unsigned long start, unsigned long datasize)
 {
-	D2FlasherCallback callback;
-	flasher::D2Flasher flasher(j2534);
-	flasher.registerCallback(callback);
-	std::vector<uint8_t> bin;
-	flasher.read(cmId, baudrate, start, datasize, bin);
-	while (flasher.getState() ==
-        common::GenericProcessState::InProgress) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		std::cout << ".";
-	}
-	const bool success = flasher.getState() ==
-        common::GenericProcessState::Done;
+    std::vector<uint8_t> bin;
+    flasher::D2Reader flasher(j2534, baudrate, cmId, start, datasize, bin);
+    FlasherCallback callback;
+    flasher.registerCallback(callback);
+    flasher.start();
+    while (flasher.getCurrentState() !=
+               flasher::FlasherState::Done && flasher.getCurrentState() !=
+                  flasher::FlasherState::Error) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << ".";
+    }
+    const bool success = flasher.getCurrentState() ==
+        flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Reading done"
@@ -768,8 +823,8 @@ int main(int argc, const char* argv[]) {
 					std::unique_ptr<j2534::J2534> j2534{
 						std::make_unique<j2534::J2534>(device.libraryName) };
 					j2534->PassThruOpen(name);
-					if (runMode == RunMode::Wakeup) {
-						flasher::D2Flasher flasher(*j2534);
+                    if (runMode == RunMode::Wakeup) {
+                        flasher::D2Flasher flasher(*j2534, baudrate, common::CMType::ECM_ME7, {{}, {}});
 						flasher.canWakeUp(baudrate);
 					}
 					else if (runMode == RunMode::Pin) {
