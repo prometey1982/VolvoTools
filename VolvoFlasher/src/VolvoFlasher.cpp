@@ -211,7 +211,7 @@ public:
             std::cout << "Open channels";
             break;
         case FlasherState::FallAsleep:
-            std::cout << "Go to sleeep";
+            std::cout << "Go to sleep";
             break;
         case FlasherState::Authorize:
             std::cout << "Authorizing";
@@ -578,8 +578,11 @@ void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 	const uint32_t ecuId = 0x10;
 	const auto configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) };
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
-	common::CommonStepData stepData { {}, configurationInfo, carPlatform, ecuId, std::get<1>(ecuInfo).canId, 0 };
-	flasher::UDSFlasher flasher(j2534, std::move(stepData), { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
+    flasher::UDSFlasherData flasherData{
+        carPlatform, ecuId,
+        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
+        bootloader, flash };
+    flasher::UDSFlasher flasher{ j2534, flasherData };
     FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
@@ -607,8 +610,11 @@ void UDSFlash(const std::vector<common::ConfigurationInfo>& configurationInfo, c
 	std::ifstream flashVbf(flashPath, std::ios_base::binary);
 	const common::VBF flash{ vbfParser.parse(flashVbf) };
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
-	common::CommonStepData stepData{ {}, configurationInfo, carPlatform, ecuId, std::get<1>(ecuInfo).canId, 0 };
-	flasher::UDSFlasher flasher(j2534, std::move(stepData), { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
+    flasher::UDSFlasherData flasherData{
+        carPlatform, ecuId,
+        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
+        bootloader, flash };
+    flasher::UDSFlasher flasher{ j2534, flasherData };
     FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();

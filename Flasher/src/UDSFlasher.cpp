@@ -11,44 +11,144 @@
 #define HFSM2_ENABLE_ALL
 #include <common/hfsm2/machine.hpp>
 
-#include <optional>
-#include <unordered_map>
-
 namespace flasher {
 
-    class UDSFlasherImpl: public common::UDSProtocolBase {
+    struct AdditionalInfo {
+        unsigned long baudrate;
+        uint32_t canId;
+    };
+
+    AdditionalInfo getAdditionalInfo(common::CarPlatform carPlatform, uint32_t ecuId)
+    {
+        const auto configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) };
+        const auto ecuInfo{ getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
+        return { std::get<0>(ecuInfo).baudrate, std::get<1>(ecuInfo).canId };
+    }
+
+    class UDSFlasherImpl {
     public:
-        UDSFlasherImpl(j2534::J2534& j2534, common::CommonStepData&& commonStepData, const std::array<uint8_t, 5>& pin,
-                    const common::VBF& bootloader, const common::VBF& flash)
-            : common::UDSProtocolBase{ j2534, commonStepData.canId }
-            , _pin{ pin }
-            , _bootloader{ bootloader }
-            , _flash{ flash }
-            , _commonStepData{ std::move(commonStepData) }
+        UDSFlasherImpl(j2534::J2534& j2534, const UDSFlasherData& flasherData,
+                       const std::function<void(FlasherState)>& stateUpdater)
+            : _j2534{ j2534 }
+            , _flasherData{ flasherData }
+            , _additionalInfo{ getAdditionalInfo(_flasherData.carPlatform, _flasherData.ecuId) }
+            , _isFailed{ false }
+            , _stateUpdater{ stateUpdater }
+            , _activeChannel{}
         {
-            registerStep(std::make_unique<common::OpenChannelsStep>(getJ2534(), _commonStepData));
-            registerStep(std::make_unique<common::FallingAsleepStep>(_commonStepData));
-            registerStep(std::make_unique<common::KeepAliveStep>(_commonStepData));
-            registerStep(std::make_unique<common::AuthorizingStep>(_commonStepData, _pin));
-            registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::BootloaderLoading, _commonStepData, _bootloader));
-            registerStep(std::make_unique<common::StartRoutineStep>(_commonStepData, _bootloader.header));
-            registerStep(std::make_unique<common::FlashErasingStep>(_commonStepData, _flash));
-            registerStep(std::make_unique<common::DataTransferStep>(common::UDSStepType::FlashLoading, _commonStepData, _flash));
-            registerStep(std::make_unique<common::WakeUpStep>(_commonStepData));
-            registerStep(std::make_unique<common::CloseChannelsStep>(_commonStepData));
+        }
+
+        void openChannels()
+        {
+            _stateUpdater(FlasherState::OpenChannels);
+            _channels = common::UDSProtocolCommonSteps::openChannels(_j2534, _additionalInfo.baudrate,
+                                                                     _additionalInfo.canId);
+            if (_channels.empty()) {
+                setFailed("Can't open channels");
+            }
+            else {
+                const auto configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) };
+                _activeChannel = &common::getChannelByEcuId(
+                    configurationInfo, _flasherData.carPlatform, _flasherData.ecuId, _channels);
+            }
+        }
+
+        void fallAsleep()
+        {
+            _stateUpdater(FlasherState::FallAsleep);
+            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
+                setFailed("Fall asleep failed");
+            }
+        }
+
+        void authorize()
+        {
+            _stateUpdater(FlasherState::Authorize);
+            if (!common::UDSProtocolCommonSteps::authorize(*_activeChannel, _additionalInfo.canId, _flasherData.pin)) {
+                setFailed("Authorization failed");
+            }
+        }
+
+        void loadBootloader()
+        {
+            _stateUpdater(FlasherState::LoadBootloader);
+            if (!common::UDSProtocolCommonSteps::transferData(*_activeChannel, _additionalInfo.canId, _flasherData.bootloader)) {
+                setFailed("Bootloader loading failed");
+            }
+        }
+
+        void startBootloader()
+        {
+            _stateUpdater(FlasherState::StartBootloader);
+            if (!common::UDSProtocolCommonSteps::startRoutine(*_activeChannel, _additionalInfo.canId, _flasherData.bootloader.header.call)) {
+                setFailed("Bootloader starting failed");
+            }
+        }
+
+        void eraseFlash()
+        {
+            _stateUpdater(FlasherState::EraseFlash);
+            if (!common::UDSProtocolCommonSteps::eraseFlash(*_activeChannel, _additionalInfo.canId, _flasherData.flash)) {
+                setFailed("Flash erasing failed");
+            }
+        }
+
+        void writeFlash()
+        {
+            _stateUpdater(FlasherState::WriteFlash);
+            if (!common::UDSProtocolCommonSteps::transferData(*_activeChannel, _additionalInfo.canId, _flasherData.flash)) {
+                setFailed("Flash writing failed");
+            }
+        }
+
+        void wakeUp()
+        {
+            _stateUpdater(FlasherState::WakeUp);
+            common::UDSProtocolCommonSteps::wakeUp(_channels);
+        }
+
+        void closeChannels()
+        {
+            _stateUpdater(FlasherState::CloseChannels);
+            _activeChannel = nullptr;
+            _channels.clear();
+        }
+
+        void done()
+        {
+            _stateUpdater(FlasherState::Done);
+        }
+
+        void error()
+        {
+            _stateUpdater(FlasherState::Error);
+        }
+
+        bool isFailed() const
+        {
+            return _isFailed;
         }
 
     private:
-        std::array<uint8_t, 5> _pin;
-        common::VBF _bootloader;
-        common::VBF _flash;
-        common::CommonStepData _commonStepData;
-        std::vector<FlasherCallback*> _callbacks;
+        void setFailed(const std::string& message)
+        {
+            _isFailed = true;
+            _errorMessage = message;
+        }
+
+    private:
+        j2534::J2534& _j2534;
+        const UDSFlasherData _flasherData;
+        const AdditionalInfo _additionalInfo;
+        bool _isFailed;
+        std::string _errorMessage;
+        std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
+        const std::function<void(FlasherState)> _stateUpdater;
+        j2534::J2534Channel* _activeChannel;
     };
 
 using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     using FSM = M::PeerRoot<
-        struct Initial,
         M::Composite<
             struct StartWork,
             struct OpenChannels,
@@ -58,14 +158,147 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             struct StartBootloader,
             struct EraseFlash,
             struct WriteFlash>,
-        struct Error,
         M::Composite<
             struct Finish,
             struct WakeUp,
             struct CloseChannels,
-            struct Done
-            >
+            struct Done,
+            struct Error>
         >;
+
+    struct BaseState : public FSM::State {
+    public:
+        void update(FullControl& control)
+        {
+            if (!control.context().isFailed()) {
+                control.succeed();
+            }
+            else {
+                control.fail();
+            }
+        }
+    };
+
+    struct BaseSuccesState : public FSM::State {
+    public:
+        void update(FullControl& control)
+        {
+            control.succeed();
+        }
+    };
+
+    struct StartWork : public FSM::State {
+        void enter(PlanControl& control)
+        {
+            auto plan = control.plan();
+            plan.change<OpenChannels, FallAsleep>();
+            plan.change<FallAsleep, Authorize>();
+            plan.change<Authorize, LoadBootloader>();
+            plan.change<LoadBootloader, StartBootloader>();
+            plan.change<StartBootloader, EraseFlash>();
+            plan.change<EraseFlash, WriteFlash>();
+        }
+
+        void planSucceeded(FullControl& control) {
+            control.changeTo<Finish>();
+        }
+
+        void planFailed(FullControl& control)
+        {
+            control.changeTo<Finish>();
+        }
+    };
+
+    struct OpenChannels : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().openChannels();
+        }
+    };
+
+    struct FallAsleep : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().fallAsleep();
+        }
+    };
+
+    struct Authorize : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().authorize();
+        }
+    };
+
+    struct LoadBootloader : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().loadBootloader();
+        }
+    };
+
+    struct StartBootloader : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().startBootloader();
+        }
+    };
+
+    struct EraseFlash : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().eraseFlash();
+        }
+    };
+
+    struct WriteFlash : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().writeFlash();
+        }
+    };
+
+    struct Finish : public FSM::State {
+        void enter(PlanControl& control)
+        {
+            auto plan = control.plan();
+            plan.change<WakeUp, CloseChannels>();
+            if (control.context().isFailed()) {
+                plan.change<CloseChannels, Error>();
+            }
+            else {
+                plan.change<CloseChannels, Done>();
+            }
+        }
+    };
+
+    struct WakeUp : public BaseSuccesState {
+        void enter(PlanControl& control)
+        {
+            control.context().wakeUp();
+        }
+    };
+
+    struct CloseChannels : public BaseSuccesState {
+        void enter(PlanControl& control)
+        {
+            control.context().closeChannels();
+        }
+    };
+
+    struct Done : public BaseSuccesState {
+        void enter(PlanControl& control)
+        {
+            control.context().done();
+        }
+    };
+
+    struct Error : public BaseSuccesState {
+        void enter(PlanControl& control)
+        {
+            control.context().error();
+        }
+    };
 
     common::CommonStepData createCommonStepData(common::CarPlatform carPlatform, uint32_t ecuId)
     {
@@ -74,10 +307,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         return { {}, configurationInfo, carPlatform, ecuId, std::get<1>(ecuInfo).canId, 0 };
     }
 
-    UDSFlasher::UDSFlasher(j2534::J2534& j2534, common::CommonStepData&& commonStepData, const std::array<uint8_t, 5>& pin,
-        const common::VBF& bootloader, const common::VBF& flash)
+    UDSFlasher::UDSFlasher(j2534::J2534& j2534, const UDSFlasherData& flasherData)
         : FlasherBase{ j2534 }
-        , _impl{ std::make_unique<UDSFlasherImpl>(j2534, std::move(commonStepData), pin, bootloader, flash) }
+        , _flasherData{ flasherData }
     {
     }
 
@@ -87,7 +319,15 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
 
     void UDSFlasher::startImpl()
     {
-        _impl->run();
+        UDSFlasherImpl impl(getJ2534(), _flasherData, [this](FlasherState state) {
+            setCurrentState(state);
+        });
+
+        FSM::Instance fsm{ impl };
+
+        while(getCurrentState() != FlasherState::Done || getCurrentState() != FlasherState::Error) {
+            fsm.update();
+        }
     }
 
 } // namespace flasher
