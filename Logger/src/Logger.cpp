@@ -5,7 +5,7 @@
 #include <common/CommonData.hpp>
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
-#include <common/UDSMessage.hpp>
+#include <common/UDSRequest.hpp>
 #include <common/UDSProtocolBase.hpp>
 #include <common/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
@@ -14,7 +14,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <fstream>
 #include <numeric>
 
 namespace logger {
@@ -142,112 +141,131 @@ namespace logger {
 
 	};
 
-	class UDSLoggerImpl : public LoggerImpl, private common::UDSProtocolBase {
+    class UDSLoggerImpl : public LoggerImpl {
 	public:
 		UDSLoggerImpl(j2534::J2534& j2534, uint32_t canId)
 			: LoggerImpl(j2534)
-			, UDSProtocolBase(j2534, canId)
+            , _canId{ canId }
 			, _didBase(0xF200)
+            , _didMaxDataSize{ 7 }
 		{
 		}
 
 	private:
+        /**
+         * @brief Get DID index or create new
+         * @param logParameter
+         * @return
+         */
+        size_t getFittingDidIndex(const LogParameter& logParameter) {
+            uint16_t maxId = _didBase - 1;
+            for(size_t i = 0; i < _didRequests.size(); ++i) {
+                if(_didRequests[i].freeSize >= logParameter.size()) {
+                    return i;
+                }
+                maxId = std::max(maxId, _didRequests[i].didId);
+            }
+            _didRequests.emplace_back(DidInfo(maxId + 1, _didMaxDataSize));
+            return _didRequests.size() - 1;
+        }
+
 		virtual void
 			registerParameters(j2534::J2534Channel& channel,
 				const LogParameters& parameters) override {
 
-			common::UDSMessage diagSessionRequest(getCanId(), { 0x10, 0x03 });
-			unsigned long numMsgs;
-			if (channel.writeMsgs(diagSessionRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-				return;
-			}
-			std::vector<PASSTHRU_MSG> read_msgs;
-			read_msgs.resize(1);
-			if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
-			{
-				return;
-			}
-			uint16_t did = _didBase;
-			for (const auto& param : parameters.parameters()) {
-				common::UDSMessage clearDDDIRequest(getCanId(), { 0x2C, 0x03, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) });
-				if (channel.writeMsgs(clearDDDIRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-					return;
-				}
-				read_msgs.resize(1);
-				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
-				{
-					return;
-				}
-				constexpr uint8_t addrLength = 4;
-				constexpr uint8_t dataLength = 2;
-				constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
-				std::vector<uint8_t> formattedParams{ 0x2C, 0x02, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did), dataFormat };
-				const auto formattedAddr = common::toVector(param.addr());
-				formattedParams.insert(formattedParams.end(), formattedAddr.cbegin(), formattedAddr.cend());
-				formattedParams.push_back(static_cast<uint8_t>(param.size() >> 8));
-				formattedParams.push_back(static_cast<uint8_t>(param.size()));
-				common::UDSMessage registerMessage(getCanId(), formattedParams);
-				if (channel.writeMsgs(registerMessage, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-					return;
-				}
-				read_msgs.resize(1);
-				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
-				{
-					return;
-				}
-				_didList.push_back(did++);
-			}
+            common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
+            if(diagSessionRequest.process(channel).empty()) {
+                return;
+            }
+            _didRequests.clear();
+            for (size_t i = 0; i < parameters.parameters().size(); ++i) {
+                const auto& param = parameters.parameters()[i];
+                size_t didIndex = getFittingDidIndex(param);
+                _didRequests[didIndex].paramIndexes.push_back(i);
+                _didRequests[didIndex].freeSize -= param.size();
+            }
+            for (const auto& didRequest: _didRequests) {
+                const auto did = didRequest.didId;
+                common::UDSRequest clearDDDIRequest{_canId, { 0x2C, 0x03, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) }};
+                const auto clearResponse{clearDDDIRequest.process(channel)};
+                if(clearResponse.empty()) {
+                    return;
+                }
+                constexpr uint8_t addrLength = 4;
+                constexpr uint8_t dataLength = 2;
+                constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
+                std::vector<uint8_t> formattedParams{ 0x2C, 0x02, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did), dataFormat };
+                for(const auto& paramIndex: didRequest.paramIndexes) {
+                    const auto& param = parameters.parameters()[paramIndex];
+                    const auto formattedAddr = common::toVector(param.addr());
+                    const auto formattedSize = common::toVector(static_cast<uint16_t>(param.size()));
+                    formattedParams.insert(formattedParams.end(), formattedAddr.cbegin(), formattedAddr.cend());
+                    formattedParams.insert(formattedParams.end(), formattedSize.cbegin(), formattedSize.cend());
+                }
+                common::UDSRequest registerRequest(_canId, formattedParams);
+                if(registerRequest.process(channel).empty()) {
+                    return;
+                }
+            }
 		}
+
 		virtual std::vector<uint32_t>
 			requestMemory(j2534::J2534Channel& channel,
 				const LogParameters& parameters) override {
-			std::vector<uint32_t> result;
+            std::vector<uint32_t> result(parameters.parameters().size());
 			size_t paramIndex = 0;
 			size_t paramOffset = 0;
 			uint32_t value = 0;
-			for (const auto& did : _didList) {
-				common::UDSMessage requestDidRequest(getCanId(), { 0x22, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) });
-				unsigned long numMsgs;
-				if (channel.writeMsgs(requestDidRequest, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-					return result;
-				}
-				std::vector<PASSTHRU_MSG> read_msgs;
-				read_msgs.resize(1);//parameters.parameters()[paramIndex].size() > 2 ? 2 : 1);
-				if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
-				{
-					return result;
-				}
-				for (const auto& msg : read_msgs) {
-					for (size_t i = 7; i < msg.DataSize; ++i) {
-						const auto& param = parameters.parameters()[paramIndex];
-						value += msg.Data[i] << ((param.size() - paramOffset - 1) * 8);
-						++paramOffset;
-						if (paramOffset >= param.size()) {
-							result.push_back(value);
-							++paramIndex;
-							paramOffset = 0;
-							value = 0;
-						}
-						if (paramIndex >= parameters.parameters().size()) {
-							return result;
-						}
-					}
-				}
-			}
+            for (const auto& didRequest: _didRequests) {
+                const auto did = didRequest.didId;
+                common::UDSRequest requestDid{_canId, { 0x22, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) }};
+                const auto data{requestDid.process(channel)};
+                size_t paramIndex = 0;
+                for(size_t i = 7; i < data.size(); ++i) {
+                    const size_t initialParamIndex{didRequest.paramIndexes[paramIndex]};
+                    const auto& param = parameters.parameters()[initialParamIndex];
+                    value += data[i] << ((param.size() - paramOffset - 1) * 8);
+                    ++paramOffset;
+                    if (paramOffset >= param.size()) {
+                        result[initialParamIndex] = value;
+                        ++paramIndex;
+                        paramOffset = 0;
+                        value = 0;
+                    }
+                    if (paramIndex >= didRequest.paramIndexes.size()) {
+                        break;
+                    }
+                }
+            }
 			return result;
 		}
 
 		virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(unsigned long baudrate) override {
 			std::vector<std::unique_ptr<j2534::J2534Channel>> result;
 
-			result.emplace_back(common::openUDSChannel(getJ2534(), baudrate, getCanId()));
+            result.emplace_back(common::openUDSChannel(_j2534, baudrate, _canId));
 
 			return result;
 		}
 
-		std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
+        struct DidInfo {
+            DidInfo(uint16_t didId, size_t freeSize)
+                : didId{ didId }
+                , freeSize{ freeSize }
+            {
+            }
+            DidInfo(const DidInfo&) = default;
+            DidInfo(DidInfo&&) = default;
+
+            uint16_t didId;
+            std::vector<size_t> paramIndexes;
+            size_t freeSize;
+        };
+
+        const uint32_t _canId;
 		const uint16_t _didBase;
-		std::vector<uint16_t> _didList;
+        const size_t _didMaxDataSize;
+        std::vector<DidInfo> _didRequests;
 	};
 
 	std::unique_ptr<LoggerImpl> createLoggerImpl(const std::vector<common::ConfigurationInfo>& configurationInfo,
