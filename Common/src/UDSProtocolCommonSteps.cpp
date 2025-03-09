@@ -45,7 +45,7 @@ namespace common {
 		return result;
 	}
 
-	bool UDSProtocolCommonSteps::fallAsleep(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+	bool UDSProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
 		std::vector<std::vector<unsigned long>> msgIds(channels.size());
 		for (size_t i = 0; i < channels.size(); ++i) {
@@ -62,17 +62,17 @@ namespace common {
 		return true;
 	}
 
-	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(j2534::J2534Channel& channel)
+	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(const j2534::J2534Channel& channel)
 	{
 		return channel.startPeriodicMsgs(UDSMessage(0x7DF, { 0x3E, 0x80 }), 1900);
 	}
 
-	void UDSProtocolCommonSteps::wakeUp(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
 		(void)channels;
 	}
 
-	bool UDSProtocolCommonSteps::authorize(j2534::J2534Channel& channel, uint32_t canId,
+	bool UDSProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
 		const std::array<uint8_t, 5>& pin)
 	{
 		try {
@@ -94,7 +94,7 @@ namespace common {
 		}
 	}
 
-	bool UDSProtocolCommonSteps::transferData(j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+	bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
 	{
 		for (const auto& chunk : data.chunks) {
 			const auto startAddr = chunk.writeOffset;
@@ -139,7 +139,7 @@ namespace common {
 		return true;
 	}
 
-	bool UDSProtocolCommonSteps::eraseFlash(j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+	bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
 	{
 		for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
@@ -158,7 +158,7 @@ namespace common {
 		return true;
 	}
 
-	bool UDSProtocolCommonSteps::startRoutine(j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
+	bool UDSProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
 	{
 		const auto callAddr = common::toVector(addr);
 		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });

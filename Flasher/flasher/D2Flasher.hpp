@@ -25,8 +25,8 @@ namespace flasher {
 
 class D2Flasher: public D2FlasherBase {
 public:
-  explicit D2Flasher(j2534::J2534 &j2534, unsigned long baudrate,
-                     common::CMType cmType, const common::VBF &bin);
+  explicit D2Flasher(common::J2534Info &j2534Info, 
+      FlasherParameters&& flasherParameters, const common::VBF &bin);
   ~D2Flasher();
 
 private:
@@ -34,18 +34,13 @@ private:
 
   void writeFlash();
 
-  void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
-  void writeFlashMe9(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
-  void writeFlashTCM(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
+  void writeFlashMe7(const std::vector<uint8_t> &bin);
+  void writeFlashMe9(const std::vector<uint8_t> &bin);
+  void writeFlashTCM(const std::vector<uint8_t> &bin);
 
-  void flasherFunction(common::CMType cmType, const std::vector<uint8_t> bin,
-                       unsigned long protocolId, unsigned long flags);
+  void flasherFunction(common::CMType cmType, const std::vector<uint8_t> bin);
 
 private:
-  common::CMType _cmType;
   const common::VBF _bin;
 };
 

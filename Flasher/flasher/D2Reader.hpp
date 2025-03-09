@@ -25,21 +25,18 @@ namespace flasher {
 
 class D2Reader: public D2FlasherBase {
 public:
-  explicit D2Reader(j2534::J2534 &j2534, unsigned long baudrate, uint8_t cmId,
+  explicit D2Reader(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters,
                     uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin);
   ~D2Reader();
 
-  void read(uint8_t cmId, unsigned long baudrate,
-      uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin);
+  void read(uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin);
 
 private:
   void startImpl() override;
 
-  void readFunction(uint8_t cmId, std::vector<uint8_t>& bin,
-      unsigned long protocolId, unsigned long flags, uint32_t startPos, uint32_t size);
+  void readFunction(std::vector<uint8_t>& bin, uint32_t startPos, uint32_t size);
 
 private:
-  uint8_t _cmId;
   uint32_t _startPos;
   uint32_t _size;
   std::vector<uint8_t>& _bin;

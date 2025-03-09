@@ -9,6 +9,8 @@
 
 #include <flasher/D2Flasher.hpp>
 #include <flasher/D2Reader.hpp>
+#include <flasher/SBLProviderVBF.hpp>
+#include <flasher/SBLProviderCommon.hpp>
 #include <flasher/UDSFlasher.hpp>
 
 #include <argparse/argparse.hpp>
@@ -250,7 +252,7 @@ public:
 void writeBinToFile(const std::vector<uint8_t>& bin, const std::string& path) {
 	std::fstream out(path, std::ios::out | std::ios::binary);
 	const auto msgs =
-		common::D2Messages::createWriteDataMsgs(common::ECUType::ECM_ME, bin);
+		common::D2Messages::createWriteDataMsgs(static_cast<uint8_t>(common::ECUType::ECM_ME), bin);
 	for (const auto& msg : msgs) {
 		auto passThruMsgs = msg.toPassThruMsgs(123, 456);
 		for (const auto& msg : passThruMsgs) {
@@ -567,7 +569,7 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 	return false;
 }
 
-void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
+void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 {
 	common::VBFParser vbfParser;
 	std::ifstream inpVbf("C:\\misc\\Volvo tools\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
@@ -578,11 +580,18 @@ void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 	const uint32_t ecuId = 0x10;
 	const auto configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) };
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
-    flasher::UDSFlasherData flasherData{
-        carPlatform, ecuId,
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+		std::make_unique<flasher::SBLProviderVBF>(bootloader)
+	};
+    flasher::UDSFlasherParameters udsFlasherParameters{
         { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
-        bootloader, flash };
-    flasher::UDSFlasher flasher{ j2534, flasherData };
+        flash };
+	common::J2534Info j2534Info{ std::move(j2534) };
+	j2534Info.openChannels(carPlatform);
+    flasher::UDSFlasher flasher{ j2534Info, std::move(flasherParameters), std::move(udsFlasherParameters) };
     FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
@@ -602,7 +611,7 @@ void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
 }
 
 void UDSFlash(const std::vector<common::ConfigurationInfo>& configurationInfo, common::CarPlatform carPlatform, uint8_t ecuId,
-	j2534::J2534& j2534, unsigned long baudrate, uint64_t pin, const std::string& flashPath, const std::string& sblPath)
+	std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate, uint64_t pin, const std::string& flashPath, const std::string& sblPath)
 {
 	common::VBFParser vbfParser;
 	std::ifstream sblVbf(sblPath, std::ios_base::binary);
@@ -610,12 +619,20 @@ void UDSFlash(const std::vector<common::ConfigurationInfo>& configurationInfo, c
 	std::ifstream flashVbf(flashPath, std::ios_base::binary);
 	const common::VBF flash{ vbfParser.parse(flashVbf) };
 	const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
-    flasher::UDSFlasherData flasherData{
-        carPlatform, ecuId,
-        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
-        bootloader, flash };
-    flasher::UDSFlasher flasher{ j2534, flasherData };
-    FlasherCallback callback;
+
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+		std::make_unique<flasher::SBLProviderVBF>(bootloader)
+	};
+	flasher::UDSFlasherParameters udsFlasherParameters{
+		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
+		flash };
+	common::J2534Info j2534Info{ std::move(j2534) };
+	j2534Info.openChannels(carPlatform);
+	flasher::UDSFlasher flasher{ j2534Info, std::move(flasherParameters), std::move(udsFlasherParameters) };
+	FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
     while (flasher.getCurrentState() !=
@@ -639,7 +656,7 @@ common::VBF vbfForFlasher(const std::vector<uint8_t>& input, common::CMType cmTy
     return common::VBF({}, { { 0x0, input } });
 }
 
-void D2Flash(const std::string& flashPath, j2534::J2534& j2534, unsigned long baudrate)
+void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate)
 {
 	std::fstream input(flashPath,
 		std::ios_base::binary | std::ios_base::in);
@@ -650,9 +667,18 @@ void D2Flash(const std::string& flashPath, j2534::J2534& j2534, unsigned long ba
                                       : common::CMType::ECM_ME7;
 
     const auto vbf = vbfForFlasher(bin, cmType);
+	const auto carPlatform = baudrate == 500000 ? common::CarPlatform::P2 : common::CarPlatform::P2_250;
 
-    FlasherCallback callback;
-    flasher::D2Flasher flasher(j2534, baudrate, cmType, vbf);
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		0x7A,
+		"",
+		std::make_unique<flasher::SBLProviderCommon>()
+	};
+	common::J2534Info j2534Info{ std::move(j2534) };
+	j2534Info.openChannels(carPlatform);
+    flasher::D2Flasher flasher(j2534Info, std::move(flasherParameters), vbf);
+	FlasherCallback callback;
 	flasher.registerCallback(callback);
     flasher.start();
     while (flasher.getCurrentState() !=
@@ -693,10 +719,18 @@ void fill_crc_map()
 	}
 }
 
-void readFlash(j2534::J2534& j2534, uint8_t cmId, unsigned long baudrate, const std::string& flashPath, unsigned long start, unsigned long datasize)
+void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId, const std::string& flashPath, unsigned long start, unsigned long datasize)
 {
-    std::vector<uint8_t> bin;
-    flasher::D2Reader flasher(j2534, baudrate, cmId, start, datasize, bin);
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+		std::make_unique<flasher::SBLProviderCommon>()
+	};
+	common::J2534Info j2534Info{ std::move(j2534) };
+	j2534Info.openChannels(carPlatform);
+	std::vector<uint8_t> bin;
+    flasher::D2Reader flasher(j2534Info, std::move(flasherParameters), start, datasize, bin);
     FlasherCallback callback;
     flasher.registerCallback(callback);
     flasher.start();
@@ -830,27 +864,29 @@ int main(int argc, const char* argv[]) {
 						std::make_unique<j2534::J2534>(device.libraryName) };
 					j2534->PassThruOpen(name);
                     if (runMode == RunMode::Wakeup) {
-                        flasher::D2Flasher flasher(*j2534, baudrate, common::CMType::ECM_ME7, {{}, {}});
-						flasher.canWakeUp(baudrate);
+						// TODO: wake up should be implemented separately.
+						// Need to iterate over D2 and UDS protocols with different BUS speeds for D2 protocol.
+//                        flasher::D2Flasher flasher(std::move(j2534), baudrate, common::CMType::ECM_ME7, {{}, {}});
+//						flasher.canWakeUp(baudrate);
 					}
 					else if (runMode == RunMode::Pin) {
 						findPin(*j2534, pin);
 					}
 					else if (runMode == RunMode::Read) {
-						readFlash(*j2534, ecuId, baudrate, flashPath, start, datasize);
+						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize);
 					}
 					else if (runMode == RunMode::Flash) {
 						const auto configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) };
 						const auto ecuInfo{ common::getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId) };
 						if (std::get<0>(ecuInfo).protocolId == ISO15765) {
-							UDSFlash(configurationInfo, carPlatform, ecuId, *j2534, baudrate, pin, flashPath, sblPath);
+							UDSFlash(configurationInfo, carPlatform, ecuId, std::move(j2534), baudrate, pin, flashPath, sblPath);
 						}
 						else {
-							D2Flash(flashPath, *j2534, baudrate);
+							D2Flash(flashPath, std::move(j2534), baudrate);
 						}
 					}
 					else if (runMode == RunMode::Test) {
-						doSomeStuff(*j2534, pin);
+						doSomeStuff(std::move(j2534), pin);
 					}
 				}
 				catch (const std::exception& ex) {

@@ -20,57 +20,32 @@ namespace flasher {
 
 class D2FlasherBase: public FlasherBase {
 public:
-  explicit D2FlasherBase(j2534::J2534 &j2534, unsigned long baudrate);
+  explicit D2FlasherBase(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters);
   ~D2FlasherBase();
 
   void canWakeUp(unsigned long baudrate);
 
 protected:
-  unsigned long getBaudrate() const;
-
-  common::ECUType getEcuType(common::CMType cmType) const;
-
-  void openChannels(unsigned long baudrate, bool additionalConfiguration);
-  void resetChannels();
-
-  void selectAndWriteBootloader(common::CMType cmType, unsigned long protocolId,
-                                unsigned long flags);
+  void selectAndWriteBootloader();
   void canWakeUp();
 
-  virtual common::VBF getSBL(common::CMType cmType) const;
-
-  void canGoToSleep(unsigned long protocolId, unsigned long flags);
+  void canGoToSleep();
   void cleanErrors();
 
-  void writeStartPrimaryBootloaderMsgAndCheckAnswer(common::ECUType ecuType,
-                                                    unsigned long protocolId,
-                                                    unsigned long flags);
-  void writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
-                                     uint32_t writeOffset,
-                                     unsigned long protocolId,
-                                     unsigned long flags);
-  void writeSBL(common::ECUType ecuType, const common::VBF &sbl,
-                unsigned long protocolId, unsigned long flags);
-  void writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &bin,
-                  uint32_t beginOffset, uint32_t endOffset,
-                  unsigned long protocolId, unsigned long flags);
-  void writeChunk(common::ECUType ecuType, const std::vector<uint8_t> &data,
-                  uint32_t writeOffset, unsigned long protocolId, unsigned long flags);
-  void eraseMemory(common::ECUType ecuType, uint32_t offset,
-                   unsigned long protocolId, unsigned long flags,
-                   uint8_t toCheck);
-  void eraseMemory2(common::ECUType ecuType, uint32_t offset,
-      unsigned long protocolId, unsigned long flags,
+  void writeStartPrimaryBootloaderMsgAndCheckAnswer(uint8_t ecuId);
+  void writeDataOffsetAndCheckAnswer(uint8_t ecuId,
+                                     uint32_t writeOffset);
+  void writeSBL(uint8_t ecuId, const common::VBF &sbl);
+  void writeChunk(uint8_t ecuId, const std::vector<uint8_t> &bin,
+                  uint32_t beginOffset, uint32_t endOffset);
+  void writeChunk(uint8_t ecuId, const std::vector<uint8_t> &data,
+                  uint32_t writeOffset);
+  void eraseMemory(uint8_t ecuId, uint32_t offset, uint8_t toCheck);
+  void eraseMemory2(uint8_t ecuId, uint32_t offset,
       uint8_t toCheck, uint8_t toCheck2);
-  void writeFlashMe7(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
-  void writeFlashMe9(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
-  void writeFlashTCM(const std::vector<uint8_t> &bin, unsigned long protocolId,
-                     unsigned long flags);
-
-private:
-  unsigned long _baudrate;
+  void writeFlashMe7(const std::vector<uint8_t> &bin);
+  void writeFlashMe9(const std::vector<uint8_t> &bin);
+  void writeFlashTCM(const std::vector<uint8_t> &bin);
 };
 
 } // namespace flasher

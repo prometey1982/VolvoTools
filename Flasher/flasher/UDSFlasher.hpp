@@ -19,24 +19,22 @@ namespace j2534 {
 
 namespace flasher {
 
-    struct UDSFlasherData {
-        const common::CarPlatform carPlatform;
-        const uint32_t ecuId;
+    struct UDSFlasherParameters {
         const std::array<uint8_t, 5> pin;
-        const common::VBF bootloader;
         const common::VBF flash;
     };
 
     class UDSFlasher: public FlasherBase {
     public:
-        UDSFlasher(j2534::J2534& j2534, const UDSFlasherData& flasherData);
+        UDSFlasher(common::J2534Info& j2534Info, FlasherParameters&& flasherParaneters, UDSFlasherParameters&& udsFlasherParameters);
         ~UDSFlasher();
 
     private:
         void startImpl();
 
     private:
-        const UDSFlasherData _flasherData;
+        const std::vector<common::ConfigurationInfo> _configurationInfo;
+        UDSFlasherParameters _udsFlasherParameters;
     };
 
 } // namespace flasher

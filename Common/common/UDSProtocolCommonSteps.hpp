@@ -16,13 +16,13 @@ namespace common {
 	public:
 		static std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(
 			j2534::J2534& j2534, unsigned long baudrate, uint32_t canId);
-		static bool fallAsleep(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
-		static std::vector<unsigned long> keepAlive(j2534::J2534Channel& channel);
-		static void wakeUp(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
-		static bool authorize(j2534::J2534Channel& channel, uint32_t canId, const std::array<uint8_t, 5>& pin);
-		static bool transferData(j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
-		static bool eraseFlash(j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
-		static bool startRoutine(j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);
+		static bool fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+		static std::vector<unsigned long> keepAlive(const j2534::J2534Channel& channel);
+		static void wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+		static bool authorize(const j2534::J2534Channel& channel, uint32_t canId, const std::array<uint8_t, 5>& pin);
+		static bool transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
+		static bool eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
+		static bool startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);
 	};
 
 } // namespace common

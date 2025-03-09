@@ -97,7 +97,7 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
     const auto now{std::chrono::steady_clock::now()};
     for (size_t i = 0; i < _parameters.parameters().size(); ++i) {
       auto message = common::D2Messages::createReadDataByOffsetMsg(
-          common::ECUType::TCM, _parameters.parameters()[i].addr(),
+          static_cast<uint8_t>(common::ECUType::TCM), _parameters.parameters()[i].addr(),
           static_cast<uint8_t>(_parameters.parameters()[i].size()));
 
       unsigned long writtenCount = 1;

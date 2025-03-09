@@ -32,32 +32,32 @@ generateCANProtocolMessages(const std::vector<uint8_t> &data) {
 
 namespace common {
 
-/*static*/ ECUType D2Message::getECUType(const uint8_t *const buffer) {
+/*static*/ uint8_t D2Message::getECUType(const uint8_t *const buffer) {
   if (buffer[0] == 0x01 && buffer[1] == 0x20 && buffer[2] == 0x00 &&
       buffer[3] == 0x05)
-    return ECUType::TCM;
+    return static_cast<uint8_t>(ECUType::TCM);
   else if (buffer[0] == 0x01 && buffer[1] == 0x20 && buffer[2] == 0x00 &&
            buffer[3] == 0x21)
-    return ECUType::ECM_ME;
-  return ECUType::CEM;
+    return static_cast<uint8_t>(ECUType::ECM_ME);
+  return static_cast<uint8_t>(ECUType::CEM);
 }
 
-/*static*/ ECUType D2Message::getECUType(const std::vector<uint8_t> &buffer) {
+/*static*/ uint8_t D2Message::getECUType(const std::vector<uint8_t> &buffer) {
   return getECUType(buffer.data());
 }
 
-D2Message D2Message::makeD2Message(common::ECUType ecuType,
+D2Message D2Message::makeD2Message(uint8_t ecuId,
                                    std::vector<uint8_t> request) {
   const uint8_t payloadLength = 1 + static_cast<uint8_t>(request.size());
-  request.insert(request.begin(), static_cast<uint8_t>(ecuType));
+  request.insert(request.begin(), ecuId);
   return D2Message(request);
 }
 
-D2Message D2Message::makeD2RawMessage(uint8_t ecuType,
+D2Message D2Message::makeD2RawMessage(uint8_t ecuId,
                                       const std::vector<uint8_t> &request) {
   DataType data;
   memset(data.data(), 0, data.size());
-  data[0] = ecuType;
+  data[0] = ecuId;
   const auto payloadLength = request.size();
   if (payloadLength >= data.size())
     throw std::runtime_error("Raw message has length >= 8");

@@ -233,18 +233,24 @@ namespace common {
         config[2].Value = (Baudrate == 500000 ? 80 : 68);
         channel->setConfig(config);
 
-        const uint32_t responseCanId = canId + 0x8;
-
-        unsigned long msgId;
-        PASSTHRU_MSG maskMsg =
-            makePassThruMsg(protocolId, flags, { 0xFF, 0xFF, 0xFF, 0xFF });
-        PASSTHRU_MSG patternMsg =
-            makePassThruMsg(protocolId, flags, toVector(responseCanId));
-        PASSTHRU_MSG flowMsg =
-            makePassThruMsg(protocolId, flags, toVector(canId));
-        channel->startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId);
+        if(canId) {
+            prepareUDSChannel(*channel, canId);
+        }
 
         return std::move(channel);
+    }
+
+    bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId) {
+        const unsigned long flags = ISO15765_FRAME_PAD;
+        const uint32_t responseCanId = canId + 0x8;
+        unsigned long msgId;
+        PASSTHRU_MSG maskMsg =
+            makePassThruMsg(channel.getProtocolId(), flags, { 0xFF, 0xFF, 0xFF, 0xFF });
+        PASSTHRU_MSG patternMsg =
+            makePassThruMsg(channel.getProtocolId(), flags, toVector(responseCanId));
+        PASSTHRU_MSG flowMsg =
+            makePassThruMsg(channel.getProtocolId(), flags, toVector(canId));
+        return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId) == STATUS_NOERROR;
     }
 
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
@@ -490,22 +496,29 @@ namespace common {
         return {};
     }
 
-    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId)
+    ConfigurationInfo getConfigurationInfoByCarPlatform(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform)
     {
         const auto platformName = getCarPlatformName(carPlatform);
         const auto confIt = std::find_if(configurationInfo.cbegin(), configurationInfo.cend(), [&platformName](const ConfigurationInfo& info) {
             return info.name == platformName;
-            });
+        });
         if (confIt == configurationInfo.cend()) {
             throw std::runtime_error("Unknown platform " + platformName);
         }
-        for (const auto& busInfo : confIt->busInfo) {
+        return *confIt;
+    }
+
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId)
+    {
+        const auto conf = getConfigurationInfoByCarPlatform(configurationInfo, carPlatform);
+        for (const auto& busInfo : conf.busInfo) {
             for (const auto& ecuInfo : busInfo.ecuInfo) {
                 if (ecuInfo.ecuId == ecuId) {
                     return { busInfo, ecuInfo };
                 }
             }
         }
+        const auto platformName = getCarPlatformName(carPlatform);
         throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << ecuId + ", for platform = " << platformName).str());
     }
 

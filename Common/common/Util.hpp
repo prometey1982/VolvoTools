@@ -42,7 +42,9 @@ namespace common {
             unsigned long Baudrate, bool AdditionalConfiguration = false);
 
     std::unique_ptr<j2534::J2534Channel>
-        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId);
+        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId = 0);
+
+    bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId);
 
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
         unsigned long Flags);
@@ -68,13 +70,19 @@ namespace common {
 
     CarPlatform parseCarPlatform(std::string input);
 
-    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId);
+    ConfigurationInfo getConfigurationInfoByCarPlatform(const std::vector<ConfigurationInfo>& configurationInfo,
+                                                        CarPlatform carPlatform);
 
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
+                                                            CarPlatform carPlatform, uint32_t ecuId);
 
-    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
+                                           CarPlatform carPlatform, uint32_t ecuId,
+                                           const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+
+    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
+                                  CarPlatform carPlatform, uint32_t ecuId,
+                                  const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input);
     std::vector<ConfigurationInfo> loadConfiguration(const std::string& input);

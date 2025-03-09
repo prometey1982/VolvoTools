@@ -14,9 +14,9 @@
 namespace {
 
     PASSTHRU_MSG writeMessagesAndReadMessage(j2534::J2534Channel& channel,
-        const std::vector<PASSTHRU_MSG>& msgs) {
+        const j2534::BaseMessage& msgs) {
         channel.clearRx();
-        unsigned long msgsNum = msgs.size();
+        unsigned long msgsNum = 1;
         const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
         if (error != STATUS_NOERROR) {
             throw std::runtime_error("write msgs error");
@@ -29,10 +29,9 @@ namespace {
 } // namespace
 
 namespace flasher {
-D2Reader::D2Reader(j2534::J2534 &j2534, unsigned long baudrate, uint8_t cmId,
+D2Reader::D2Reader(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters,
                    uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin)
-    : D2FlasherBase{ j2534, baudrate }
-    , _cmId{ cmId }
+    : D2FlasherBase{ j2534Info, std::move(flasherParameters)}
     , _startPos{ startPos }
     , _size{ size }
     , _bin{ bin }
@@ -40,45 +39,36 @@ D2Reader::D2Reader(j2534::J2534 &j2534, unsigned long baudrate, uint8_t cmId,
 
 D2Reader::~D2Reader() { }
 
-void D2Reader::read(uint8_t cmId, unsigned long baudrate,
-    uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin) {
-    const unsigned long protocolId = CAN;
-    const unsigned long flags = CAN_29BIT_ID;
-
-    openChannels(baudrate, true);
-
+void D2Reader::read(uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin) {
     setMaximumProgress(size);
     setCurrentProgress(0);
 
-    runOnThread([this, cmId, &bin, protocolId, flags, startPos, size] {
-        readFunction(cmId, bin, protocolId, flags, startPos, size);
+    runOnThread([this, &bin, startPos, size] {
+        readFunction(bin, startPos, size);
         });
 }
 
 void D2Reader::startImpl() {
-    const unsigned long protocolId = CAN;
-    const unsigned long flags = CAN_29BIT_ID;
-
-    readFunction(_cmId, _bin, protocolId, flags, _startPos, _size);
+    readFunction(_bin, _startPos, _size);
 }
 
-void D2Reader::readFunction(uint8_t cmId, std::vector<uint8_t>& bin,
-    unsigned long protocolId, unsigned long flags, uint32_t startPos, uint32_t size)
+void D2Reader::readFunction(std::vector<uint8_t>& bin, uint32_t startPos, uint32_t size)
 {
     try {
-        const auto ecuType = static_cast<common::ECUType>(cmId);
-        canGoToSleep(protocolId, flags);
+        const auto ecuId{ getFlasherParameters().ecuId };
+        canGoToSleep();
         std::this_thread::sleep_for(std::chrono::seconds(1));
         setCurrentState(FlasherState::StartBootloader);
-        writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuType, protocolId, flags);
+        writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuId);
         std::this_thread::sleep_for(std::chrono::seconds(1));
         setCurrentState(FlasherState::ReadFlash);
+        auto& channel{ getJ2534Info().getChannelForEcu(ecuId) };
         for (uint32_t i = 0; i < size; ++i)
         {
             const auto currentPos = startPos + i;
-            writeDataOffsetAndCheckAnswer(ecuType, currentPos, protocolId, flags);
-            const auto checksumAnswer = writeMessagesAndReadMessage(*_channels[0], common::D2Messages::createCalculateChecksumMsg(
-                ecuType, currentPos + 1).toPassThruMsgs(protocolId, flags));
+            writeDataOffsetAndCheckAnswer(ecuId, currentPos);
+            const auto checksumAnswer = writeMessagesAndReadMessage(channel, common::D2Messages::createCalculateChecksumMsg(
+                ecuId, currentPos + 1));
             if (checksumAnswer.Data[5] == 0xB1)
             {
                 bin.push_back(checksumAnswer.Data[6]);

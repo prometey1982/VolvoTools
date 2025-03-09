@@ -8,17 +8,18 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <algorithm>
+#include <map>
 #include <numeric>
 #include <time.h>
 
 namespace {
 
-bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
-                                 const std::vector<PASSTHRU_MSG> &msgs,
-                                 uint8_t toCheck, size_t count = 10) {
+bool writeMessagesAndCheckAnswer(j2534::J2534Channel& channel,
+                                 const j2534::BaseMessage& message,
+                                 const std::vector<uint8_t>& toCheck, size_t count = 10) {
   channel.clearRx();
-  unsigned long msgsNum = msgs.size();
-  const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
+  unsigned long msgsNum = 1;
+  const auto error = channel.writeMsgs(message, msgsNum, 5000);
   if (error != STATUS_NOERROR) {
     throw std::runtime_error("write msgs error");
   }
@@ -26,29 +27,11 @@ bool writeMessagesAndCheckAnswer(j2534::J2534Channel &channel,
   for (size_t i = 0; i < count; ++i) {
     channel.readMsgs(received_msgs, 3000);
     for (const auto &msg : received_msgs) {
-      if (msg.Data[5] == toCheck) {
-        return true;
+      for(size_t i = 0; i < toCheck.size(); ++i) {
+        if(toCheck[i] != msg.Data[i + 5])
+          return false;
       }
-    }
-  }
-  return false;
-}
-
-bool writeMessagesAndCheckAnswer2(j2534::J2534Channel &channel,
-                                 const std::vector<PASSTHRU_MSG> &msgs,
-                                 uint8_t toCheck5, uint8_t toCheck6, size_t count = 10) {
-  unsigned long msgsNum = msgs.size();
-  const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
-  if (error != STATUS_NOERROR) {
-    throw std::runtime_error("write msgs error");
-  }
-  for (int i = 0; i < count; ++i) {
-    std::vector<PASSTHRU_MSG> received_msgs(1);
-    channel.readMsgs(received_msgs, 3000);
-    for (const auto &read : received_msgs) {
-      if (read.Data[5] == toCheck5 && read.Data[6] == toCheck6) {
-        return true;
-      }
+      return true;
     }
   }
   return false;
@@ -69,238 +52,160 @@ uint8_t calculateCheckSum(const std::vector<uint8_t> &bin, size_t beginOffset,
 } // namespace
 
 namespace flasher {
-D2FlasherBase::D2FlasherBase(j2534::J2534 &j2534, unsigned long baudrate)
-    : FlasherBase{ j2534 }
-    , _baudrate{ baudrate }
+D2FlasherBase::D2FlasherBase(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters)
+    : FlasherBase{ j2534Info, std::move(flasherParameters) }
 {}
 
 D2FlasherBase::~D2FlasherBase() { }
 
 void D2FlasherBase::canWakeUp(unsigned long baudrate) {
-  const unsigned long protocolId = CAN;
-  const unsigned long flags = CAN_29BIT_ID;
-  _channels.push_back(common::openChannel(getJ2534(), protocolId, flags, baudrate));
-  _channels.push_back(common::openLowSpeedChannel(getJ2534(), flags));
   canWakeUp();
   cleanErrors();
 }
 
-unsigned long D2FlasherBase::getBaudrate() const {
-  return _baudrate;
-}
+void D2FlasherBase::selectAndWriteBootloader() {
+  uint32_t bootloaderOffset{ 0 };
+  const auto ecuId{ getFlasherParameters().ecuId };
+  const auto carPlatform{ getFlasherParameters().carPlatform };
+  const auto additionalData{ getFlasherParameters().additionalData };
 
-common::ECUType D2FlasherBase::getEcuType(common::CMType cmType) const {
-  switch (cmType) {
-  case common::CMType::ECM_ME7:
-    return common::ECUType::ECM_ME;
-  case common::CMType::ECM_ME9_P1:
-    return common::ECUType::ECM_ME;
-  case common::CMType::TCM_AW55_P2:
-  case common::CMType::TCM_TF80_P2:
-    return common::ECUType::TCM;
-  default:
-    throw std::runtime_error("Unsupported CMType");
-  }
-}
-
-void D2FlasherBase::openChannels(unsigned long baudrate,
-                             bool additionalConfiguration) {
-  setCurrentState(FlasherState::OpenChannels);
-  const unsigned long protocolId = CAN;
-  const unsigned long flags = CAN_29BIT_ID;
-
-  _channels.push_back(common::openChannel(getJ2534(), protocolId, flags, baudrate,
-                                          additionalConfiguration));
-  _channels.push_back(common::openLowSpeedChannel(getJ2534(), flags));
-  if (baudrate != 500000) {
-    _channels.push_back(common::openBridgeChannel(getJ2534()));
-  }
-}
-
-void D2FlasherBase::resetChannels() {
-  setCurrentState(FlasherState::CloseChannels);
-  _channels.clear();
-}
-
-void D2FlasherBase::selectAndWriteBootloader(common::CMType cmType,
-                                         unsigned long protocolId,
-                                         unsigned long flags) {
-  uint32_t bootloaderOffset = 0;
-  common::ECUType ecuType = common::ECUType::ECM_ME;
-
-  switch (cmType) {
-  case common::CMType::ECM_ME7:
-    ecuType = common::ECUType::ECM_ME;
-    break;
-  case common::CMType::ECM_ME9_P1:
-    ecuType = common::ECUType::ECM_ME;
-    break;
-  case common::CMType::TCM_AW55_P2:
-  case common::CMType::TCM_TF80_P2:
-    ecuType = common::ECUType::TCM;
-    break;
-  }
-
-  const auto bootloader = getSBL(cmType);
+  const auto bootloader = getFlasherParameters().sblProvider->getSBL(carPlatform, ecuId, additionalData);
   if (bootloader.chunks.empty())
     throw std::runtime_error("Secondary bootloader not found");
 
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
+
   unsigned long msgsNum = 1;
-  _channels[0]->writeMsgs(
-      common::D2Messages::createWakeUpECUMsg(ecuType).toPassThruMsgs(protocolId,
-                                                                     flags),
-      msgsNum, 5000);
+  channel.writeMsgs(common::D2Messages::createWakeUpECUMsg(ecuId), msgsNum);
 
-  canGoToSleep(protocolId, flags);
+  canGoToSleep();
   std::this_thread::sleep_for(std::chrono::seconds(1));
-  writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuType, protocolId, flags);
+  writeStartPrimaryBootloaderMsgAndCheckAnswer(ecuId);
   std::this_thread::sleep_for(std::chrono::seconds(1));
-  writeSBL(ecuType, bootloader, protocolId, flags);
+  writeSBL(ecuId, bootloader);
   std::this_thread::sleep_for(std::chrono::seconds(1));
 }
 
-common::VBF D2FlasherBase::getSBL(common::CMType cmType) const {
-  common::VBFParser parser;
-  switch (cmType) {
-  case common::CMType::ECM_ME7:
-    return parser.parse(common::SBLData::P2_ME7_SBL);
-  case common::CMType::ECM_ME9_P1:
-    return parser.parse(common::SBLData::P1_ME9_SBL);
-  default:
-      return common::VBF({}, {});
-  }
-}
-
-void D2FlasherBase::canGoToSleep(unsigned long protocolId, unsigned long flags) {
+void D2FlasherBase::canGoToSleep() {
   setCurrentState(FlasherState::FallAsleep);
-  unsigned long channel1MsgId;
-  unsigned long channel2MsgId;
-  _channels[0]->startPeriodicMsg(
-      common::D2Messages::goToSleepCanRequest.toPassThruMsgs(protocolId,
-                                                             flags)[0],
-      channel1MsgId, 5);
-  if (_channels[1]) {
-    _channels[1]->startPeriodicMsg(
-        common::D2Messages::goToSleepCanRequest.toPassThruMsgs(
-            CAN_PS /*protocolId*/, CAN_29BIT_ID)[0],
-        channel2MsgId, 5);
+  const auto ecuId{ getFlasherParameters().ecuId };
+  auto& channels = getJ2534Info().getChannels();
+  std::map<size_t, std::vector<unsigned long>> msgIds;
+  for (size_t i = 0; i < channels.size(); ++i) {
+      if (channels[i]->getProtocolId() != ISO9141) {
+          msgIds[i] = channels[i]->startPeriodicMsgs(
+              common::D2Messages::goToSleepCanRequest, 5);
+      }
   }
   std::this_thread::sleep_for(std::chrono::seconds(3));
-  if (_channels[1]) {
-    _channels[1]->stopPeriodicMsg(channel2MsgId);
+  for (const auto& ids : msgIds) {
+      channels[ids.first]->stopPeriodicMsg(ids.second);
   }
-  _channels[0]->stopPeriodicMsg(channel1MsgId);
 }
 
 void D2FlasherBase::canWakeUp() {
   setCurrentState(FlasherState::WakeUp);
   unsigned long numMsgs = 1;
-  _channels[0]->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
-  if (_channels[1]) {
-    _channels[1]->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
+  auto& channels = getJ2534Info().getChannels();
+  for (size_t i = 0; i < channels.size(); ++i) {
+      if (channels[i]->getProtocolId() != ISO9141) {
+          channels[i]->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
+      }
+  }
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+  std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    const auto now{std::chrono::system_clock::now()};
-    const auto time_t = std::chrono::system_clock::to_time_t(now);
-    struct tm lt;
-    localtime_s(&lt, &time_t);
+  const auto now{std::chrono::system_clock::now()};
+  const auto time_t = std::chrono::system_clock::to_time_t(now);
+  struct tm lt;
+  localtime_s(&lt, &time_t);
 
-    _channels[1]->writeMsgs(
+  auto& channel = getJ2534Info().getChannelForEcu(static_cast<uint8_t>(common::ECUType::DIM));
+  channel.writeMsgs(
         common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min), numMsgs,
         5000);
-  }
 }
 
 void D2FlasherBase::cleanErrors() {
-  for (const auto ecuType :
-       {common::ECUType::ECM_ME, common::ECUType::TCM, common::ECUType::SRS}) {
+  for (const auto ecuId :
+       {static_cast<uint8_t>(common::ECUType::ECM_ME), static_cast<uint8_t>(common::ECUType::TCM), static_cast<uint8_t>(common::ECUType::SRS)}) {
     unsigned long numMsgs = 1;
-    _channels[0]->writeMsgs(common::D2Messages::clearDTCMsgs(ecuType), numMsgs);
-    _channels[1]->writeMsgs(common::D2Messages::clearDTCMsgs(ecuType), numMsgs);
+    auto& channel = getJ2534Info().getChannelForEcu(ecuId);
+    channel.writeMsgs(common::D2Messages::clearDTCMsgs(ecuId), numMsgs);
   }
 }
-void D2FlasherBase::writeStartPrimaryBootloaderMsgAndCheckAnswer(
-    common::ECUType ecuType, unsigned long protocolId, unsigned long flags) {
-  if (!writeMessagesAndCheckAnswer(
-          *_channels[0],
-          common::D2Messages::createStartPrimaryBootloaderMsg(ecuType)
-              .toPassThruMsgs(protocolId, flags),
-          0xC6))
+void D2FlasherBase::writeStartPrimaryBootloaderMsgAndCheckAnswer(uint8_t ecuId) {
+    auto& channel = getJ2534Info().getChannelForEcu(ecuId);
+    if (!writeMessagesAndCheckAnswer(
+          channel,
+          common::D2Messages::createStartPrimaryBootloaderMsg(ecuId),
+          { 0xC6 }))
     throw std::runtime_error("CM didn't response with correct answer");
 }
 
-void D2FlasherBase::writeDataOffsetAndCheckAnswer(common::ECUType ecuType,
-                                              uint32_t writeOffset,
-                                              unsigned long protocolId,
-                                              unsigned long flags) {
+void D2FlasherBase::writeDataOffsetAndCheckAnswer(uint8_t ecuId,
+                                              uint32_t writeOffset) {
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
   const auto writeOffsetMsgs{
-      common::D2Messages::createSetMemoryAddrMsg(ecuType, writeOffset)
-          .toPassThruMsgs(protocolId, flags)};
+      common::D2Messages::createSetMemoryAddrMsg(ecuId, writeOffset)};
   for (int i = 0; i < 10; ++i) {
-    if (writeMessagesAndCheckAnswer(*_channels[0], writeOffsetMsgs, 0x9C))
+    if (writeMessagesAndCheckAnswer(channel, writeOffsetMsgs, { 0x9C }))
       return;
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
   throw std::runtime_error("CM didn't response with correct answer");
 }
 
-void D2FlasherBase::writeSBL(common::ECUType ecuType, const common::VBF &bootloader,
-                         unsigned long protocolId, unsigned long flags) {
+void D2FlasherBase::writeSBL(uint8_t ecuId, const common::VBF &bootloader) {
   setCurrentState(FlasherState::LoadBootloader);
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
   for (size_t i = 0; i < bootloader.chunks.size(); ++i) {
     const auto &chunk = bootloader.chunks[i];
     auto bootloaderMsgs =
-        common::D2Messages::createWriteDataMsgs(ecuType, chunk.data);
-    writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
-                                  flags);
+        common::D2Messages::createWriteDataMsgs(ecuId, chunk.data);
+    writeDataOffsetAndCheckAnswer(ecuId, chunk.writeOffset);
     for (auto message : bootloaderMsgs) {
-      const auto passThruMsgs = message.toPassThruMsgs(protocolId, flags);
+      const auto passThruMsgs = message.toPassThruMsgs(channel.getProtocolId(), channel.getTxFlags());
       unsigned long numMsgs = passThruMsgs.size();
-      _channels[0]->writeMsgs(passThruMsgs, numMsgs, 240000);
+      channel.writeMsgs(passThruMsgs, numMsgs, 240000);
       if (numMsgs != passThruMsgs.size())
         throw std::runtime_error("Bootloader writing failed");
     }
     unsigned long numMsgs = 1;
-    _channels[0]->writeMsgs(
-        common::D2Messages::createSBLTransferCompleteMsg(ecuType)
-            .toPassThruMsgs(protocolId, flags),
+    channel.writeMsgs(
+        common::D2Messages::createSBLTransferCompleteMsg(ecuId),
         numMsgs);
-    writeDataOffsetAndCheckAnswer(ecuType, chunk.writeOffset, protocolId,
-                                  flags);
+    writeDataOffsetAndCheckAnswer(ecuId, chunk.writeOffset);
     if (!writeMessagesAndCheckAnswer(
-            *_channels[0],
+            channel,
             common::D2Messages::createCalculateChecksumMsg(
-                ecuType, chunk.writeOffset + chunk.data.size())
-                .toPassThruMsgs(protocolId, flags),
-            0xB1))
+                ecuId, chunk.writeOffset + chunk.data.size()),
+            { 0xB1 }))
       throw std::runtime_error("Can't read memory after bootloader");
   }
   setCurrentState(FlasherState::StartBootloader);
-  writeDataOffsetAndCheckAnswer(ecuType, bootloader.header.call, protocolId,
-                                flags);
+  writeDataOffsetAndCheckAnswer(ecuId, bootloader.header.call);
   if (!writeMessagesAndCheckAnswer(
-          *_channels[0],
-          common::D2Messages::createJumpToMsg(ecuType).toPassThruMsgs(
-              protocolId, flags),
-          0xA0))
+          channel,
+          common::D2Messages::createJumpToMsg(ecuId),
+          { 0xA0 }))
     throw std::runtime_error("Can't start bootloader");
 }
 
-void D2FlasherBase::writeChunk(common::ECUType ecuType,
+void D2FlasherBase::writeChunk(uint8_t ecuId,
                            const std::vector<uint8_t> &bin,
-                           uint32_t beginOffset, uint32_t endOffset,
-                           unsigned long protocolId, unsigned long flags) {
+                           uint32_t beginOffset, uint32_t endOffset) {
   setCurrentState(FlasherState::WriteFlash);
   auto storedProgress = getCurrentProgress();
   auto binMsgs = common::D2Messages::createWriteDataMsgs(
-      ecuType, bin, beginOffset, endOffset);
-  writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
+      ecuId, bin, beginOffset, endOffset);
+  writeDataOffsetAndCheckAnswer(ecuId, beginOffset);
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
   for (const auto binMsg : binMsgs) {
-    _channels[0]->clearRx();
-    const auto passThruMsgs = binMsg.toPassThruMsgs(protocolId, flags);
+    channel.clearRx();
+    const auto passThruMsgs = binMsg.toPassThruMsgs(channel.getProtocolId(), channel.getTxFlags());
     unsigned long msgsNum = passThruMsgs.size();
-    const auto error = _channels[0]->writeMsgs(passThruMsgs, msgsNum, 50000);
+    const auto error = channel.writeMsgs(passThruMsgs, msgsNum, 50000);
     if (error != STATUS_NOERROR) {
       throw std::runtime_error("write msgs error");
     }
@@ -308,30 +213,29 @@ void D2FlasherBase::writeChunk(common::ECUType ecuType,
     setCurrentProgress(storedProgress);
   }
   setCurrentProgress(endOffset);
-  writeDataOffsetAndCheckAnswer(ecuType, beginOffset, protocolId, flags);
+  writeDataOffsetAndCheckAnswer(ecuId, beginOffset);
   uint8_t checksum = calculateCheckSum(bin, beginOffset, endOffset);
-  if (!writeMessagesAndCheckAnswer2(
-          *_channels[0],
-          common::D2Messages::createCalculateChecksumMsg(ecuType, endOffset)
-              .toPassThruMsgs(protocolId, flags),
-          0xB1, checksum))
+  if (!writeMessagesAndCheckAnswer(
+          channel,
+          common::D2Messages::createCalculateChecksumMsg(ecuId, endOffset),
+          { 0xB1, checksum }))
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
 
-void D2FlasherBase::writeChunk(common::ECUType ecuType,
+void D2FlasherBase::writeChunk(uint8_t ecuId,
                                const std::vector<uint8_t> &bin,
-                               uint32_t writeOffset,
-                               unsigned long protocolId, unsigned long flags) {
+                               uint32_t writeOffset) {
   setCurrentState(FlasherState::WriteFlash);
   auto storedProgress = getCurrentProgress();
   auto binMsgs = common::D2Messages::createWriteDataMsgs(
-      ecuType, bin, 0, bin.size());
-  writeDataOffsetAndCheckAnswer(ecuType, writeOffset, protocolId, flags);
+      ecuId, bin, 0, bin.size());
+  writeDataOffsetAndCheckAnswer(ecuId, writeOffset);
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
   for (const auto binMsg : binMsgs) {
-    _channels[0]->clearRx();
-    const auto passThruMsgs = binMsg.toPassThruMsgs(protocolId, flags);
+    channel.clearRx();
+    const auto passThruMsgs = binMsg.toPassThruMsgs(channel.getProtocolId(), channel.getTxFlags());
     unsigned long msgsNum = passThruMsgs.size();
-    const auto error = _channels[0]->writeMsgs(passThruMsgs, msgsNum, 50000);
+    const auto error = channel.writeMsgs(passThruMsgs, msgsNum, 50000);
     if (error != STATUS_NOERROR) {
       throw std::runtime_error("write msgs error");
     }
@@ -340,67 +244,61 @@ void D2FlasherBase::writeChunk(common::ECUType ecuType,
   }
   const uint32_t endOffset = writeOffset + bin.size();
   setCurrentProgress(endOffset);
-  writeDataOffsetAndCheckAnswer(ecuType, writeOffset, protocolId, flags);
+  writeDataOffsetAndCheckAnswer(ecuId, writeOffset);
   uint8_t checksum = calculateCheckSum(bin, writeOffset, endOffset);
-  if (!writeMessagesAndCheckAnswer2(
-          *_channels[0],
-          common::D2Messages::createCalculateChecksumMsg(ecuType, endOffset)
-              .toPassThruMsgs(protocolId, flags),
-          0xB1, checksum))
+  if (!writeMessagesAndCheckAnswer(
+          channel,
+          common::D2Messages::createCalculateChecksumMsg(ecuId, endOffset),
+          { 0xB1, checksum }))
     throw std::runtime_error("Failed. Checksums are not equal.");
 }
 
-void D2FlasherBase::eraseMemory(common::ECUType ecuType, uint32_t offset,
-                            unsigned long protocolId, unsigned long flags,
+void D2FlasherBase::eraseMemory(uint8_t ecuId, uint32_t offset,
                             uint8_t toCheck) {
-  writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
+  writeDataOffsetAndCheckAnswer(ecuId, offset);
+  auto& channel = getJ2534Info().getChannelForEcu(ecuId);
   if (!writeMessagesAndCheckAnswer(
-          *_channels[0],
-          common::D2Messages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
-                                                                     flags),
-          toCheck, 30))
+          channel,
+          common::D2Messages::createEraseMsg(ecuId),
+          { toCheck }, 30))
     throw std::runtime_error("Can't erase memory");
 }
 
-void D2FlasherBase::eraseMemory2(common::ECUType ecuType, uint32_t offset,
-    unsigned long protocolId, unsigned long flags,
+void D2FlasherBase::eraseMemory2(uint8_t ecuId, uint32_t offset,
     uint8_t toCheck, uint8_t toCheck2) {
-    writeDataOffsetAndCheckAnswer(ecuType, offset, protocolId, flags);
-    if (!writeMessagesAndCheckAnswer2(
-        *_channels[0],
-        common::D2Messages::createEraseMsg(ecuType).toPassThruMsgs(protocolId,
-            flags),
-        toCheck, toCheck2, 30))
+    writeDataOffsetAndCheckAnswer(ecuId, offset);
+    auto& channel = getJ2534Info().getChannelForEcu(ecuId);
+    if (!writeMessagesAndCheckAnswer(
+        channel,
+        common::D2Messages::createEraseMsg(ecuId),
+        { toCheck, toCheck2 }, 30))
         throw std::runtime_error("Can't erase memory");
 }
 
-void D2FlasherBase::writeFlashMe7(const std::vector<uint8_t> &bin,
-                              unsigned long protocolId, unsigned long flags) {
-  const auto ecuType = common::ECUType::ECM_ME;
-  eraseMemory(ecuType, 0x8000, protocolId, flags, 0xF9);
+void D2FlasherBase::writeFlashMe7(const std::vector<uint8_t> &bin) {
+  const uint8_t ecuId = static_cast<uint8_t>(common::ECUType::ECM_ME);
+  eraseMemory(ecuId, 0x8000, 0xF9);
   std::this_thread::sleep_for(std::chrono::seconds(3));
-  eraseMemory(ecuType, 0x10000, protocolId, flags, 0xF9);
-  writeChunk(ecuType, bin, 0x8000, 0xE000, protocolId, flags);
-  writeChunk(ecuType, bin, 0x10000, bin.size(), protocolId, flags);
+  eraseMemory(ecuId, 0x10000, 0xF9);
+  writeChunk(ecuId, bin, 0x8000, 0xE000);
+  writeChunk(ecuId, bin, 0x10000, bin.size());
 }
 
-void D2FlasherBase::writeFlashMe9(const std::vector<uint8_t> &bin,
-                              unsigned long protocolId, unsigned long flags) {
-  const auto ecuType = common::ECUType::ECM_ME;
-  eraseMemory2(ecuType, 0x20000, protocolId, flags, 0xF9, 0x0);
-  writeChunk(ecuType, bin, 0x20000, 0x90000, protocolId, flags);
-  writeChunk(ecuType, bin, 0xA0000, 0x1F0000, protocolId, flags);
+void D2FlasherBase::writeFlashMe9(const std::vector<uint8_t> &bin) {
+  const uint8_t ecuId = static_cast<uint8_t>(common::ECUType::ECM_ME);
+  eraseMemory2(ecuId, 0x20000, 0xF9, 0x0);
+  writeChunk(ecuId, bin, 0x20000, 0x90000);
+  writeChunk(ecuId, bin, 0xA0000, 0x1F0000);
 }
 
-void D2FlasherBase::writeFlashTCM(const std::vector<uint8_t> &bin,
-                              unsigned long protocolId, unsigned long flags) {
-  const auto ecuType = common::ECUType::TCM;
+void D2FlasherBase::writeFlashTCM(const std::vector<uint8_t> &bin) {
+  const uint8_t ecuId = static_cast<uint8_t>(common::ECUType::TCM);
   const std::vector<uint32_t> chunks{0x8000,  0x10000, 0x20000,
                                      0x30000, 0x40000, 0x50000,
                                      0x60000, 0x70000, 0x80000};
   for (size_t i = 0; i < chunks.size() - 1; ++i) {
-    eraseMemory(ecuType, chunks[i], protocolId, flags, 0xF9);
-    writeChunk(ecuType, bin, chunks[i], chunks[i + 1], protocolId, flags);
+    eraseMemory(ecuId, chunks[i], 0xF9);
+    writeChunk(ecuId, bin, chunks[i], chunks[i + 1]);
     setCurrentProgress(chunks[i + 1]);
   }
 }

@@ -36,16 +36,16 @@ enum class ECUType : uint8_t {
 
 class D2Message : public CanMessage {
 public:
-  static ECUType getECUType(const uint8_t *const buffer);
-  static ECUType getECUType(const std::vector<uint8_t> &buffer);
-  static D2Message makeD2Message(ECUType ecuType, std::vector<uint8_t> request);
+  static uint8_t getECUType(const uint8_t *const buffer);
+  static uint8_t getECUType(const std::vector<uint8_t> &buffer);
+  static D2Message makeD2Message(uint8_t ecuId, std::vector<uint8_t> request);
   template <typename T>
-  static D2Message makeD2RawMessage(T ecuType,
+  static D2Message makeD2RawMessage(uint8_t ecuId,
                                     const std::vector<uint8_t> &request) {
-    return makeD2RawMessage(static_cast<uint8_t>(ecuType), request);
+    return makeD2RawMessage(ecuId, request);
   }
 
-  static D2Message makeD2RawMessage(uint8_t ecuType,
+  static D2Message makeD2RawMessage(uint8_t ecuId,
                                     const std::vector<uint8_t> &request);
   template <typename... Args> static D2Message makeD2Message(Args... args) {
     std::vector<uint8_t> request{static_cast<uint8_t>(args)...};

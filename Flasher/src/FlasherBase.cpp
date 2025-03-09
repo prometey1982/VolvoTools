@@ -7,8 +7,9 @@
 
 namespace flasher {
 
-FlasherBase::FlasherBase(j2534::J2534 &j2534)
-    : _j2534{ j2534 }
+FlasherBase::FlasherBase(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters)
+    : _j2534Info{ j2534Info }
+    , _flasherParameters{ std::move(flasherParameters) }
     , _currentProgress{ 0 }
     , _maximumProgress{ 0 }
     , _currentState{ FlasherState::Initial }
@@ -66,9 +67,14 @@ void FlasherBase::start()
     });
 }
 
-j2534::J2534& FlasherBase::getJ2534() const
+common::J2534Info& FlasherBase::getJ2534Info() const
 {
-    return _j2534;
+    return _j2534Info;
+}
+
+const FlasherParameters& FlasherBase::getFlasherParameters() const
+{
+    return _flasherParameters;
 }
 
 void FlasherBase::setCurrentState(FlasherState state)
