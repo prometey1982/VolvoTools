@@ -8,10 +8,10 @@ namespace common {
 /*static*/ D2Message D2Messages::setCurrentTime(uint8_t hours,
                                                 uint8_t minutes) {
   uint32_t value = minutes + hours * 60;
-  return D2Message::makeD2Message(static_cast<uint8_t>(common::ECUType::DIM),
-                                  {0xB0, 0x07, 0x01, 0xFF,
-                                   static_cast<uint8_t>((value >> 8) & 0xFF),
-                                   static_cast<uint8_t>(value & 0xFF)});
+  return D2Message(static_cast<uint8_t>(common::ECUType::DIM),
+                   {0xB0, 0x07, 0x01, 0xFF},
+                   {static_cast<uint8_t>((value >> 8) & 0xFF),
+                    static_cast<uint8_t>(value & 0xFF)});
 }
 
 /*static*/ D2Message D2Messages::createSetMemoryAddrMsg(uint8_t ecuId,
@@ -46,10 +46,10 @@ D2Messages::createCalculateChecksumMsg(uint8_t ecuId, uint32_t addr) {
 /*static*/ D2Message
 D2Messages::createReadDataByOffsetMsg(uint8_t ecuId, uint32_t addr,
                                       uint8_t size) {
-  return D2Message::makeD2Message(ecuId,
-                                  {0xA7, static_cast<uint8_t>(addr >> 16),
-                                   static_cast<uint8_t>(addr >> 8),
-                                   static_cast<uint8_t>(addr), 1, size});
+  return D2Message(ecuId,
+                   {0xA7}, {static_cast<uint8_t>(addr >> 16),
+                            static_cast<uint8_t>(addr >> 8),
+                            static_cast<uint8_t>(addr), 1, size});
 }
 
 /*static*/ D2Message
@@ -59,8 +59,8 @@ D2Messages::createReadDataByAddrMsg(uint8_t ecuId, uint32_t addr,
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2Message(ecuId, 0xB4, 21, 34, byte1, byte2, byte3,
-                                  byte4, size);
+  return D2Message(ecuId, {0xB4, 21, 34}, {byte1, byte2, byte3,
+                                           byte4, size});
 }
 
 /*static*/ std::vector<D2Message>
@@ -108,9 +108,9 @@ D2Messages::createWriteDataMsgs(uint8_t ecuId,
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return D2Message::makeD2Message(static_cast<uint8_t>(common::ECUType::TCM),
-                                  {0xB4, 0x21, 0x34, byte1, byte2, byte3,
-                                   byte4, static_cast<uint8_t>(dataSize)});
+  return D2Message(static_cast<uint8_t>(common::ECUType::TCM),
+                   {0xB4, 0x21, 0x34}, {byte1, byte2, byte3,
+                                        byte4, static_cast<uint8_t>(dataSize)});
 }
 
 ///*static*/ D2Message D2Messages::createWriteTCMDataByAddr(uint32_t addr,
@@ -127,12 +127,15 @@ D2Messages::createWriteDataMsgs(uint8_t ecuId,
 /*static*/ D2Message D2Messages::createWriteDataByAddrMsg(uint8_t ecuId,
                                                           uint32_t addr,
                                                           uint8_t data) {
-  return D2Message::makeD2Message(ecuId, 0xBA, addr >> 16, addr >> 8, addr,
-                                  data);
+  const uint8_t byte1 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte2 = (addr & 0xFF00) >> 8;
+  const uint8_t byte3 = (addr & 0xFF);
+  return D2Message(ecuId, {0xBA}, {byte1, byte2, byte3,
+                                   data});
 }
 
 /*static*/ D2Message D2Messages::clearDTCMsgs(uint8_t ecuId) {
-  return D2Message::makeD2Message(ecuId, 0xAF, 0x11);
+  return D2Message(ecuId, {0xAF, 0x11});
 }
 
 /*static*/ D2Message D2Messages::makeRegisterAddrRequest(uint32_t addr,
@@ -140,9 +143,9 @@ D2Messages::createWriteDataMsgs(uint8_t ecuId,
   const uint8_t byte1 = (addr & 0xFF0000) >> 16;
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
-  return D2Message::makeD2Message(
+  return D2Message(
       static_cast<uint8_t>(common::ECUType::ECM_ME),
-      {0xAA, 0x50, byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
+      {0xAA, 0x50}, {byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
 }
 
 /*static*/ D2Message
@@ -172,20 +175,20 @@ D2Messages::createSBLTransferCompleteMsg(uint8_t ecuId) {
 }
 
 const D2Message D2Messages::requestVIN{
-    common::D2Message::makeD2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFB})};
+    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFB})};
 const D2Message D2Messages::requestVehicleConfiguration{
-    common::D2Message::makeD2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFC})};
-const D2Message D2Messages::requestMemory{common::D2Message::makeD2Message(
+    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFC})};
+const D2Message D2Messages::requestMemory{common::D2Message(
     static_cast<uint8_t>(common::ECUType::ECM_ME), {0xA6, 0xF0, 0x00, 0x01})};
 const D2Message D2Messages::unregisterAllMemoryRequest{
-    common::D2Message::makeD2Message(static_cast<uint8_t>(common::ECUType::ECM_ME), {0xAA, 0x00})};
+    common::D2Message(static_cast<uint8_t>(common::ECUType::ECM_ME), {0xAA, 0x00})};
 const D2Message D2Messages::wakeUpCanRequest{
     common::D2Message::makeD2RawMessage(0xFF, {0xC8})};
 const D2Message D2Messages::goToSleepCanRequest{
     common::D2Message::makeD2RawMessage(0xFF, {0x86})};
 const D2Message D2Messages::startTCMAdaptMsg{
-    common::D2Message::makeD2Message(common::ECUType::TCM, 0xB2, 0x50)};
+    common::D2Message(static_cast<uint8_t>(common::ECUType::TCM), {0xB2, 0x50})};
 const D2Message D2Messages::enableCommunicationMsg{
-    common::D2Message::makeD2Message(common::ECUType::CEM, 0xD8)};
+    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xD8})};
 
 } // namespace common

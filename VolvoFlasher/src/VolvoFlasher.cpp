@@ -2,7 +2,6 @@
 #include <common/D2Messages.hpp>
 #include <common/VBFParser.hpp>
 #include <common/Util.hpp>
-#include <common/UDSProtocolCallback.hpp>
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -179,20 +178,6 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 	//    logger::LoggerApplication::instance().stop();
 	return TRUE;
 }
-
-class UDSFlasherCallback final : public common::UDSProtocolCallback {
-public:
-	UDSFlasherCallback() = default;
-
-	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
-		size_t maxValue) override {}
-	void OnMessage(const std::string& message) override {
-		std::cout << std::endl << message;
-	}
-	void OnStep(common::UDSStepType step) override {
-		std::cout << std::endl << common::toString(step);
-	}
-};
 
 class FlasherCallback final : public flasher::FlasherCallback {
 public:
@@ -567,6 +552,14 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 	return false;
+}
+
+template<int N, typename T>
+std::array<uint8_t, N> toArray(T val)
+{
+    if(N > 0)
+        return { static_cast<uint8_t>(val >> ((N + 1) * 8)), toArray<N - 1>(val)};
+    return {};
 }
 
 void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)

@@ -17,12 +17,38 @@ generateCANProtocolMessages(const std::vector<uint8_t> &data) {
   for (size_t i = 0; i < data.size(); i += maxSingleMessagePayload) {
     const auto payloadSize = static_cast<uint8_t>(
         std::min(data.size() - i, maxSingleMessagePayload));
-    const bool isLastMessage = payloadSize <= maxSingleMessagePayload;
     uint8_t newPrefix = messagePrefix + payloadSize;
     std::array<uint8_t, 8> canPayload;
     canPayload[0] = newPrefix;
     memset(&canPayload[1], 0, canPayload.size() - 1);
     memcpy(&canPayload[1], data.data() + i, payloadSize);
+    result.emplace_back(std::move(canPayload));
+    messagePrefix = 0x48;
+  }
+  return result;
+}
+
+uint8_t getData(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, size_t offset) {
+  return offset < data1.size() ? data1[offset] : data2[data1.size() + offset];
+}
+
+static std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>>
+generateCANProtocolMessages(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t> &params) {
+  std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>> result;
+  const size_t maxSingleMessagePayload = 7u;
+  const bool isMultipleMessages = requestId.size() + params.size() > maxSingleMessagePayload;
+  uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
+  const auto dataSize = requestId.size() + params.size();
+  for (size_t i = 0; i < dataSize; i += maxSingleMessagePayload) {
+    const auto payloadSize =
+        std::min(dataSize - i, maxSingleMessagePayload);
+    uint8_t newPrefix = messagePrefix + payloadSize;
+    std::array<uint8_t, 8> canPayload;
+    canPayload[0] = newPrefix;
+    memset(&canPayload[1], 0, canPayload.size() - 1);
+    for(size_t j = 0; j < payloadSize; ++j) {
+        canPayload[j + 1] = getData(requestId, params, i + j);
+    }
     result.emplace_back(std::move(canPayload));
     messagePrefix = 0x48;
   }
@@ -45,7 +71,7 @@ namespace common {
 /*static*/ uint8_t D2Message::getECUType(const std::vector<uint8_t> &buffer) {
   return getECUType(buffer.data());
 }
-
+#if 0
 D2Message D2Message::makeD2Message(uint8_t ecuId,
                                    std::vector<uint8_t> request) {
   const uint8_t payloadLength = 1 + static_cast<uint8_t>(request.size());
@@ -53,6 +79,9 @@ D2Message D2Message::makeD2Message(uint8_t ecuId,
   return D2Message(request);
 }
 
+D2Message::D2Message(const std::vector<uint8_t> &data)
+    : CanMessage{0xFFFFE, std::move(generateCANProtocolMessages(data))} {}
+#endif
 D2Message D2Message::makeD2RawMessage(uint8_t ecuId,
                                       const std::vector<uint8_t> &request) {
   DataType data;
@@ -65,12 +94,22 @@ D2Message D2Message::makeD2RawMessage(uint8_t ecuId,
   return D2Message({data});
 }
 
-D2Message::D2Message(const std::vector<DataType> &data) : CanMessage{0xFFFFE, data} {}
+D2Message::D2Message(const std::vector<DataType> &data) : CanMessage{0xFFFFE, data}, _ecuId{} {}
 
 D2Message::D2Message(std::vector<DataType> &&data)
-    : CanMessage{0xFFFFE, std::move(data)} {}
+    : CanMessage{0xFFFFE, std::move(data)}, _ecuId{} {}
 
-D2Message::D2Message(const std::vector<uint8_t> &data)
-    : CanMessage{0xFFFFE, std::move(generateCANProtocolMessages(data))} {}
+D2Message::D2Message(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t>& params)
+    : CanMessage{0xFFFFE, std::move(generateCANProtocolMessages(ecuId, requestId, params))}
+    , _ecuId{ecuId}
+    , _requestId{requestId} {}
+
+uint8_t D2Message::getEcuId() const {
+  return _ecuId;
+}
+
+const std::vector<uint8_t>& D2Message::getRequestId() const {
+  return _requestId;
+}
 
 } // namespace common

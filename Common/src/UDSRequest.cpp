@@ -24,12 +24,11 @@ UDSRequest::UDSRequest(uint32_t canId, const std::vector<uint8_t>& data)
     : _requestId{ getRequestId(data) }
     , _message{ canId, data }
 {
-
 }
 
 UDSRequest::UDSRequest(uint32_t canId, std::vector<uint8_t>&& data)
     : _requestId{ getRequestId(data) }
-    , _message{ canId, data }
+    , _message{ canId, std::move(data) }
 {
 }
 

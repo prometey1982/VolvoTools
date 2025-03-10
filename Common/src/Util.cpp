@@ -1,6 +1,7 @@
 #include "common/Util.hpp"
 
 #include "common/BusConfiguration.hpp"
+#include "common/D2Error.hpp"
 #include "common/ECUInfo.hpp"
 #include "common/UDSError.hpp"
 
@@ -610,6 +611,14 @@ namespace common {
             return;
         }
         throw UDSError(data[6]);
+    }
+
+    void checkD2Error(uint8_t ecuId, const std::vector<uint8_t>& requestId, const uint8_t* data, size_t dataSize)
+    {
+        if(dataSize < 7 || data[4] != 0x7F || data[5] != ecuId) {
+            return;
+        }
+        throw D2Error(data[6]);
     }
 
     CarPlatform parsePlatform(std::string input)

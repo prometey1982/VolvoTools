@@ -1,14 +1,11 @@
 #pragma once
 
-#include "CarPlatform.hpp"
-#include "ConfigurationInfo.hpp"
-#include "UDSCommonStepData.hpp"
-#include "UDSProtocolStep.hpp"
 #include "VBF.hpp"
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <memory>
 
 namespace common {
 

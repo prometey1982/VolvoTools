@@ -16,6 +16,8 @@ public:
   explicit CanMessage(uint32_t canId, const std::vector<DataType>& data);
   explicit CanMessage(uint32_t canId, std::vector<DataType>&& data) noexcept;
   explicit CanMessage(uint32_t canId, const DataType& data);
+  CanMessage(CanMessage&&) noexcept = default;
+  CanMessage(const CanMessage&) noexcept = default;
 
   virtual std::vector<PASSTHRU_MSG>
       toPassThruMsgs(unsigned long ProtocolID, unsigned long Flags) const override;

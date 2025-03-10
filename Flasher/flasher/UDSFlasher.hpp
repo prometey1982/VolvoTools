@@ -7,7 +7,6 @@
 #include <common/CarPlatform.hpp>
 #include <common/VBF.hpp>
 #include <common/UDSCommonStepData.hpp>
-#include <common/UDSProtocolBase.hpp>
 
 #include <array>
 #include <memory>

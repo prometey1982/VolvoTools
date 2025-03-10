@@ -6,7 +6,6 @@
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
 #include <common/UDSRequest.hpp>
-#include <common/UDSProtocolBase.hpp>
 #include <common/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
@@ -69,7 +68,7 @@ namespace logger {
 																parameter.size()) };
 				unsigned long numMsgs;
 				channel.writeMsgs(
-					registerParameterRequest.toPassThruMsgs(protocolId, flags), numMsgs);
+                    registerParameterRequest, numMsgs);
 				if (numMsgs == 0) {
 					throw std::runtime_error("Request to the ECU wasn't send");
 				}
