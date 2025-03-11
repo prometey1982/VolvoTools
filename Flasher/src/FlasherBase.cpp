@@ -7,12 +7,13 @@
 
 namespace flasher {
 
-FlasherBase::FlasherBase(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters)
-    : _j2534Info{ j2534Info }
+FlasherBase::FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters)
+    : _j2534ChannelProvider{ j2534, flasherParameters.carPlatform }
     , _flasherParameters{ std::move(flasherParameters) }
     , _currentProgress{ 0 }
     , _maximumProgress{ 0 }
     , _currentState{ FlasherState::Initial }
+    , _flasherThread{}
     , _stopRequested{ false }
 {
 }
@@ -67,9 +68,9 @@ void FlasherBase::start()
     });
 }
 
-common::J2534Info& FlasherBase::getJ2534Info() const
+const std::vector<std::unique_ptr<j2534::J2534Channel>>& FlasherBase::getChannels() const
 {
-    return _j2534Info;
+    return _channels;
 }
 
 const FlasherParameters& FlasherBase::getFlasherParameters() const
@@ -92,13 +93,20 @@ void FlasherBase::setCurrentState(FlasherState state)
 void FlasherBase::setCurrentProgress(size_t currentProgress)
 {
     std::unique_lock<std::mutex> lock(_mutex);
-    _currentProgress = currentProgress;
+    _currentProgress = std::min(currentProgress, _maximumProgress);
+}
+
+void FlasherBase::incCurrentProgress(size_t delta)
+{
+    std::unique_lock<std::mutex> lock(_mutex);
+    _currentProgress = std::min(_currentProgress + delta, _maximumProgress);
 }
 
 void FlasherBase::setMaximumProgress(size_t maximumProgress)
 {
     std::unique_lock<std::mutex> lock(_mutex);
     _maximumProgress = maximumProgress;
+    _currentProgress = std::min(_currentProgress, _maximumProgress);
 }
 
 void FlasherBase::runOnThread(std::function<void()> callable)

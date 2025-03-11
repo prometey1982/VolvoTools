@@ -2,7 +2,7 @@
 
 #include "FlasherState.hpp"
 #include "SBLProviderBase.hpp"
-#include "common/J2534Info.hpp"
+#include "common/J2534ChannelProvider.hpp"
 
 #include <functional>
 #include <mutex>
@@ -16,12 +16,13 @@ struct FlasherParameters {
     common::CarPlatform carPlatform;
     uint32_t ecuId;
     std::string additionalData;
-    std::unique_ptr<SBLProviderBase> sblProvider;
+    std::shared_ptr<SBLProviderBase> sblProvider;
+    const common::VBF flash;
 };
 
 class FlasherBase {
 public:
-    FlasherBase(common::J2534Info &j2534Info, FlasherParameters&& flasherParameters);
+    FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters);
     virtual ~FlasherBase();
 
     FlasherState getCurrentState() const;
@@ -36,11 +37,12 @@ public:
 protected:
     virtual void startImpl() = 0;
 
-    common::J2534Info& getJ2534Info() const;
+    const std::vector<std::unique_ptr<j2534::J2534Channel>>& getChannels() const;
     const FlasherParameters& getFlasherParameters() const;
 
     void setCurrentState(FlasherState state);
     void setCurrentProgress(size_t currentProgress);
+    void incCurrentProgress(size_t delta);
     void setMaximumProgress(size_t maximumProgress);
 
     void runOnThread(std::function<void()> callable);
@@ -49,7 +51,7 @@ private:
     std::vector<FlasherCallback *> getCallbacks() const;
 
 private:
-    common::J2534Info &_j2534Info;
+    common::J2534ChannelProvider _j2534ChannelProvider;
     FlasherParameters _flasherParameters;
     mutable std::mutex _mutex;
     size_t _currentProgress;
@@ -61,6 +63,7 @@ private:
     std::vector<FlasherCallback *> _callbacks;
 
     bool _stopRequested;
+    std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
 };
 
 } // namespace flasher

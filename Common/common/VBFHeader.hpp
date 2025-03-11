@@ -29,6 +29,7 @@ namespace common {
 		double vbfVersion{};
 		std::vector<std::string> description;
 		std::string swPartNumber;
+		std::string swVersion;
 		SWPartType swPartType{ SWPartType::UNKNOWN };
 		NetworkType network{ NetworkType::UNKNOWN };
 		uint32_t ecuAddress{};

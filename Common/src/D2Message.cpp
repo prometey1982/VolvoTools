@@ -28,8 +28,11 @@ generateCANProtocolMessages(const std::vector<uint8_t> &data) {
   return result;
 }
 
-uint8_t getData(const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, size_t offset) {
-  return offset < data1.size() ? data1[offset] : data2[data1.size() + offset];
+uint8_t getData(uint8_t ecuId, const std::vector<uint8_t>& data1, const std::vector<uint8_t>& data2, size_t offset) {
+  if(offset == 0)
+    return ecuId;
+  --offset;
+  return offset < data1.size() ? data1[offset] : data2[offset - data1.size()];
 }
 
 static std::vector<std::array<uint8_t, common::D2Message::CanPayloadSize>>
@@ -38,16 +41,19 @@ generateCANProtocolMessages(uint8_t ecuId, const std::vector<uint8_t>& requestId
   const size_t maxSingleMessagePayload = 7u;
   const bool isMultipleMessages = requestId.size() + params.size() > maxSingleMessagePayload;
   uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
-  const auto dataSize = requestId.size() + params.size();
+  uint8_t seriesId = 0x08;
+  const auto dataSize = requestId.size() + params.size() + 1;
   for (size_t i = 0; i < dataSize; i += maxSingleMessagePayload) {
     const auto payloadSize =
         std::min(dataSize - i, maxSingleMessagePayload);
-    uint8_t newPrefix = messagePrefix + payloadSize;
+    bool inSeries = isMultipleMessages && (i + payloadSize < dataSize);
+    seriesId = ((seriesId - 8) + 1) % 8 + 8;
+    uint8_t newPrefix = inSeries? seriesId : messagePrefix + payloadSize;
     std::array<uint8_t, 8> canPayload;
     canPayload[0] = newPrefix;
     memset(&canPayload[1], 0, canPayload.size() - 1);
     for(size_t j = 0; j < payloadSize; ++j) {
-        canPayload[j + 1] = getData(requestId, params, i + j);
+        canPayload[j + 1] = getData(ecuId, requestId, params, i + j);
     }
     result.emplace_back(std::move(canPayload));
     messagePrefix = 0x48;

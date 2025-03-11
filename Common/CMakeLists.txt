@@ -26,4 +26,4 @@ if (WIN32)
 endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost)
+target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost intelhex)

@@ -15,24 +15,24 @@ namespace flasher {
 
     class UDSFlasherImpl {
     public:
-        UDSFlasherImpl(common::J2534Info& j2534Info, const FlasherParameters& flasherParameters,
+        UDSFlasherImpl(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+                       const FlasherParameters& flasherParameters,
                        const UDSFlasherParameters& udsFlasherParameters,
                        uint32_t canId,
                        const std::function<void(FlasherState)>& stateUpdater)
-            : _j2534Info{ j2534Info }
+            : _channels{ channels }
             , _flasherParameters{ flasherParameters }
             , _udsFlasherParameters{ udsFlasherParameters }
             , _canId{ canId }
             , _isFailed{ false }
             , _stateUpdater{ stateUpdater }
-            , _activeChannel{ _j2534Info.getChannelForEcu(_flasherParameters.ecuId) }
         {
         }
 
         void fallAsleep()
         {
             _stateUpdater(FlasherState::FallAsleep);
-            if (!common::UDSProtocolCommonSteps::fallAsleep(_j2534Info.getChannels())) {
+            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
                 setFailed("Fall asleep failed");
             }
         }
@@ -40,7 +40,8 @@ namespace flasher {
         void authorize()
         {
             _stateUpdater(FlasherState::Authorize);
-            if (!common::UDSProtocolCommonSteps::authorize(_activeChannel, _canId, _udsFlasherParameters.pin)) {
+            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            if (!common::UDSProtocolCommonSteps::authorize(channel, _canId, _udsFlasherParameters.pin)) {
                 setFailed("Authorization failed");
             }
         }
@@ -51,7 +52,8 @@ namespace flasher {
             if (_flasherParameters.sblProvider) {
                 const auto bootloader{ _flasherParameters.sblProvider->getSBL(
                     _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData)};
-                if (bootloader.chunks.empty() || !common::UDSProtocolCommonSteps::transferData(_activeChannel, _canId, bootloader)) {
+                auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+                if (bootloader.chunks.empty() || !common::UDSProtocolCommonSteps::transferData(channel, _canId, bootloader)) {
                     setFailed("Bootloader loading failed");
                 }
             }
@@ -63,7 +65,8 @@ namespace flasher {
             if (_flasherParameters.sblProvider) {
                 const auto bootloader{ _flasherParameters.sblProvider->getSBL(
                     _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData) };
-                if (!common::UDSProtocolCommonSteps::startRoutine(_activeChannel, _canId, bootloader.header.call)) {
+                auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+                if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canId, bootloader.header.call)) {
                     setFailed("Bootloader starting failed");
                 }
             }
@@ -72,7 +75,8 @@ namespace flasher {
         void eraseFlash()
         {
             _stateUpdater(FlasherState::EraseFlash);
-            if (!common::UDSProtocolCommonSteps::eraseFlash(_activeChannel, _canId, _udsFlasherParameters.flash)) {
+            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            if (!common::UDSProtocolCommonSteps::eraseFlash(channel, _canId, _flasherParameters.flash)) {
                 setFailed("Flash erasing failed");
             }
         }
@@ -80,7 +84,8 @@ namespace flasher {
         void writeFlash()
         {
             _stateUpdater(FlasherState::WriteFlash);
-            if (!common::UDSProtocolCommonSteps::transferData(_activeChannel, _canId, _udsFlasherParameters.flash)) {
+            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            if (!common::UDSProtocolCommonSteps::transferData(channel, _canId, _flasherParameters.flash)) {
                 setFailed("Flash writing failed");
             }
         }
@@ -88,7 +93,7 @@ namespace flasher {
         void wakeUp()
         {
             _stateUpdater(FlasherState::WakeUp);
-            common::UDSProtocolCommonSteps::wakeUp(_j2534Info.getChannels());
+            common::UDSProtocolCommonSteps::wakeUp(_channels);
         }
 
         void closeChannels()
@@ -119,14 +124,13 @@ namespace flasher {
         }
 
     private:
-        common::J2534Info& _j2534Info;
+        const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
         const FlasherParameters& _flasherParameters;
         const UDSFlasherParameters& _udsFlasherParameters;
         const uint32_t _canId;
         bool _isFailed;
         std::string _errorMessage;
         const std::function<void(FlasherState)> _stateUpdater;
-        const j2534::J2534Channel& _activeChannel;
     };
 
 using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
@@ -264,9 +268,8 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         }
     };
 
-    UDSFlasher::UDSFlasher(common::J2534Info& j2534Info, FlasherParameters&& flasherParaneters, UDSFlasherParameters&& udsFlasherParameters)
-        : FlasherBase{ j2534Info, std::move(flasherParaneters) }
-        , _configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) }
+    UDSFlasher::UDSFlasher(j2534::J2534& j2534, FlasherParameters&& flasherParameters, UDSFlasherParameters&& udsFlasherParameters)
+        : FlasherBase{ j2534, std::move(flasherParameters) }
         , _udsFlasherParameters{ std::move(udsFlasherParameters) }
     {
     }
@@ -277,10 +280,10 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
 
     void UDSFlasher::startImpl()
     {
-        const auto ecuInfo{ common::getEcuInfoByEcuId(_configurationInfo, getFlasherParameters().carPlatform,
+        const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };
 
-        UDSFlasherImpl impl(getJ2534Info(), getFlasherParameters(), _udsFlasherParameters,
+        UDSFlasherImpl impl(getChannels(), getFlasherParameters(), _udsFlasherParameters,
             std::get<1>(ecuInfo).canId, [this](FlasherState state) {
             setCurrentState(state);
         });

@@ -51,9 +51,6 @@ namespace common {
 
     std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534& j2534);
 
-    std::vector<uint8_t> readMessageSequence(j2534::J2534Channel& channel,
-        size_t queryLength);
-
     std::vector<uint8_t> readMessageCheckAndGet(
         const j2534::J2534Channel& channel,
         const std::vector<uint8_t> msgId,
@@ -70,18 +67,14 @@ namespace common {
 
     CarPlatform parseCarPlatform(std::string input);
 
-    ConfigurationInfo getConfigurationInfoByCarPlatform(const std::vector<ConfigurationInfo>& configurationInfo,
-                                                        CarPlatform carPlatform);
+    ConfigurationInfo getConfigurationInfoByCarPlatform(CarPlatform carPlatform);
 
-    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
-                                                            CarPlatform carPlatform, uint32_t ecuId);
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(CarPlatform carPlatform, uint32_t ecuId);
 
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
-                                           CarPlatform carPlatform, uint32_t ecuId,
+    j2534::J2534Channel& getChannelByEcuId(CarPlatform carPlatform, uint32_t ecuId,
                                            const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
-    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo,
-                                  CarPlatform carPlatform, uint32_t ecuId,
+    size_t getChannelIndexByEcuId(CarPlatform carPlatform, uint32_t ecuId,
                                   const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input);

@@ -2,6 +2,8 @@
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
+#include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
+#include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 
 #include <string>
 #include <vector>
@@ -76,27 +78,62 @@ namespace common {
 		auto const erase_def = x3::lit("erase") >> '=' >> '{' >> (erase_block % ',') >> '}' >> ';';
 
 		auto const description_def = x3::lit("description") >> '=' >> '{' >> (quoted_string % ',') >> '}' >> ';';
-		auto const vbf_header_def =
-			x3::lit("vbf_version") >> '=' >> x3::float_[([](auto& ctx) { x3::_val(ctx).vbfVersion = x3::_attr(ctx); })] >> ';' >>
-			x3::lit("header") >> '{' >> *(description[([](auto& ctx) { x3::_val(ctx).description = x3::_attr(ctx); })]
+		auto const vbf_header_def = 
+			x3::lit("vbf_version") >> '=' >> x3::float_[([](auto& ctx) {
+			x3::_val(ctx).vbfVersion = x3::_attr(ctx);
+				})] >> ';' >>
+			x3::lit("header") >> '{' >> *(description[([](auto& ctx) {
+					x3::_val(ctx).description = x3::_attr(ctx);
+				})]
 //				| erase[([](auto& ctx) { x3::_val(ctx).erase = x3::_attr(ctx); })]
-				| (x3::lit("sw_part_number") >> '=' >> quoted_string[([](auto& ctx) { x3::_val(ctx).swPartNumber = x3::_attr(ctx); })] >> ';')
-				| (x3::lit("sw_part_type") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).swPartType = parseSWPartType(x3::_attr(ctx)); })] >> ';')
-				| (x3::lit("network") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).network = parseNetworkType(x3::_attr(ctx)); })] >> ';')
-				| (x3::lit("ecu_address") >> '=' >> hex[([](auto& ctx) { x3::_val(ctx).ecuAddress = x3::_attr(ctx); })] >> ';')
-				| (x3::lit("ecu_addr") >> '=' >> hex[([](auto& ctx) { x3::_val(ctx).ecuAddress = x3::_attr(ctx); })] >> ';')
-				| (x3::lit("frame_format") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx)); })] >> ';')
-				| (x3::lit("can_frame_format") >> '=' >> unquoted_string[([](auto& ctx) { x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx)); })] >> ';')
-				| (x3::lit("call") >> '=' >> hex[([](auto& ctx) { x3::_val(ctx).call = x3::_attr(ctx); })] >> ';')
-				| (x3::lit("jmp") >> '=' >> hex[([](auto& ctx) { x3::_val(ctx).call = x3::_attr(ctx); })] >> ';')
-				| (x3::lit("file_checksum") >> '=' >> hex[([](auto& ctx) { x3::_val(ctx).fileChecksum = x3::_attr(ctx); })] >> ';')) >> '}';
+				| (x3::lit("sw_part_number") >> '=' >> quoted_string[([](auto& ctx) {
+					x3::_val(ctx).swPartNumber = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("sw_part_number") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).swPartNumber = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("sw_version") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).swVersion = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("sw_part_type") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).swPartType = parseSWPartType(x3::_attr(ctx));
+					})] >> ';')
+				| (x3::lit("network") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).network = parseNetworkType(x3::_attr(ctx));
+					})] >> ';')
+				| (x3::lit("ecu_address") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).ecuAddress = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("ecu_addr") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).ecuAddress = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("frame_format") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx));
+					})] >> ';')
+				| (x3::lit("can_frame_format") >> '=' >> unquoted_string[([](auto& ctx) {
+					x3::_val(ctx).frameFormat = parseFrameFormat(x3::_attr(ctx));
+					})] >> ';')
+				| (x3::lit("call") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).call = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("jmp") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).call = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("jsr") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).call = x3::_attr(ctx);
+					})] >> ';')
+				| (x3::lit("file_checksum") >> '=' >> hex[([](auto& ctx) {
+					x3::_val(ctx).fileChecksum = x3::_attr(ctx);
+					})] >> ';')) >> '}';
 
 		BOOST_SPIRIT_DEFINE(description, vbf_header, erase);
 
 		template<typename T>
 		T parseVBFHeader(T begin, T end, VBFHeader& data)
 		{
-			bool r = phrase_parse(begin, end, vbf_header, space_comment, data);
+			if (!phrase_parse(begin, end, vbf_header, space_comment, data)) {
+				throw std::runtime_error("Failed to parse VBF header");
+			}
 
 			return begin;
 		}
@@ -120,15 +157,15 @@ namespace common {
 		}
 
 		template<typename T>
-		std::vector<VBFChunk> parseVBFBody(T begin, T end)
+		std::vector<VBFChunk> parseVBFBody(const VBFHeader& header, T begin, T end)
 		{
 			std::vector<VBFChunk> result;
-			while (begin != end) {
+			while (begin < end) {
 				uint32_t writeOffset = getUint32(begin);
 				uint32_t dataSize = getUint32(begin);
 				std::vector<uint8_t> data{ begin, begin + dataSize };
 				begin += dataSize;
-				uint16_t crc = getUint16(begin);
+				uint16_t crc = header.vbfVersion >= 2 ? getUint16(begin) : static_cast<uint8_t>(*begin++);
 				result.emplace_back(writeOffset, std::move(data), crc);
 			}
 			return result;
@@ -139,7 +176,7 @@ namespace common {
 		{
 			VBFHeader vbfHeader;
 			begin = parseVBFHeader(begin, end, vbfHeader);
-			auto vbfChunks = parseVBFBody(begin, end);
+			auto vbfChunks = parseVBFBody(vbfHeader, begin, end);
 			return { vbfHeader, vbfChunks };
 		}
 

@@ -4,6 +4,7 @@
 #include <logger/LogParameters.hpp>
 #include <logger/Logger.hpp>
 #include <logger/LoggerCallback.hpp>
+#include <common/J2534ChannelProvider.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 
@@ -98,7 +99,7 @@ int main(int argc, const char *argv[]) {
           logger::FileLogWriter fileLogWriter(outputPath, params);
           ConsoleLogWriter consoleLogWriter{printCount};
           logger::LoggerApplication::instance().start(
-              baudrate, std::move(j2534), params, carPlatform, cmId,
+              baudrate, *j2534, params, carPlatform, cmId,
               {&fileLogWriter, &consoleLogWriter});
           while (logger::LoggerApplication::instance().isStarted()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

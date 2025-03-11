@@ -1,5 +1,6 @@
 #include "common/Util.hpp"
 
+#include "common/CommonData.hpp"
 #include "common/BusConfiguration.hpp"
 #include "common/D2Error.hpp"
 #include "common/ECUInfo.hpp"
@@ -195,20 +196,10 @@ namespace common {
         channel->setConfig(config);
 
         unsigned long msgId;
-        if (ProtocolID == ISO15765) {
-            PASSTHRU_MSG maskMsg =
-                makePassThruMsg(ProtocolID, Flags, { 0xFF, 0xFF, 0xFF, 0xFF });
-            PASSTHRU_MSG patternMsg =
-                makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x07, 0xE8 });
-            PASSTHRU_MSG flowMsg =
-                makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x07, 0xE0 });
-            channel->startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId);
-        }
-        else {
-            PASSTHRU_MSG msgFilter =
-                makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x00, 0x01 });
-            channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
-        }
+        PASSTHRU_MSG msgFilter =
+            makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x00, 0x01 });
+        channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
+
         if (AdditionalConfiguration && ProtocolID == CAN_XON_XOFF) {
             startXonXoffMessageFiltering(*channel, Flags);
             config.resize(1);
@@ -221,7 +212,7 @@ namespace common {
 
     std::unique_ptr<j2534::J2534Channel>
         openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId) {
-        const unsigned long protocolId = ISO15765;
+        const unsigned long protocolId = Baudrate > 125000 ? ISO15765 : ISO15765_PS;
         const unsigned long flags = ISO15765_FRAME_PAD;
         auto channel{ std::make_unique<j2534::J2534Channel>(j2534, protocolId, 0,
                                                            Baudrate, 0) };
@@ -233,6 +224,13 @@ namespace common {
         config[2].Parameter = BIT_SAMPLE_POINT;
         config[2].Value = (Baudrate == 500000 ? 80 : 68);
         channel->setConfig(config);
+
+        if (protocolId == ISO15765_PS) {
+            std::vector<SCONFIG> config(1);
+            config[0].Parameter = J1962_PINS;
+            config[0].Value = 0x030B;
+            channel->setConfig(config);
+        }
 
         if(canId) {
             prepareUDSChannel(*channel, canId);
@@ -323,49 +321,6 @@ namespace common {
         channel->startPeriodicMsg(msg, msgId, 2000);
 
         return std::move(channel);
-    }
-
-    std::vector<uint8_t> readMessageSequence(j2534::J2534Channel& channel,
-        size_t queryLength) {
-        const size_t MaxErrorCount = 10;
-        size_t errorCount = 0;
-        std::vector<uint8_t> result;
-        for (bool inSeries = false, firstRun = true; inSeries || firstRun;
-            firstRun = false) {
-            std::vector<PASSTHRU_MSG> msgs(1);
-            if (channel.readMsgs(msgs) != STATUS_NOERROR) {
-                ++errorCount;
-            }
-            if (errorCount >= MaxErrorCount) {
-                throw std::runtime_error("Reading ECU failed");
-            }
-            for (const auto& msg : msgs) {
-                auto offset = 5u + queryLength;
-                auto count = 12u;
-                auto messageType = msg.Data[4];
-                if (messageType == 0x8f) { // begin of the series
-                    inSeries = true;
-                    count = count > offset ? count - offset : 0;
-                }
-                else if (messageType == 0x09) { // second message
-                    offset = 5;
-                    count = 7;
-                }
-                else if ((messageType & 0x40) == 0) { // in the middle
-                    offset = 5;
-                    count = 7;
-                }
-                else { // end of the series
-                    offset = 5;
-                    count = messageType - 0x48;
-                    inSeries = false;
-                }
-                for (unsigned long j = 0; j < count; ++j) {
-                    result.push_back(msg.Data[offset + j]);
-                }
-            }
-        }
-        return result;
     }
 
     static bool readCheckAndGetImpl(
@@ -497,8 +452,15 @@ namespace common {
         return {};
     }
 
-    ConfigurationInfo getConfigurationInfoByCarPlatform(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform)
+    const std::vector<ConfigurationInfo>& staticConfiguration()
     {
+        static const std::vector<ConfigurationInfo> configuration(loadConfiguration(CommonData::commonConfiguration));
+        return configuration;
+    }
+
+    ConfigurationInfo getConfigurationInfoByCarPlatform(CarPlatform carPlatform)
+    {
+        const auto& configurationInfo{staticConfiguration()};
         const auto platformName = getCarPlatformName(carPlatform);
         const auto confIt = std::find_if(configurationInfo.cbegin(), configurationInfo.cend(), [&platformName](const ConfigurationInfo& info) {
             return info.name == platformName;
@@ -509,9 +471,9 @@ namespace common {
         return *confIt;
     }
 
-    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId)
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(CarPlatform carPlatform, uint32_t ecuId)
     {
-        const auto conf = getConfigurationInfoByCarPlatform(configurationInfo, carPlatform);
+        const auto conf = getConfigurationInfoByCarPlatform(carPlatform);
         for (const auto& busInfo : conf.busInfo) {
             for (const auto& ecuInfo : busInfo.ecuInfo) {
                 if (ecuInfo.ecuId == ecuId) {
@@ -523,10 +485,10 @@ namespace common {
         throw std::runtime_error((std::stringstream() << "Can'f find ECU with id = " << ecuId + ", for platform = " << platformName).str());
     }
 
-    size_t getChannelIndexByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+    size_t getChannelIndexByEcuId(CarPlatform carPlatform, uint32_t ecuId,
         const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
-        const auto [busInfo, ecuInfo] = getEcuInfoByEcuId(configurationInfo, carPlatform, ecuId);
+        const auto [busInfo, ecuInfo] = getEcuInfoByEcuId(carPlatform, ecuId);
         for(size_t i = 0; i < channels.size(); ++i) {
             if (busInfo.baudrate == channels[i]->getBaudrate()) {
                 return i;
@@ -535,10 +497,10 @@ namespace common {
         throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
     }
 
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId,
+    j2534::J2534Channel& getChannelByEcuId(CarPlatform carPlatform, uint32_t ecuId,
         const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
-        return *channels[getChannelIndexByEcuId(configurationInfo, carPlatform, ecuId, channels)];
+        return *channels[getChannelIndexByEcuId(carPlatform, ecuId, channels)];
     }
 
     static std::string getNonEmptyHexIntString(const std::string& input)

@@ -3,6 +3,7 @@
 #include "logger/LoggerCallback.hpp"
 
 #include <common/CommonData.hpp>
+#include <common/D2Request.hpp>
 #include <common/D2Message.hpp>
 #include <common/D2Messages.hpp>
 #include <common/UDSRequest.hpp>
@@ -19,30 +20,22 @@ namespace logger {
 
 	class LoggerImpl {
 	public:
-		LoggerImpl(j2534::J2534& j2534) : _j2534(j2534) {}
+        LoggerImpl() {}
 
 		virtual void registerParameters(j2534::J2534Channel& channel,
 			const LogParameters& parameters) = 0;
 		virtual std::vector<uint32_t>
 			requestMemory(j2534::J2534Channel& channel,
 				const LogParameters& parameters) = 0;
-
-		virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(unsigned long baudrate) = 0;
-
-	protected:
-		j2534::J2534& _j2534;
 	};
 
 	class D2LoggerImpl : public LoggerImpl {
 	public:
-		D2LoggerImpl(j2534::J2534& j2534) : LoggerImpl(j2534) {}
+        D2LoggerImpl() : LoggerImpl() {}
 
 	private:
-		const unsigned long protocolId = CAN;
-		const unsigned long flags = CAN_29BIT_ID;
-
-		const std::vector<PASSTHRU_MSG> requstMemoryMessage{
-			common::D2Messages::requestMemory.toPassThruMsgs(protocolId, flags) };
+        const common::D2Message requstMemoryMessage{
+            common::D2Messages::requestMemory};
 
 		unsigned long getNumberOfCanMessages(const LogParameters& parameters) const {
 			double totalDataLength =
@@ -55,32 +48,13 @@ namespace logger {
 
 		virtual void registerParameters(j2534::J2534Channel& channel,
 			const LogParameters& parameters) override {
-			unsigned long numMsgs;
-			channel.writeMsgs(
-				common::D2Messages::unregisterAllMemoryRequest.toPassThruMsgs(
-					protocolId, flags),
-				numMsgs);
-			std::vector<PASSTHRU_MSG> result(1);
-			channel.readMsgs(result);
-			for (const auto parameter : parameters.parameters()) {
-				const auto registerParameterRequest{
+            common::D2Request unregisterRequest{common::D2Messages::unregisterAllMemoryRequest};
+            unregisterRequest.process(channel);
+            for (const auto parameter : parameters.parameters()) {
+                common::D2Request registerParameterRequest{
 					common::D2Messages::makeRegisterAddrRequest(parameter.addr(),
 																parameter.size()) };
-				unsigned long numMsgs;
-				channel.writeMsgs(
-                    registerParameterRequest, numMsgs);
-				if (numMsgs == 0) {
-					throw std::runtime_error("Request to the ECU wasn't send");
-				}
-				result.resize(1);
-				channel.readMsgs(result);
-				if (result.empty()) {
-					throw std::runtime_error("ECU didn't response intime");
-				}
-				for (const auto& msg : result) {
-					if (msg.Data[6] != 0xEA)
-						throw std::runtime_error("Can't register memory addr");
-				}
+                registerParameterRequest.process(channel);
 			}
 		}
 
@@ -124,26 +98,12 @@ namespace logger {
 			}
 			return result;
 		}
-
-		virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(unsigned long baudrate) override {
-			std::vector<std::unique_ptr<j2534::J2534Channel>> result;
-
-			const unsigned long protocolId = CAN;
-			const unsigned long flags = CAN_29BIT_ID;
-			result.emplace_back(common::openChannel(_j2534, protocolId, flags, baudrate));
-
-			if (baudrate != 500000) {
-				result.emplace_back(common::openBridgeChannel(_j2534));
-			}
-			return result;
-		}
-
 	};
 
     class UDSLoggerImpl : public LoggerImpl {
 	public:
-		UDSLoggerImpl(j2534::J2534& j2534, uint32_t canId)
-			: LoggerImpl(j2534)
+        UDSLoggerImpl(uint32_t canId)
+            : LoggerImpl()
             , _canId{ canId }
 			, _didBase(0xF200)
             , _didMaxDataSize{ 7 }
@@ -239,14 +199,6 @@ namespace logger {
 			return result;
 		}
 
-		virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(unsigned long baudrate) override {
-			std::vector<std::unique_ptr<j2534::J2534Channel>> result;
-
-            result.emplace_back(common::openUDSChannel(_j2534, baudrate, _canId));
-
-			return result;
-		}
-
         struct DidInfo {
             DidInfo(uint16_t didId, size_t freeSize)
                 : didId{ didId }
@@ -267,13 +219,12 @@ namespace logger {
         std::vector<DidInfo> _didRequests;
 	};
 
-	std::unique_ptr<LoggerImpl> createLoggerImpl(const std::vector<common::ConfigurationInfo>& configurationInfo,
-		common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo, j2534::J2534& j2534)
+    std::unique_ptr<LoggerImpl> createLoggerImpl(common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo)
 	{
 		using common::CarPlatform;
 		if (cmId == 0x7A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P1
 			|| carPlatform == CarPlatform::P2 || carPlatform == CarPlatform::P2_250)) {
-			return std::make_unique<D2LoggerImpl>(j2534);
+            return std::make_unique<D2LoggerImpl>();
 		}
 		if (cmId == 0x6A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
 			|| carPlatform == CarPlatform::P2_250)) {
@@ -281,14 +232,14 @@ namespace logger {
 				throw std::runtime_error("Need to implement logger for aw55");
 				return {};
 			}
-			else if (common::toLower(cmInfo) == "tf80") {
+            else if (common::toLower(cmInfo) == "tf80_p2") {
 				throw std::runtime_error("Need to implement logger for tf80");
 				return {};
 			}
 		}
 		if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford) {
-			const common::ECUInfo ecuInfo = std::get<1>(common::getEcuInfoByEcuId(configurationInfo, carPlatform, cmId));
-			return std::make_unique<UDSLoggerImpl>(j2534, ecuInfo.canId);
+            const common::ECUInfo ecuInfo = std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId));
+            return std::make_unique<UDSLoggerImpl>(ecuInfo.canId);
 		}
 		throw std::runtime_error("Not implemented");
 	}
@@ -309,15 +260,14 @@ namespace logger {
 		}
 	}
 
-	Logger::Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo)
-		: _configurationInfo{ common::loadConfiguration(common::CommonData::commonConfiguration) }
-		, _j2534{ j2534 }
+    Logger::Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId, const std::string& cmInfo)
+        : _j2534ChannelProvider{ j2534, carPlatform }
 		, _carPlatform{ carPlatform }
-		, _cmId{ cmId }
+        , _ecuId{ ecuId }
 		, _cmInfo{ cmInfo }
 		, _loggingThread{}
 		, _stopped{ true }
-		, _loggerImpl(createLoggerImpl(_configurationInfo, _carPlatform, _cmId, _cmInfo, j2534)) {
+        , _loggerImpl(createLoggerImpl(_carPlatform, _ecuId, _cmInfo)) {
 	}
 
 	Logger::~Logger() { stop(); }
@@ -344,8 +294,6 @@ namespace logger {
 
 		_parameters = parameters;
 
-		_channels = _loggerImpl->openChannels(baudrate);
-
 		registerParameters();
 
 		_stopped = false;
@@ -370,13 +318,11 @@ namespace logger {
 
 		if (_callbackThread.joinable())
 			_callbackThread.join();
-
-		_channels.clear();
 	}
 
 	void Logger::registerParameters() {
-		auto& channel = *_channels[0]; // Always first channel for the logger.
-		_loggerImpl->registerParameters(channel, _parameters);
+        auto channel{_j2534ChannelProvider.getChannelForEcu(_ecuId)};
+        _loggerImpl->registerParameters(*channel, _parameters);
 	}
 
 	void Logger::logFunction() {
@@ -386,17 +332,17 @@ namespace logger {
 				callback->onStatusChanged(true);
 			}
 		}
-		auto& channel = *_channels[0]; // Always first channel for the logger.
-		const auto startTimepoint{ std::chrono::steady_clock::now() };
+        auto channel{_j2534ChannelProvider.getChannelForEcu(_ecuId)};
+        const auto startTimepoint{ std::chrono::steady_clock::now() };
 		for (size_t timeoffset = 0;; timeoffset += 50) {
 			{
 				std::unique_lock<std::mutex> lock{ _mutex };
 				if (_stopped)
 					break;
 			}
-			channel.clearRx();
-			channel.clearTx();
-			auto logRecord = _loggerImpl->requestMemory(channel, _parameters);
+            channel->clearRx();
+            channel->clearTx();
+            auto logRecord = _loggerImpl->requestMemory(*channel, _parameters);
 			const auto now{ std::chrono::steady_clock::now() };
 			pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
 				now - startTimepoint),

@@ -3,7 +3,7 @@
 Tools for flashing and logging ME7 and ME9 memory with J2534 devices.
 Initially written by dream3R from http://nefariousmotorsports.com/forum
 for Hilton's Tuning Studio. 
-HTL was decompiled and rewritten in C++.
+HTS was decompiled and rewritten in C++.
 Later was added support of generic J2534 devices not only DiCE
 and support of UDS protocol.
 
@@ -11,6 +11,8 @@ Now supports
 - ME7 flashing and logging for P80 and P2
 - ME9 flashing and logging for P1
 - ME9 and other UDS protocols flashing and logging
+
+Big thanks to rkam for the information and shared data.
 
 ## Сборка проекта
 ### Требуемые приложения
@@ -44,3 +46,11 @@ Now supports
 `cmake --build build --config Release`
 
 Также можно открыть файл `VolvoTools.sln` и собрать с помощью Visual Studio.
+
+## Особенности работы с устройствами J2534
+
+В попытках уменьшить количество открытий и закрытий КАН каналов, решил долговременно хранить их в сущности под названием J2534Info.
+Но наткнулся на то, что канал открытый в одном потоке вызывает аварийное отключение устройства при попытке использовать в другом.
+Данное поведение проявилось на адаптере MongoosePro JLR. Возможно, с другими устройствами ситуация аналогичная. В итоге, создал сущность J2534ChannelProvider.
+С помощью этой сущности можно открывать все каналы, по какой-либо поддерживаемой платформе. А также открывать один канал, если нужно обратиться к конкретному ЭБУ.
+Первая возможность используется в флешерах, чтобы увести устройства во всех сетях в сон. Вторая для работы с шиной конкретного ЭБУ, например, в логгерах.
