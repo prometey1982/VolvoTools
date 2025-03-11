@@ -23,7 +23,7 @@ void updateChecksum(std::vector<uint8_t>& data)
     }
 }
 
-VBFChunk createChunk(const std::vector<uint8_t>& data, size_t offset, size_t size)
+VBFChunk createChunk(const std::vector<uint8_t>& data, uint32_t offset, size_t size)
 {
     return {offset, std::vector<uint8_t>(data.data() + offset, data.data() + offset + size)};
 }
