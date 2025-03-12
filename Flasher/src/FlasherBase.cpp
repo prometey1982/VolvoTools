@@ -60,7 +60,7 @@ void FlasherBase::start()
 {
     _flasherThread = std::thread([this]() {
         try {
-            auto channels{_j2534ChannelProvider.getAllChannels()};
+            auto channels{_j2534ChannelProvider.getAllChannels(_flasherParameters.ecuId)};
             startImpl(channels);
         }
         catch(...) {

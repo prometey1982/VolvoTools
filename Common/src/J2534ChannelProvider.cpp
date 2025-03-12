@@ -12,7 +12,7 @@ namespace common {
 
 namespace {
 
-std::unique_ptr<j2534::J2534Channel> createChannelByBusConf(j2534::J2534& j2534, BusConfiguration bus)
+std::unique_ptr<j2534::J2534Channel> createChannelByBusConf(j2534::J2534& j2534, BusConfiguration bus, uint32_t canId = 0)
 {
     if(bus.protocolId == CAN) {
         const unsigned long flags = (bus.canIdBitSize == 29)? CAN_29BIT_ID : 0;
@@ -24,7 +24,7 @@ std::unique_ptr<j2534::J2534Channel> createChannelByBusConf(j2534::J2534& j2534,
         }
     }
     else if(bus.protocolId == ISO15765) {
-        return openUDSChannel(j2534, bus.baudrate);
+        return openUDSChannel(j2534, bus.baudrate, canId);
     }
     throw std::runtime_error("Unsupported protocol");
 }
@@ -58,12 +58,18 @@ j2534::J2534& J2534ChannelProvider::getJ2534() const
     return _j2534;
 }
 
-std::vector<std::unique_ptr<j2534::J2534Channel>> J2534ChannelProvider::getAllChannels() const
+std::vector<std::unique_ptr<j2534::J2534Channel>> J2534ChannelProvider::getAllChannels(uint32_t ecuId) const
 {
     std::vector<std::unique_ptr<j2534::J2534Channel>> result;
     const auto conf{ getConfigurationInfoByCarPlatform(_carPlatform) };
     for(const auto& bus: conf.busInfo) {
-        result.emplace_back(createChannelByBusConf(_j2534, bus));
+        uint32_t canId{};
+        for(const auto& ecu: bus.ecuInfo) {
+            if(ecu.ecuId == ecuId) {
+                canId = ecu.canId;
+            }
+        }
+        result.emplace_back(createChannelByBusConf(_j2534, bus, canId));
     }
     return result;
 }
@@ -71,7 +77,7 @@ std::vector<std::unique_ptr<j2534::J2534Channel>> J2534ChannelProvider::getAllCh
 std::unique_ptr<j2534::J2534Channel> J2534ChannelProvider::getChannelForEcu(uint32_t ecuId) const
 {
     const auto ecuInfo{ getEcuInfoByEcuId(_carPlatform, ecuId) };
-    return createChannelByBusConf(_j2534, std::get<0>(ecuInfo));
+    return createChannelByBusConf(_j2534, std::get<0>(ecuInfo), std::get<1>(ecuInfo).canId);
 }
 
 } // namespace common
