@@ -35,9 +35,8 @@ public:
     void start();
 
 protected:
-    virtual void startImpl() = 0;
+    virtual void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels) = 0;
 
-    const std::vector<std::unique_ptr<j2534::J2534Channel>>& getChannels() const;
     const FlasherParameters& getFlasherParameters() const;
 
     void setCurrentState(FlasherState state);
@@ -63,7 +62,6 @@ private:
     std::vector<FlasherCallback *> _callbacks;
 
     bool _stopRequested;
-    std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
 };
 
 } // namespace flasher

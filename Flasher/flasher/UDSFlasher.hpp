@@ -26,7 +26,7 @@ namespace flasher {
         ~UDSFlasher();
 
     private:
-        void startImpl();
+        void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     private:
         UDSFlasherParameters _udsFlasherParameters;

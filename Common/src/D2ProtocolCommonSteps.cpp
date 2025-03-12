@@ -16,21 +16,55 @@ namespace {
                                      const j2534::BaseMessage& message,
                                      const std::vector<uint8_t>& toCheck, size_t count = 10)
     {
-        channel.clearRx();
         unsigned long msgsNum = 1;
         const auto error = channel.writeMsgs(message, msgsNum, 5000);
         if (error != STATUS_NOERROR) {
             throw std::runtime_error("write msgs error");
         }
-        std::vector<PASSTHRU_MSG> received_msgs(1);
         for (size_t i = 0; i < count; ++i) {
+            std::vector<PASSTHRU_MSG> received_msgs(1);
             channel.readMsgs(received_msgs, 3000);
             for (const auto &msg : received_msgs) {
+                bool success = true;
                 for(size_t i = 0; i < toCheck.size(); ++i) {
-                    if(toCheck[i] != msg.Data[i + 5])
-                        return false;
+                    if(toCheck[i] != msg.Data[i + 5]) {
+                        success = false;
+                        break;
+                    }
                 }
-                return true;
+                if(success) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    bool writeMessagesAndCheckAnswer(const j2534::J2534Channel& channel,
+                                     const j2534::BaseMessage& message,
+                                     const std::vector<std::vector<uint8_t>>& toChecks, size_t count = 10)
+    {
+        unsigned long msgsNum = 1;
+        const auto error = channel.writeMsgs(message, msgsNum, 5000);
+        if (error != STATUS_NOERROR) {
+            throw std::runtime_error("write msgs error");
+        }
+        for (size_t i = 0; i < count; ++i) {
+            std::vector<PASSTHRU_MSG> received_msgs(1);
+            channel.readMsgs(received_msgs, 3000);
+            for (const auto &msg : received_msgs) {
+                for(const auto& toCheck: toChecks) {
+                    bool success = true;
+                    for(size_t i = 0; i < toCheck.size(); ++i) {
+                        if(toCheck[i] != msg.Data[i + 5]) {
+                            success = false;
+                            break;
+                        }
+                    }
+                    if(success) {
+                        return true;
+                    }
+                }
             }
         }
         return false;
@@ -103,7 +137,6 @@ namespace {
     bool D2ProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint8_t ecuId, const VBF& data,
                                              const std::function<void(size_t)> progressCallback)
 	{
-        size_t storedProgress{ 0 };
         for(const auto& chunk: data.chunks) {
             auto binMsgs = common::D2Messages::createWriteDataMsgs(
                 ecuId, chunk.data, 0, chunk.data.size());
@@ -117,12 +150,11 @@ namespace {
             if (error != STATUS_NOERROR) {
                 throw std::runtime_error("write msgs error");
             }
-            storedProgress += 6 * passThruMsgs.size();
-            progressCallback(storedProgress);
+            progressCallback(6 * msgsNum);
         }
         writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
         uint32_t endOffset =  chunk.writeOffset + chunk.data.size();
-        uint8_t checksum = calculateCheckSum(chunk.data, chunk.writeOffset, endOffset);
+        uint8_t checksum = calculateCheckSum(chunk.data, 0, chunk.data.size());
         if (!writeMessagesAndCheckAnswer(
                 channel,
                 common::D2Messages::createCalculateChecksumMsg(ecuId, endOffset),
@@ -136,11 +168,13 @@ namespace {
 	{
         for (const auto& chunk : data.chunks) {
             writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             if (!writeMessagesAndCheckAnswer(
                     channel,
                     common::D2Messages::createEraseMsg(ecuId),
-                    { 0xF9, 0x0 }, 30))
+                    {{ 0xF9, 0x0 }, { 0xF9, 0x2 }}, 30))
                 throw std::runtime_error("Can't erase memory");
+//            std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         return true;
     }

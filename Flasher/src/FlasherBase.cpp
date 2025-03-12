@@ -60,17 +60,13 @@ void FlasherBase::start()
 {
     _flasherThread = std::thread([this]() {
         try {
-            startImpl();
+            auto channels{_j2534ChannelProvider.getAllChannels()};
+            startImpl(channels);
         }
         catch(...) {
             setCurrentState(FlasherState::Error);
         }
     });
-}
-
-const std::vector<std::unique_ptr<j2534::J2534Channel>>& FlasherBase::getChannels() const
-{
-    return _channels;
 }
 
 const FlasherParameters& FlasherBase::getFlasherParameters() const

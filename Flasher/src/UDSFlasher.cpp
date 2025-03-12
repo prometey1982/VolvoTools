@@ -278,12 +278,12 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     {
     }
 
-    void UDSFlasher::startImpl()
+    void UDSFlasher::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };
 
-        UDSFlasherImpl impl(getChannels(), getFlasherParameters(), _udsFlasherParameters,
+        UDSFlasherImpl impl(channels, getFlasherParameters(), _udsFlasherParameters,
             std::get<1>(ecuInfo).canId, [this](FlasherState state) {
             setCurrentState(state);
         });
