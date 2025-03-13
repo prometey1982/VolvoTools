@@ -70,18 +70,20 @@ namespace common {
 
 	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
-		std::vector<std::vector<unsigned long>> msgIds(channels.size());
-		for (size_t i = 0; i < channels.size(); ++i) {
-			const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x11, 0x01 }), 5);
-			if (ids.empty()) {
-                return;
-			}
-			msgIds[i] = ids;
-		}
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-		for (size_t i = 0; i < channels.size(); ++i) {
-			channels[i]->stopPeriodicMsg(msgIds[i]);
-		}
+        for(const auto& idToWakeUp: {0x11, 0x81}) {
+            std::vector<std::vector<unsigned long>> msgIds(channels.size());
+            for (size_t i = 0; i < channels.size(); ++i) {
+                const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x11, static_cast<uint8_t>(idToWakeUp) }), 20);
+                if (ids.empty()) {
+                    return;
+                }
+                msgIds[i] = ids;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            for (size_t i = 0; i < channels.size(); ++i) {
+                channels[i]->stopPeriodicMsg(msgIds[i]);
+            }
+        }
         return;
 	}
 
