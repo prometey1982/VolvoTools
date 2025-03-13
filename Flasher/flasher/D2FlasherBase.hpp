@@ -19,7 +19,6 @@ public:
     void canWakeUp(unsigned long baudrate);
 
 protected:
-    static size_t getProgressFromVBF(const common::VBF& vbf);
     void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels) override final;
 
     virtual size_t getMaximumFlashProgress() const = 0;

@@ -135,7 +135,7 @@ namespace {
     }
 
     bool D2ProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint8_t ecuId, const VBF& data,
-                                             const std::function<void(size_t)> progressCallback)
+                                             const std::function<void(size_t)>& progressCallback)
 	{
         for(const auto& chunk: data.chunks) {
             auto binMsgs = common::D2Messages::createWriteDataMsgs(

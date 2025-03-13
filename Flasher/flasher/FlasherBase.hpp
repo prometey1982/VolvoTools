@@ -22,6 +22,8 @@ struct FlasherParameters {
 
 class FlasherBase {
 public:
+    static size_t getProgressFromVBF(const common::VBF& vbf);
+
     FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters);
     virtual ~FlasherBase();
 

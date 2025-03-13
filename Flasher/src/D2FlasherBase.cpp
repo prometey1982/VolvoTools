@@ -28,14 +28,6 @@ void D2FlasherBase::canWakeUp(unsigned long baudrate)
     cleanErrors();
 }
 
-size_t D2FlasherBase::getProgressFromVBF(const common::VBF& vbf)
-{
-    return std::accumulate(vbf.chunks.cbegin(), vbf.chunks.cend(), size_t{ 0 },
-                           [](const auto& value, const auto& chunk) {
-                               return value + chunk.data.size();
-                           });
-}
-
 void D2FlasherBase::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 {
     try {

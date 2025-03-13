@@ -106,7 +106,8 @@ namespace common {
 		}
 	}
 
-	bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+    bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
+                                              const std::function<void(size_t)>& progressCallback)
 	{
 		try {
 			for (const auto& chunk : data.chunks) {
@@ -128,6 +129,7 @@ namespace common {
 					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
 					UDSRequest transferDataRequest{ canId, std::move(data) };
 					transferDataRequest.process(channel, { chunkIndex }, 60000);
+                    progressCallback(chunkEnd - i);
 				}
 				UDSRequest transferExitRequest{ canId, { 0x37 } };
 				transferExitRequest.process(

@@ -5,7 +5,17 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <numeric>
+
 namespace flasher {
+
+size_t FlasherBase::getProgressFromVBF(const common::VBF& vbf)
+{
+    return std::accumulate(vbf.chunks.cbegin(), vbf.chunks.cend(), size_t{ 0 },
+                           [](const auto& value, const auto& chunk) {
+                               return value + chunk.data.size();
+                           });
+}
 
 FlasherBase::FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters)
     : _j2534ChannelProvider{ j2534, flasherParameters.carPlatform }
