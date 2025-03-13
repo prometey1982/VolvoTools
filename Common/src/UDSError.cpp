@@ -7,85 +7,85 @@ namespace {
 const char* getWhatString(uint8_t errorCode)
 {
     switch(errorCode) {
-    case 0x10:
+    case UDSError::ErrorCode::GenericError:
         return "Generic Error";
-    case 0x11:
+    case UDSError::ErrorCode::ServiceNotSupported:
         return "Service not supported";
-    case 0x12:
+    case UDSError::ErrorCode::SubFunctionNotSupported:
         return "Sub Function not supported";
-    case 0x13:
+    case UDSError::ErrorCode::InvalidMessageOrLengthFormat:
         return "Invalid message length/format";
-    case 0x14:
+    case UDSError::ErrorCode::ResponseTooLong:
         return "Response too long";
-    case 0x21:
+    case UDSError::ErrorCode::BusyRepeatRequest:
         return "Busy-repeat request";
-    case 0x22:
+    case UDSError::ErrorCode::ConditionsNotCorrect:
         return "Conditions not correct";
-    case 0x24:
+    case UDSError::ErrorCode::RequestSequenceError:
         return "Request sequence error";
-    case 0x25:
+    case UDSError::ErrorCode::NoResponseFromSubnetComponent:
         return "No response from subnet component";
-    case 0x26:
+    case UDSError::ErrorCode::FailurePreventsExecutionOfRequestedAction:
         return "Failure prevents execution of requested action";
-    case 0x31:
+    case UDSError::ErrorCode::RequestOutOfRange:
         return "Request out of range";
-    case 0x33:
+    case UDSError::ErrorCode::SecurityAccessDenied:
         return "Security access denied";
-    case 0x35:
+    case UDSError::ErrorCode::InvalidKey:
         return "Invalid Key";
-    case 0x36:
+    case UDSError::ErrorCode::ExceedNumberOfAttempts:
         return "Exceeded number of attempts";
-    case 0x37:
+    case UDSError::ErrorCode::RequiredTimeDelayHasNotExpired:
         return "Required time delay has not expired";
-    case 0x70:
+    case UDSError::ErrorCode::UploadDownloadNotAccepted:
         return "Upload/download not accepted";
-    case 0x71:
+    case UDSError::ErrorCode::TransferDataSuspended:
         return "Transfer data suspended";
-    case 0x72:
+    case UDSError::ErrorCode::ProgrammingFailure:
         return "Programming failure";
-    case 0x73:
+    case UDSError::ErrorCode::WrongBlockSequenceCounter:
         return "Wrong block sequence counter";
-    case 0x78:
+    case UDSError::ErrorCode::RequestReceivedResponsePending:
         return "Request received - response pending";
-    case 0x7E:
+    case UDSError::ErrorCode::SubFunctionNotSupportedInActiveSession:
         return "Sub function not supported in active session";
-    case 0x7F:
+    case UDSError::ErrorCode::ServiceNotSupportedInActiveSession:
         return "Service not supported in active session";
-    case 0x81:
+    case UDSError::ErrorCode::RPMTooHigh:
         return "RPM too high";
-    case 0x82:
+    case UDSError::ErrorCode::RPMTooLow:
         return "RPM too low";
-    case 0x83:
+    case UDSError::ErrorCode::EngineIsRunning:
         return "Engine is running";
-    case 0x84:
+    case UDSError::ErrorCode::EngineIsNotRunning:
         return "Engine is not running";
-    case 0x85:
+    case UDSError::ErrorCode::EngineRunTimeTooLow:
         return "Engine run time too low";
-    case 0x86:
+    case UDSError::ErrorCode::TemperatureTooHigh:
         return "Temperature too high";
-    case 0x87:
+    case UDSError::ErrorCode::TemperatureTooLow:
         return "Temperature too low";
-    case 0x88:
+    case UDSError::ErrorCode::SpeedTooHigh:
         return "Speed too high";
-    case 0x89:
+    case UDSError::ErrorCode::SpeedTooLow:
         return "Speed too low";
-    case 0x8A:
+    case UDSError::ErrorCode::ThrottlePedalTooHigh:
         return "Throttle pedal too high";
-    case 0x8B:
+    case UDSError::ErrorCode::ThrottlePedalTooLow:
         return "Throttle pedal too low";
-    case 0x8C:
+    case UDSError::ErrorCode::TransmissionRangeNotInNeutral:
         return "Transmission range not in neutral";
-    case 0x8D:
+    case UDSError::ErrorCode::TransmissionRangeNotInGear:
         return "Transmission range not in gear";
-    case 0x8F:
+    case UDSError::ErrorCode::BrakeSwitchesNotClosed:
         return "Brake switches not closed";
-    case 0x90:
+    case UDSError::ErrorCode::ShifterLevelNotInPark:
         return "Shifter lever not in park";
-    case 0x91:
+    case UDSError::ErrorCode::TorqueConverterClutchLocked:
         return "Torque converter clutch locked";
-    case 0x92:
+    case UDSError::ErrorCode::VoltageTooHigh:
         return "Voltage too high";
-    case 0x93:
+    case UDSError::ErrorCode::VoltageTooLow:
         return "Voltage too low";
     }
     return "";

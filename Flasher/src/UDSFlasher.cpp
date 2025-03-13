@@ -37,6 +37,12 @@ namespace flasher {
             }
         }
 
+        void keepAlive()
+        {
+            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            common::UDSProtocolCommonSteps::keepAlive(channel);
+        }
+
         void authorize()
         {
             _stateUpdater(FlasherState::Authorize);
@@ -138,6 +144,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         M::Composite<
             struct StartWork,
             struct FallAsleep,
+            struct KeepAlive,
             struct Authorize,
             struct LoadBootloader,
             struct StartBootloader,
@@ -175,7 +182,8 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             auto plan = control.plan();
-            plan.change<FallAsleep, Authorize>();
+            plan.change<FallAsleep, KeepAlive>();
+            plan.change<KeepAlive, Authorize>();
             plan.change<Authorize, LoadBootloader>();
             plan.change<LoadBootloader, StartBootloader>();
             plan.change<StartBootloader, EraseFlash>();
@@ -196,6 +204,13 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().fallAsleep();
+        }
+    };
+
+    struct KeepAlive : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().keepAlive();
         }
     };
 
@@ -290,7 +305,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
 
         FSM::Instance fsm{ impl };
 
-        while(getCurrentState() != FlasherState::Done || getCurrentState() != FlasherState::Error) {
+        while(getCurrentState() != FlasherState::Done && getCurrentState() != FlasherState::Error) {
             fsm.update();
         }
     }

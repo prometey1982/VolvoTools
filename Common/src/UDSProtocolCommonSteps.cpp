@@ -1,6 +1,7 @@
 #include "common/UDSProtocolCommonSteps.hpp"
 
 #include "common/UDSRequest.hpp"
+#include "common/UDSError.hpp"
 #include "common/Util.hpp"
 
 #include <thread>
@@ -69,7 +70,19 @@ namespace common {
 
 	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
-		(void)channels;
+		std::vector<std::vector<unsigned long>> msgIds(channels.size());
+		for (size_t i = 0; i < channels.size(); ++i) {
+			const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x11, 0x01 }), 5);
+			if (ids.empty()) {
+                return;
+			}
+			msgIds[i] = ids;
+		}
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		for (size_t i = 0; i < channels.size(); ++i) {
+			channels[i]->stopPeriodicMsg(msgIds[i]);
+		}
+        return;
 	}
 
 	bool UDSProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
@@ -77,7 +90,6 @@ namespace common {
 	{
 		try {
 			channel.clearRx();
-			UDSMessage requestSeedMsg(canId, { 0x27, 0x01 });
 			UDSRequest seedRequest(canId, { 0x27, 0x01 });
 			const auto seedResponse(seedRequest.process(channel));
 			if (seedResponse.size() < 9)
@@ -96,44 +108,34 @@ namespace common {
 
 	bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
 	{
-		for (const auto& chunk : data.chunks) {
-			const auto startAddr = chunk.writeOffset;
-			const auto dataSize = chunk.data.size();
-			UDSMessage requestDownloadMsg(canId, { 0x34, 0x00, 0x44,
-				(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-				(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF });
-			unsigned long numMsgs;
-			channel.clearRx();
-			if (channel.writeMsgs(requestDownloadMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-				return false;
-			}
-			const auto downloadResponse = readMessageCheckAndGet(channel, { 0x74 }, { 0x20 }, 10);
-			if (downloadResponse.empty()) {
-				return false;
-			}
-			const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
-			uint8_t chunkIndex = 1;
-			for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
-				const auto chunkEnd = std::min(i + maxSizeToTransfer, chunk.data.size());
-				std::vector<uint8_t> data{ 0x36, chunkIndex };
-				data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-				UDSMessage transferMsg(canId, std::move(data));
-				channel.clearRx();
-				if (channel.writeMsgs(transferMsg, numMsgs, 60000) != STATUS_NOERROR || numMsgs < 1) {
+		try {
+			for (const auto& chunk : data.chunks) {
+				const auto startAddr = chunk.writeOffset;
+				const auto dataSize = chunk.data.size();
+				UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
+					(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
+				unsigned long numMsgs;
+				const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
+				if (downloadResponse.size() < 2) {
 					return false;
 				}
-				if (!readMessageAndCheck(channel, { 0x76 }, { chunkIndex }, 10)) {
-					return false;
+				const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
+				uint8_t chunkIndex = 1;
+				for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
+					std::vector<uint8_t> data{ 0x36, chunkIndex };
+					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
+					UDSRequest transferDataRequest{ canId, std::move(data) };
+					transferDataRequest.process(channel, { chunkIndex }, 60000);
 				}
+				UDSRequest transferExitRequest{ canId, { 0x37 } };
+				transferExitRequest.process(
+					channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) });
 			}
-			UDSMessage transferExitMsg(canId, { 0x37 });
-			channel.clearRx();
-			if (channel.writeMsgs(transferExitMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-				return false;
-			}
-			if (!readMessageAndCheck(channel, { 0x77 }, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 10)) {
-				return false;
-			}
+		}
+		catch (...) {
+			return false;
 		}
 
 		return true;

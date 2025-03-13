@@ -211,32 +211,48 @@ namespace common {
     }
 
     std::unique_ptr<j2534::J2534Channel>
-        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId) {
-        const unsigned long protocolId = Baudrate > 125000 ? ISO15765 : ISO15765_PS;
-        const unsigned long flags = ISO15765_FRAME_PAD;
-        auto channel{ std::make_unique<j2534::J2534Channel>(j2534, protocolId, 0,
-                                                           Baudrate, 0) };
-        std::vector<SCONFIG> config(3);
-        config[0].Parameter = DATA_RATE;
-        config[0].Value = Baudrate;
-        config[1].Parameter = LOOPBACK;
-        config[1].Value = 0;
-        config[2].Parameter = BIT_SAMPLE_POINT;
-        config[2].Value = (Baudrate == 500000 ? 80 : 68);
-        channel->setConfig(config);
+        openUDSChannel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
 
-        if (protocolId == ISO15765_PS) {
-            std::vector<SCONFIG> config(1);
-            config[0].Parameter = J1962_PINS;
-            config[0].Value = 0x030B;
+        std::unique_ptr<j2534::J2534Channel> channel;
+        const std::vector<unsigned long> SupportedProtocols = { ISO15765_PS, ISO15765 };
+        for (const auto& protocolId : SupportedProtocols) {
+            if(protocolId == ISO15765_PS && baudrate != 125000) {
+                continue;
+            }
+            unsigned long flags = 0;
+            unsigned long txFlags = ISO15765_FRAME_PAD;
+            if (protocolId == ISO15765 && baudrate == 125000)
+                flags |= PHYSICAL_CHANNEL;
+            try {
+                channel = std::make_unique<j2534::J2534Channel>(
+                    j2534, protocolId, flags, baudrate, txFlags);
+            }
+            catch (...) {
+                continue;
+            }
+            std::vector<SCONFIG> config(3);
+            config[0].Parameter = DATA_RATE;
+            config[0].Value = baudrate;
+            config[1].Parameter = LOOPBACK;
+            config[1].Value = 0;
+            config[2].Parameter = BIT_SAMPLE_POINT;
+            config[2].Value = (baudrate == 500000 ? 80 : 68);
             channel->setConfig(config);
-        }
 
-        if(canId) {
-            prepareUDSChannel(*channel, canId);
-        }
+            if (protocolId == ISO15765_PS) {
+                std::vector<SCONFIG> config(1);
+                config[0].Parameter = J1962_PINS;
+                config[0].Value = 0x030B;
+                channel->setConfig(config);
+            }
 
-        return std::move(channel);
+            if (canId) {
+                prepareUDSChannel(*channel, canId);
+            }
+
+            return std::move(channel);
+        }
+        return {};
     }
 
     bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId) {

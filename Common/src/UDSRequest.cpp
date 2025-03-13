@@ -1,5 +1,6 @@
 #include "common/UDSRequest.hpp"
 
+#include "common/UDSError.hpp"
 #include "common/Util.hpp"
 
 #include <algorithm>
@@ -49,6 +50,49 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel, siz
         }
         result.reserve(result.size() + dataSize);
         std::copy(data, data + dataSize, std::back_inserter(result));
+        return false;
+    }, timeout);
+    return result;
+}
+
+std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
+                                         const std::vector<uint8_t>& checkData,
+                                         size_t retryCount, size_t timeout)
+{
+    channel.clearRx();
+    unsigned long numMsgs = 0;
+    if(channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
+        throw std::runtime_error("Failed to send CAN message");
+    }
+    std::vector<uint8_t> result;
+    channel.readMsgs([&result, &checkData, &retryCount, this](const uint8_t* data, size_t dataSize) {
+        try {
+            checkUDSError(_requestId, data, dataSize);
+        }
+        catch (const UDSError& ex) {
+            if (UDSError::ErrorCode::RequestReceivedResponsePending) {
+                return true;
+            }
+            throw;
+        }
+        size_t dataOffset = 4;
+        if(dataSize < dataOffset + checkData.size()) {
+            return true;
+        }
+        if(data[dataOffset] != _requestId + 0x40) {
+            return true;
+        }
+        ++dataOffset;
+        const auto areResultEqual{std::equal(checkData.cbegin(), checkData.cend(), data + dataOffset)};
+        if (!areResultEqual) {
+            if(--retryCount == 0) {
+                throw std::runtime_error("Failed to receive correct answer");
+            }
+            return (--retryCount != 0);
+        }
+        dataOffset += checkData.size();
+        result.reserve(result.size() + dataSize);
+        std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
         return false;
     }, timeout);
     return result;

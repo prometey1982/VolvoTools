@@ -566,7 +566,7 @@ std::array<uint8_t, N> toArray(T val)
 void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 {
 	common::VBFParser vbfParser;
-	std::ifstream inpVbf("C:\\misc\\Volvo tools\\vbf files\\8675363_P2_dem_sbl.vbf", std::ios_base::binary);
+	std::ifstream inpVbf("C:\\misc\\Volvo tools\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
 	const common::VBF bootloader = vbfParser.parse(inpVbf);
 	const common::VBF test1{ vbfParser.parse(common::SBLData::P1_ME9_SBL)};
 	const common::VBF test2{ vbfParser.parse(common::SBLData::P2_ME7_SBL) };
