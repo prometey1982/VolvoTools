@@ -2,6 +2,9 @@
 #include <common/D2Messages.hpp>
 #include <common/VBFParser.hpp>
 #include <common/SBL.hpp>
+#include <common/UDSProtocolCommonSteps.hpp>
+#include <common/UDSPinFinder.hpp>
+#include <common/UDSRequest.hpp>
 #include <common/Util.hpp>
 
 #include <j2534/J2534.hpp>
@@ -16,6 +19,7 @@
 #include <argparse/argparse.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -23,6 +27,8 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
+
+bool stopRequested = false;
 
 enum class RunMode
 {
@@ -37,7 +43,7 @@ enum class RunMode
 bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	unsigned long& baudrate, std::string& flashPath, uint64_t& pin,
 	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
-	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform) {
+	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform, bool& pinUpward) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
@@ -61,6 +67,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 
 	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
 	pin_command.add_description("Bruteforce ECM PIN code. If you provide -p argument then program starts from providen PIN");
+	pin_command.add_argument("-d", "--down").default_value(false).implicit_value(true).nargs(0).help("Scan pins downward");
 
 	argparse::ArgumentParser wakeup_command("wakeup", "1.0", argparse::default_arguments::help);
 	wakeup_command.add_description("Wake up CAN network");
@@ -87,6 +94,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			runMode = RunMode::Test;
 		}
 		else if (program.is_subcommand_used(pin_command)) {
+			pinUpward = !pin_command.get<bool>("-d");
 			runMode = RunMode::Pin;
 		}
 		else if (program.is_subcommand_used(wakeup_command)) {
@@ -173,11 +181,6 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	}
 	return false;
 #endif
-}
-
-BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
-	//    logger::LoggerApplication::instance().stop();
-	return TRUE;
 }
 
 class FlasherCallback final : public flasher::FlasherCallback {
@@ -501,6 +504,53 @@ void findPin(j2534::J2534& j2534, uint64_t i = 0)
 	}
 }
 
+void findPin2(j2534::J2534& j2534, common::CarPlatform carPlatform, uint8_t ecuId, uint64_t startPin = 0, bool upward = true)
+{
+	std::chrono::time_point savedTime = std::chrono::steady_clock::now();
+	uint64_t savedPin = startPin;
+	common::UDSPinFinder pinFinder(j2534, carPlatform, ecuId, [&savedTime, &savedPin](common::UDSPinFinder::State state, uint64_t currentPin) {
+		switch (state) {
+		case common::UDSPinFinder::State::FallAsleep:
+			std::cout << "Fall asleep" << std::endl;
+			break;
+		case common::UDSPinFinder::State::KeepAlive:
+			std::cout << "Start keep alive" << std::endl;
+			break;
+		case common::UDSPinFinder::State::Work:
+			if (!(currentPin & 0xFF)) {
+				const auto now = std::chrono::steady_clock::now();
+				uint64_t pinDiff = currentPin > savedPin ? currentPin - savedPin : savedPin - currentPin;
+				const auto pinPerSec = pinDiff / ((now - savedTime).count() / 1000000000);
+				savedPin = currentPin;
+				savedTime = now;
+				std::cout << "Trying PIN " << std::hex << currentPin << ", " << std::dec << pinPerSec << " pins/sec" << std::endl;
+			}
+			break;
+		}
+		}, upward ? common::UDSPinFinder::Direction::Up : common::UDSPinFinder::Direction::Down, startPin);
+
+	if (!pinFinder.start()) {
+		std::cout << "Failed to start PIN finder" << std::endl;
+	}
+	else {
+		while (pinFinder.getCurrentState() != common::UDSPinFinder::State::Done && pinFinder.getCurrentState() != common::UDSPinFinder::State::Error) {
+			if (stopRequested) {
+				pinFinder.stop();
+				stopRequested = false;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+		if (const auto foundPin{ pinFinder.getFoundPin() }) {
+			std::cout << "Found PIN code "
+				<< std::hex << std::setfill('0') << *foundPin << std::endl;
+		}
+		else {
+			std::cout << "Last checked PIN code "
+				<< std::hex << std::setfill('0') << savedPin << std::endl;
+		}
+	}
+}
+
 bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId, const std::array<uint8_t, 5>& pin)
 {
 	PASSTHRU_MSG msg;
@@ -803,6 +853,11 @@ void findMultiplePins()
 	}
 }
 
+BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
+	stopRequested = true;
+	return TRUE;
+}
+
 int main(int argc, const char* argv[]) {
 	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
@@ -841,8 +896,9 @@ int main(int argc, const char* argv[]) {
 	unsigned long datasize = 0;
 	uint8_t ecuId = 0;
 	RunMode runMode = RunMode::None;
+	bool scanPinsUpward = true;
 	const auto devices = common::getAvailableDevices();
-	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize, runMode, sblPath, carPlatform)) {
+	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize, runMode, sblPath, carPlatform, scanPinsUpward)) {
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
 				device.deviceName.find(deviceName) != std::string::npos) {
@@ -861,7 +917,7 @@ int main(int argc, const char* argv[]) {
 //						flasher.canWakeUp(baudrate);
 					}
 					else if (runMode == RunMode::Pin) {
-						findPin(*j2534, pin);
+						findPin2(*j2534, carPlatform, ecuId, pin, scanPinsUpward);
 					}
 					else if (runMode == RunMode::Read) {
 						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize);

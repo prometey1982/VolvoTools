@@ -621,4 +621,9 @@ namespace common {
         return common::CarPlatform::Undefined;
     }
 
+    std::array<uint8_t, 5> getPinArray(uint64_t pin)
+    {
+        return { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
+    }
+
 } // namespace common

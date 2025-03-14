@@ -86,4 +86,6 @@ namespace common {
 
     CarPlatform parseCarPlatform(std::string input);
 
+    std::array<uint8_t, 5> getPinArray(uint64_t pin);
+
 } // namespace common
