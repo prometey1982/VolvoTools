@@ -181,19 +181,35 @@ namespace common {
         channel.passThruIoctl(CAN_XON_XOFF_FILTER_ACTIVE, &msgId);
     }
 
+    static void setupChannelParameters(j2534::J2534Channel& channel)
+    {
+        std::vector<SCONFIG> config(3);
+        config[0].Parameter = DATA_RATE;
+        config[0].Value = channel.getBaudrate();
+        config[1].Parameter = LOOPBACK;
+        config[1].Value = 0;
+        config[2].Parameter = BIT_SAMPLE_POINT;
+        config[2].Value = (channel.getBaudrate() == 500000 ? 80 : 68);
+        channel.setConfig(config);
+    }
+
+    static void setupChannelPins(j2534::J2534Channel& channel)
+    {
+        if (channel.getProtocolId() == ISO14230_PS || channel.getProtocolId() == ISO15765_PS) {
+            std::vector<SCONFIG> config(1);
+            config[0].Parameter = J1962_PINS;
+            config[0].Value = 0x030B;
+            channel.setConfig(config);
+        }
+    }
+
     std::unique_ptr<j2534::J2534Channel>
         openChannel(j2534::J2534& j2534, unsigned long ProtocolID, unsigned long Flags,
             unsigned long Baudrate, bool AdditionalConfiguration) {
         auto channel{ std::make_unique<j2534::J2534Channel>(j2534, ProtocolID, Flags,
                                                            Baudrate, Flags) };
-        std::vector<SCONFIG> config(3);
-        config[0].Parameter = DATA_RATE;
-        config[0].Value = Baudrate;
-        config[1].Parameter = LOOPBACK;
-        config[1].Value = 0;
-        config[2].Parameter = BIT_SAMPLE_POINT;
-        config[2].Value = (Baudrate == 500000 ? 80 : 68);
-        channel->setConfig(config);
+
+        setupChannelParameters(*channel);
 
         unsigned long msgId;
         PASSTHRU_MSG msgFilter =
@@ -202,7 +218,7 @@ namespace common {
 
         if (AdditionalConfiguration && ProtocolID == CAN_XON_XOFF) {
             startXonXoffMessageFiltering(*channel, Flags);
-            config.resize(1);
+            std::vector<SCONFIG> config(1);
             config[0].Parameter = CAN_XON_XOFF;
             config[0].Value = 0;
             channel->setConfig(config);
@@ -230,21 +246,9 @@ namespace common {
             catch (...) {
                 continue;
             }
-            std::vector<SCONFIG> config(3);
-            config[0].Parameter = DATA_RATE;
-            config[0].Value = baudrate;
-            config[1].Parameter = LOOPBACK;
-            config[1].Value = 0;
-            config[2].Parameter = BIT_SAMPLE_POINT;
-            config[2].Value = (baudrate == 500000 ? 80 : 68);
-            channel->setConfig(config);
 
-            if (protocolId == ISO15765_PS) {
-                std::vector<SCONFIG> config(1);
-                config[0].Parameter = J1962_PINS;
-                config[0].Value = 0x030B;
-                channel->setConfig(config);
-            }
+            setupChannelParameters(*channel);
+            setupChannelPins(*channel);
 
             if (canId) {
                 prepareUDSChannel(*channel, canId);
@@ -256,16 +260,47 @@ namespace common {
     }
 
     bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId) {
-        const unsigned long flags = ISO15765_FRAME_PAD;
         const uint32_t responseCanId = canId + 0x8;
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
-            makePassThruMsg(channel.getProtocolId(), flags, { 0xFF, 0xFF, 0xFF, 0xFF });
+            makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), { 0xFF, 0xFF, 0xFF, 0xFF });
         PASSTHRU_MSG patternMsg =
-            makePassThruMsg(channel.getProtocolId(), flags, toVector(responseCanId));
+            makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), toVector(responseCanId));
         PASSTHRU_MSG flowMsg =
-            makePassThruMsg(channel.getProtocolId(), flags, toVector(canId));
+            makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), toVector(canId));
         return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId) == STATUS_NOERROR;
+    }
+
+    std::unique_ptr<j2534::J2534Channel>
+    openKWP2000Channel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
+
+        std::unique_ptr<j2534::J2534Channel> channel;
+        const std::vector<unsigned long> SupportedProtocols = { ISO14230_PS, ISO14230 };
+        for (const auto& protocolId : SupportedProtocols) {
+            if(protocolId == ISO14230_PS && baudrate != 125000) {
+                continue;
+            }
+            unsigned long flags = 0;
+            if (protocolId == ISO14230 && baudrate == 125000)
+                flags |= PHYSICAL_CHANNEL;
+            try {
+                channel = std::make_unique<j2534::J2534Channel>(
+                    j2534, protocolId, flags, baudrate, 0);
+            }
+            catch (...) {
+                continue;
+            }
+
+            setupChannelParameters(*channel);
+            setupChannelPins(*channel);
+
+            if (canId) {
+                prepareUDSChannel(*channel, canId);
+            }
+
+            return std::move(channel);
+        }
+        return {};
     }
 
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
@@ -293,14 +328,7 @@ namespace common {
                 config[0].Value = 0x030B;
                 channel->setConfig(config);
             }
-            std::vector<SCONFIG> config(3);
-            config[0].Parameter = DATA_RATE;
-            config[0].Value = Baudrate;
-            config[1].Parameter = LOOPBACK;
-            config[1].Value = 0;
-            config[2].Parameter = BIT_SAMPLE_POINT;
-            config[2].Value = (Baudrate == 500000 ? 80 : 68);
-            channel->setConfig(config);
+            setupChannelParameters(*channel);
 
             PASSTHRU_MSG msgFilter =
                 makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x00, 0x01 });

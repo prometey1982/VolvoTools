@@ -4814,4 +4814,36 @@ Configuration:
         SWDLSpecification: 31808456
         SamplePoint: 80
     Name: 15765-2 Not configured ECU HS
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '01'
+            CANIdentifier: 7D1
+            Name: ECM
+          - 
+            Address: '02'
+            CANIdentifier: 7D2
+            Name: TCM
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: vag_med912
 CurrentConfiguration: 9

@@ -46,6 +46,9 @@ namespace common {
 
     bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId);
 
+    std::unique_ptr<j2534::J2534Channel>
+    openKWP2000Channel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId = 0);
+
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
         unsigned long Flags);
 
