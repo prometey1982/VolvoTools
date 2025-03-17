@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CanMessage.hpp"
+#include "common/CanMessage.hpp"
 
 namespace common {
 

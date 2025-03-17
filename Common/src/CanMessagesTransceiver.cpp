@@ -1,6 +1,6 @@
 #include "common/CanMessagesTransceiver.hpp"
 
-#include "common/D2Message.hpp"
+#include "common/protocols/D2Message.hpp"
 
 #include <j2534/J2534Channel.hpp>
 

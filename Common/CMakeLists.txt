@@ -5,13 +5,14 @@ find_package(Boost REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/protocols SUB_SOURCES)
 
 set(SOURCE
   ${SOURCE}
   ${SUB_SOURCES}
 )
 
-FILE(GLOB HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/common/*.h*)
+FILE(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/common/*.h*)
 FILE(GLOB PRIVATE_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h*)
 
 add_library(${PROJECT_NAME} ${SOURCE} ${HEADERS} ${PRIVATE_HEADERS})

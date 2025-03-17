@@ -6,7 +6,7 @@
 
 #include <common/GenericProcess.hpp>
 #include <common/CMType.hpp>
-#include <common/D2Messages.hpp>
+#include <common/protocols/D2Messages.hpp>
 #include <common/VBF.hpp>
 
 namespace flasher {

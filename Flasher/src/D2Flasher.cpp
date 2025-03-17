@@ -1,8 +1,8 @@
 #include "flasher/D2Flasher.hpp"
 
 #include <common/Util.hpp>
-#include <common/D2Message.hpp>
-#include <common/D2ProtocolCommonSteps.hpp>
+//#include <common/protocols/D2Message.hpp>
+#include <common/protocols/D2ProtocolCommonSteps.hpp>
 #include <common/SBL.hpp>
 #include <common/VBFParser.hpp>
 #include <j2534/J2534.hpp>

@@ -1,7 +1,7 @@
-#include "common/D2ProtocolCommonSteps.hpp"
+#include "common/protocols/D2ProtocolCommonSteps.hpp"
 
-#include "common/D2Request.hpp"
-#include "common/D2Messages.hpp"
+#include "common/protocols/D2Request.hpp"
+#include "common/protocols/D2Messages.hpp"
 #include "common/Util.hpp"
 
 #include <map>

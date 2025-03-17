@@ -1,4 +1,4 @@
-#include "common/D2Request.hpp"
+#include "common/protocols/D2Request.hpp"
 
 #include "common/Util.hpp"
 

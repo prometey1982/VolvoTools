@@ -4,8 +4,8 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <common/CommonData.hpp>
-#include <common/UDSMessage.hpp>
-#include <common/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/UDSMessage.hpp>
+#include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
 
 #define HFSM2_ENABLE_ALL

@@ -1,7 +1,7 @@
-#include "common/KWP2000ProtocolCommonSteps.hpp"
+#include "common/protocols/KWPProtocolCommonSteps.hpp"
 
-#include "common/UDSRequest.hpp"
-#include "common/UDSError.hpp"
+#include "common/protocols/UDSRequest.hpp"
+#include "common/protocols/UDSError.hpp"
 #include "common/Util.hpp"
 
 #include <thread>
@@ -10,24 +10,6 @@
 namespace common {
 
 	namespace {
-
-		// helper type for the visitor #4
-		template<class... Ts>
-		struct overloaded : Ts... { using Ts::operator()...; };
-		// explicit deduction guide (not needed as of C++20)
-		template<class... Ts>
-		overloaded(Ts...) -> overloaded<Ts...>;
-
-		void testVariant()
-		{
-			std::variant<int, bool, std::string> test;
-			test = 10;
-			std::visit(overloaded{
-				[](int) {},
-				[](bool) {},
-				[](auto) {},
-				}, test);
-		}
 
 		uint32_t generateKeyImpl(uint32_t hash, uint32_t input)
 		{
@@ -56,7 +38,7 @@ namespace common {
 
 	}
 
-	std::vector<std::unique_ptr<j2534::J2534Channel>> KWP2000ProtocolCommonSteps::openChannels(
+    std::vector<std::unique_ptr<j2534::J2534Channel>> KWPProtocolCommonSteps::openChannels(
 		j2534::J2534& j2534, unsigned long baudrate, uint32_t canId)
 	{
 		std::vector<std::unique_ptr<j2534::J2534Channel>> result;
@@ -65,7 +47,7 @@ namespace common {
 		return result;
 	}
 
-	bool KWP2000ProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    bool KWPProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
 		std::vector<std::vector<unsigned long>> msgIds(channels.size());
 		for (size_t i = 0; i < channels.size(); ++i) {
@@ -82,12 +64,12 @@ namespace common {
 		return true;
 	}
 
-	std::vector<unsigned long> KWP2000ProtocolCommonSteps::keepAlive(const j2534::J2534Channel& channel)
+    std::vector<unsigned long> KWPProtocolCommonSteps::keepAlive(const j2534::J2534Channel& channel)
 	{
 		return channel.startPeriodicMsgs(UDSMessage(0x7DF, { 0x3E, 0x80 }), 1900);
 	}
 
-	void KWP2000ProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    void KWPProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
         for(const auto& idToWakeUp: {0x11, 0x81}) {
             std::vector<std::vector<unsigned long>> msgIds(channels.size());
@@ -106,7 +88,7 @@ namespace common {
         return;
 	}
 
-	bool KWP2000ProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
+    bool KWPProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
 		const std::array<uint8_t, 5>& pin)
 	{
 		try {
@@ -127,7 +109,7 @@ namespace common {
 		}
 	}
 
-    bool KWP2000ProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
+    bool KWPProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
                                               const std::function<void(size_t)>& progressCallback)
 	{
 		try {
@@ -164,7 +146,7 @@ namespace common {
 		return true;
 	}
 
-	bool KWP2000ProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+    bool KWPProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
 	{
 		for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
@@ -183,7 +165,7 @@ namespace common {
 		return true;
 	}
 
-	bool KWP2000ProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
+    bool KWPProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
 	{
 		const auto callAddr = common::toVector(addr);
 		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });

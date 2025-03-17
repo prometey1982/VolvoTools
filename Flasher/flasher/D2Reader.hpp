@@ -4,7 +4,6 @@
 
 #include <common/GenericProcess.hpp>
 #include <common/CMType.hpp>
-#include <common/D2Messages.hpp>
 #include <common/VBF.hpp>
 
 #include <vector>

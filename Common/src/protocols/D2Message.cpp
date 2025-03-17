@@ -1,4 +1,4 @@
-#include "common/D2Message.hpp"
+#include "common/protocols/D2Message.hpp"
 
 #include <algorithm>
 #include <array>

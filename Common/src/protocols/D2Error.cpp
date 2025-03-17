@@ -1,4 +1,4 @@
-#include "common/D2Error.hpp"
+#include "common/protocols/D2Error.hpp"
 
 namespace common {
 

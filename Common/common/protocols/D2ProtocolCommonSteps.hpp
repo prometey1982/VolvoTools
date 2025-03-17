@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VBF.hpp"
+#include "common/VBF.hpp"
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>

@@ -3,11 +3,11 @@
 #include "logger/LoggerCallback.hpp"
 
 #include <common/CommonData.hpp>
-#include <common/D2Request.hpp>
-#include <common/D2Message.hpp>
-#include <common/D2Messages.hpp>
-#include <common/UDSRequest.hpp>
-#include <common/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/D2Request.hpp>
+#include <common/protocols/D2Message.hpp>
+#include <common/protocols/D2Messages.hpp>
+#include <common/protocols/UDSRequest.hpp>
+#include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>

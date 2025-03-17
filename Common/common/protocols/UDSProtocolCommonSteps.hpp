@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VBF.hpp"
+#include "common/VBF.hpp"
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -9,7 +9,7 @@
 
 namespace common {
 
-	class KWP2000ProtocolCommonSteps {
+	class UDSProtocolCommonSteps {
 	public:
 		static std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels(
 			j2534::J2534& j2534, unsigned long baudrate, uint32_t canId);

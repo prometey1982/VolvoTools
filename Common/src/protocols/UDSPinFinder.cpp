@@ -1,6 +1,6 @@
-#include "common/UDSPinFinder.hpp"
+#include "common/protocols/UDSPinFinder.hpp"
 
-#include "common/UDSProtocolCommonSteps.hpp"
+#include "common/protocols/UDSProtocolCommonSteps.hpp"
 #include "common/Util.hpp"
 
 #define HFSM2_ENABLE_ALL

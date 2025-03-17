@@ -1,7 +1,7 @@
-#include "common/UDSProtocolCommonSteps.hpp"
+#include "common/protocols/UDSProtocolCommonSteps.hpp"
 
-#include "common/UDSRequest.hpp"
-#include "common/UDSError.hpp"
+#include "common/protocols/UDSRequest.hpp"
+#include "common/protocols/UDSError.hpp"
 #include "common/Util.hpp"
 
 #include <thread>

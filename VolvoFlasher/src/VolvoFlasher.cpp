@@ -1,10 +1,10 @@
 #include <common/CommonData.hpp>
-#include <common/D2Messages.hpp>
+#include <common/protocols/D2Messages.hpp>
 #include <common/VBFParser.hpp>
 #include <common/SBL.hpp>
-#include <common/UDSProtocolCommonSteps.hpp>
-#include <common/UDSPinFinder.hpp>
-#include <common/UDSRequest.hpp>
+#include <common/protocols/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/UDSPinFinder.hpp>
+#include <common/protocols/UDSRequest.hpp>
 #include <common/Util.hpp>
 
 #include <j2534/J2534.hpp>
