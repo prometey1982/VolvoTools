@@ -1,3 +1,4 @@
+--- 
 Configuration: 
   - 
     Bus: 
@@ -4823,7 +4824,7 @@ Configuration:
         Enabled: 1
         Name: CAN MS
         P4CANMax: 300000
-        SWDLProtocol: 15765-2
+        SWDLProtocol: 14230-3
         SWDLSpecification: 31808456
         SamplePoint: 68
       - 
@@ -4835,14 +4836,14 @@ Configuration:
         Node: 
           - 
             Address: '01'
-            CANIdentifier: 7D1
+            CANIdentifier: 201
             Name: ECM
           - 
             Address: '02'
-            CANIdentifier: 7D2
+            CANIdentifier: 202
             Name: TCM
         P4CANMax: 300000
-        SWDLProtocol: 15765-2
+        SWDLProtocol: 14230-3
         SWDLSpecification: 31808456
         SamplePoint: 80
     Name: vag_med912

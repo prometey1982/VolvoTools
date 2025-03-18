@@ -236,12 +236,12 @@ namespace logger {
 				throw std::runtime_error("Need to implement logger for tf80");
 				return {};
 			}
-		}
-		if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford) {
+        }
+        if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford || carPlatform == CarPlatform::VAG) {
             const common::ECUInfo ecuInfo = std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId));
             return std::make_unique<UDSLoggerImpl>(ecuInfo.canId);
-		}
-		throw std::runtime_error("Not implemented");
+        }
+        throw std::runtime_error("Not implemented");
 	}
 
 	LoggerType getLoggerType(common::CarPlatform carPlatform)

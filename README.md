@@ -11,8 +11,11 @@ Now supports
 - ME7 flashing and logging for P80 and P2
 - ME9 flashing and logging for P1
 - ME9 and other UDS protocols flashing and logging
+- Denso ECM flashing and logging for Volvo P3 platform.
 
 Big thanks to rkam for the information and shared data.
+Big thanks to jazdw for TP20 protocol explanation.
+Big thanks to maZer.GTi for motivation.
 
 ## Сборка проекта
 ### Требуемые приложения

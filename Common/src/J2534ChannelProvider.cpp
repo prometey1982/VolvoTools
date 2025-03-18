@@ -26,6 +26,9 @@ std::unique_ptr<j2534::J2534Channel> createChannelByBusConf(j2534::J2534& j2534,
     else if(bus.protocolId == ISO15765) {
         return openUDSChannel(j2534, bus.baudrate, canId);
     }
+    else if(bus.protocolId == ISO14230) {
+        return openKWPChannel(j2534, bus.baudrate, canId);
+    }
     throw std::runtime_error("Unsupported protocol");
 }
 

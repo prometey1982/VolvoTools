@@ -13,7 +13,8 @@ enum class CarPlatform
     P2_UDS,
     P3,
     SPA,
-    Ford
+    Ford,
+    VAG
 };
 
 }

@@ -3,8 +3,9 @@
 #include "common/CommonData.hpp"
 #include "common/BusConfiguration.hpp"
 #include "common/protocols/D2Error.hpp"
-#include "common/ECUInfo.hpp"
+#include "common/protocols/TP20Error.hpp"
 #include "common/protocols/UDSError.hpp"
+#include "common/ECUInfo.hpp"
 
 #include <Registry/include/Registry.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -271,8 +272,17 @@ namespace common {
         return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId) == STATUS_NOERROR;
     }
 
+    bool prepareKWPChannel(j2534::J2534Channel& channel, uint32_t canId) {
+        unsigned long msgId;
+        PASSTHRU_MSG maskMsg =
+            makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), { 0xFF, 0xFF, 0xFF, 0xFF });
+        PASSTHRU_MSG patternMsg =
+            makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), toVector(canId));
+        return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, nullptr, msgId) == STATUS_NOERROR;
+    }
+
     std::unique_ptr<j2534::J2534Channel>
-    openKWP2000Channel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
+    openKWPChannel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
 
         std::unique_ptr<j2534::J2534Channel> channel;
         const std::vector<unsigned long> SupportedProtocols = { ISO14230_PS, ISO14230 };
@@ -295,7 +305,7 @@ namespace common {
             setupChannelPins(*channel);
 
             if (canId) {
-                prepareUDSChannel(*channel, canId);
+                prepareKWPChannel(*channel, canId);
             }
 
             return std::move(channel);
@@ -492,6 +502,8 @@ namespace common {
             return "Y285/Y286/Y381";
         case CarPlatform::SPA:
             return "EUCD/C1MCA - Generic";
+        case CarPlatform::VAG:
+            return "vag_med912";
         }
         return {};
     }
@@ -611,6 +623,14 @@ namespace common {
     std::vector<ConfigurationInfo> loadConfiguration(const std::string& input)
     {
         return loadConfigurationImpl(YAML::Load(input));
+    }
+
+    void checkTP20Error(uint8_t requestId, const uint8_t* data, size_t dataSize)
+    {
+        if (dataSize < 7 || data[4] != 0x7F || data[5] != requestId) {
+            return;
+        }
+        throw TP20Error(data[6]);
     }
 
     void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize)
