@@ -4,7 +4,7 @@
 
 namespace common {
 
-    struct KWPServiceID {
+    struct TP20ServiceID {
         //00-0F are SAE1979 requests
         //40-4F are SAE1979 responses to requests
 
@@ -73,11 +73,14 @@ namespace common {
         static const uint8_t StartCommunication = 0x81;
         static const uint8_t StopCommunication = 0x82;
         static const uint8_t AccessTimingParameters = 0x83;
-        static const uint8_t StartSession = 0xC0;
+        static const uint8_t SetupChannelParameters = 0xA0;
+        static const uint8_t SetupChannelParametersPositiveResponse = 0xA1;
+        static const uint8_t ACK = 0xB0;
+        static const uint8_t ChannelSetup = 0xC0;
         static const uint8_t StartCommunicationPositiveResponse = 0xC1;
         static const uint8_t StopCommunicationPositiveResponse = 0xC2;
         static const uint8_t AccessTimingParametersPositiveResponse = 0xC3;
-        static const uint8_t StartSessionPositiveResponse = 0xD0;
+        static const uint8_t ChannelSetupPositiveResponse = 0xD0;
     };
 
 } // namespace common

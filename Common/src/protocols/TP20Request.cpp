@@ -21,21 +21,21 @@ namespace common {
 
     }
 
-    KWPRequest::KWPRequest(uint32_t canId, uint32_t responseCanId, const std::vector<uint8_t>& data)
+    TP20Request::TP20Request(uint32_t canId, uint32_t responseCanId, const std::vector<uint8_t>& data)
         : _requestId{ getRequestId(data) }
         , _responseCanId{ responseCanId }
         , _message{ canId, data }
     {
     }
 
-    KWPRequest::KWPRequest(uint32_t canId, uint32_t responseCanId, std::vector<uint8_t>&& data)
+    TP20Request::TP20Request(uint32_t canId, uint32_t responseCanId, std::vector<uint8_t>&& data)
         : _requestId{ getRequestId(data) }
         , _responseCanId{ responseCanId }
         , _message{ canId, std::move(data) }
     {
     }
 
-    std::vector<uint8_t> KWPRequest::process(const j2534::J2534Channel& channel, size_t timeout) const
+    std::vector<uint8_t> TP20Request::process(const j2534::J2534Channel& channel, size_t timeout) const
     {
         unsigned long numMsgs = 0;
         if (channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
@@ -43,7 +43,7 @@ namespace common {
         }
         std::vector<uint8_t> result;
         channel.readMsgs([&result, this](const uint8_t* data, size_t dataSize) {
-            checkKWPError(_requestId, data, dataSize);
+            checkTP20Error(_requestId, data, dataSize);
             if (dataSize < 4) {
                 return true;
             }
@@ -53,7 +53,7 @@ namespace common {
             }
             size_t dataOffset = 4;
             result.reserve(result.size() + dataSize - dataOffset);
-            std::copy(data + dataOffset, data + dataSize - dataOffset, std::back_inserter(result));
+            std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
             return false;
             }, timeout);
         return result;

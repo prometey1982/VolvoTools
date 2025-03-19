@@ -1,4 +1,4 @@
-#include "common/CanMessage.hpp"
+#include "common/protocols/TP20Message.hpp"
 
 #include <algorithm>
 #include <array>
@@ -12,7 +12,6 @@ namespace {
 PASSTHRU_MSG toPassThruMsg(uint32_t msgId, const uint8_t* Data, size_t DataSize,
     unsigned long ProtocolID, unsigned long Flags) {
     PASSTHRU_MSG result;
-    memset(&result, 0, sizeof(result));
     result.ProtocolID = ProtocolID;
     result.RxStatus = 0;
     result.TxFlags = Flags;
@@ -29,43 +28,28 @@ PASSTHRU_MSG toPassThruMsg(uint32_t msgId, const uint8_t* Data, size_t DataSize,
 
 }
 
-CanMessage::CanMessage(uint32_t canId, const std::vector<DataType> &data)
+TP20Message::TP20Message(uint32_t canId, const std::vector<uint8_t> &data)
     : BaseMessage{ canId }
     , _data{ data }
 {}
 
-CanMessage::CanMessage(uint32_t canId, std::vector<DataType> &&data) noexcept
+TP20Message::TP20Message(uint32_t canId, std::vector<uint8_t> &&data) noexcept
     : BaseMessage{ canId }
     , _data{ std::move(data) }
 {}
 
-CanMessage::CanMessage(uint32_t canId, const DataType& data)
-    : BaseMessage{ canId }
-    , _data{ data }
-{
-}
-
-CanMessage::CanMessage(uint32_t canId, DataType&& data)
-    : BaseMessage{ canId }
-    , _data{ std::move(data) }
-{
-}
-
-const std::vector<CanMessage::DataType> &CanMessage::data() const {
+const std::vector<uint8_t> & TP20Message::data() const {
   return _data;
 }
 
-std::vector<PASSTHRU_MSG> CanMessage::toPassThruMsgs(unsigned long ProtocolID,
+std::vector<PASSTHRU_MSG> TP20Message::toPassThruMsgs(unsigned long ProtocolID,
     unsigned long Flags) const {
     std::vector<PASSTHRU_MSG> result;
 
-    for (size_t i = 0; i < data().size(); ++i) {
-        result.emplace_back(std::move(toPassThruMsg(getCanId(),
-            data()[i].data(), data()[i].size(), ProtocolID, Flags)));
-    }
+    result.emplace_back(std::move(toPassThruMsg(getCanId(),
+        data().data(), data().size(), ProtocolID, Flags)));
+
     return result;
 }
-
-
 
 } // namespace common

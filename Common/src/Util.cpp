@@ -260,7 +260,7 @@ namespace common {
         return {};
     }
 
-    bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId) {
+    bool prepareUDSChannel(const j2534::J2534Channel& channel, uint32_t canId) {
         const uint32_t responseCanId = canId + 0x8;
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
@@ -272,26 +272,26 @@ namespace common {
         return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId) == STATUS_NOERROR;
     }
 
-    bool prepareKWPChannel(j2534::J2534Channel& channel, uint32_t canId) {
+    bool prepareTP20Channel(const j2534::J2534Channel& channel, uint32_t canId) {
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
             makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), { 0xFF, 0xFF, 0xFF, 0xFF });
         PASSTHRU_MSG patternMsg =
             makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), toVector(canId));
-        return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, nullptr, msgId) == STATUS_NOERROR;
+        return channel.startMsgFilter(PASS_FILTER, &maskMsg, &patternMsg, nullptr, msgId) == STATUS_NOERROR;
     }
 
     std::unique_ptr<j2534::J2534Channel>
-    openKWPChannel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
+    openTP20Channel(j2534::J2534& j2534, unsigned long baudrate, uint32_t canId) {
 
         std::unique_ptr<j2534::J2534Channel> channel;
-        const std::vector<unsigned long> SupportedProtocols = { ISO14230_PS, ISO14230 };
+        const std::vector<unsigned long> SupportedProtocols = { CAN_PS, CAN };
         for (const auto& protocolId : SupportedProtocols) {
-            if(protocolId == ISO14230_PS && baudrate != 125000) {
+            if(protocolId == CAN_PS && baudrate != 125000) {
                 continue;
             }
             unsigned long flags = 0;
-            if (protocolId == ISO14230 && baudrate == 125000)
+            if (protocolId == CAN && baudrate == 125000)
                 flags |= PHYSICAL_CHANNEL;
             try {
                 channel = std::make_unique<j2534::J2534Channel>(
@@ -301,11 +301,11 @@ namespace common {
                 continue;
             }
 
-            setupChannelParameters(*channel);
+//            setupChannelParameters(*channel);
             setupChannelPins(*channel);
 
             if (canId) {
-                prepareKWPChannel(*channel, canId);
+                prepareTP20Channel(*channel, canId);
             }
 
             return std::move(channel);

@@ -5,6 +5,7 @@
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/protocols/UDSPinFinder.hpp>
 #include <common/protocols/UDSRequest.hpp>
+#include <common/protocols/TP20Session.hpp>
 #include <common/Util.hpp>
 
 #include <j2534/J2534.hpp>
@@ -613,46 +614,31 @@ std::array<uint8_t, N> toArray(T val)
     return {};
 }
 
+void requestAndPrint(common::TP20Session& session, const std::vector<uint8_t>& request)
+{
+	const auto requestResult{ session.process(request) };
+	if (!requestResult.empty()) {
+		std::cout << "Request result: " << std::string(requestResult.begin() + 4, requestResult.end()) << std::endl;
+	}
+}
+
 void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 {
-	common::VBFParser vbfParser;
-	std::ifstream inpVbf("C:\\misc\\Volvo tools\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
-	const common::VBF bootloader = vbfParser.parse(inpVbf);
-	const common::VBF test1{ vbfParser.parse(common::SBLData::P1_ME9_SBL)};
-	const common::VBF test2{ vbfParser.parse(common::SBLData::P2_ME7_SBL) };
-	const common::VBF test3{ vbfParser.parse(common::SBLData::P3_3_2_SBL) };
-	const common::VBF test4{ vbfParser.parse(common::SBLData::P3_ME9_SBL) };
-	std::ifstream flashVbf("c:\\misc\\denso\\p3\\test2.vbf", std::ios_base::binary);
-	const common::VBF flash = vbfParser.parse(flashVbf);
-	const common::CarPlatform carPlatform = common::CarPlatform::P3;
-	const uint32_t ecuId = 0x10;
-    const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
-	flasher::FlasherParameters flasherParameters{
-		carPlatform,
-		ecuId,
-		"",
-        std::make_unique<flasher::SBLProviderVBF>(bootloader),
-        flash
-	};
-    flasher::UDSFlasherParameters udsFlasherParameters{
-        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }};
-    flasher::UDSFlasher flasher{ *j2534, std::move(flasherParameters), std::move(udsFlasherParameters) };
-    FlasherCallback callback;
-	flasher.registerCallback(callback);
-	flasher.start();
-    while (flasher.getCurrentState() !=
-        flasher::FlasherState::Done && flasher.getCurrentState() !=
-        flasher::FlasherState::Error) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		std::cout << ".";
+	const auto channel{ common::openTP20Channel(*j2534, 500000, 0x201) };
+	common::TP20Session session(*channel, common::CarPlatform::VAG, 0x01);
+	if (!session.start()) {
+		std::cout << "Failed to start TP20 session" << std::endl;
+		return;
 	}
-    const bool success = flasher.getCurrentState() ==
-                         flasher::FlasherState::Done;
-	std::cout << std::endl
-		<< ((success)
-			? "Flashing done"
-			: "Flashing error. Try again.")
-		<< std::endl;
+	requestAndPrint(session, { 0x1a,  0x86 });
+	requestAndPrint(session, { 0x1a,  0x90 });
+	requestAndPrint(session, { 0x1a,  0x91 });
+	requestAndPrint(session, { 0x1a,  0x92 });
+	requestAndPrint(session, { 0x1a,  0x94 });
+	requestAndPrint(session, { 0x1a,  0x97 });
+	requestAndPrint(session, { 0x1a,  0x9A });
+	requestAndPrint(session, { 0x1a,  0x9B });
+	requestAndPrint(session, { 0x1a,  0x9C });
 }
 
 void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
