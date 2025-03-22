@@ -130,11 +130,6 @@ namespace common {
             return result;
         }
 
-        bool needSendMore()
-        {
-            return !_dataToSend.empty();
-        }
-
         bool readResponse()
         {
             try {
@@ -175,14 +170,19 @@ namespace common {
             return !_needReadAck;
         }
 
+        bool sendAck()
+        {
+            return sendMessage(_ackPacketCounter, { 0xB0 });
+        }
+
+        bool needSendMore()
+        {
+            return !_dataToSend.empty();
+        }
+
         bool needSendAck()
         {
             return _needSendAck;
-        }
-
-        bool needReadAck()
-        {
-            return _needReadAck;
         }
 
         bool needReadMore()
@@ -190,9 +190,9 @@ namespace common {
             return _needReadMore;
         }
 
-        bool sendAck()
+        bool needReadAck()
         {
-            return sendMessage(_ackPacketCounter, { 0xB0 });
+            return _needReadAck;
         }
 
         void idle()
@@ -233,9 +233,9 @@ namespace common {
         bool sendMessage(uint8_t packetCounter, PayloadT&& payload)
         {
             const auto now{ std::chrono::steady_clock::now().time_since_epoch()};
-            const auto next_command_duration{ _lastRequestTime + std::chrono::milliseconds(_minimimSendDelay) };
-            if (next_command_duration > now) {
-                std::this_thread::sleep_for((next_command_duration - now));
+            const auto nextCommandDuration{ _lastRequestTime + std::chrono::milliseconds(_minimimSendDelay) };
+            if (nextCommandDuration > now) {
+                std::this_thread::sleep_for((nextCommandDuration - now));
             }
             payload[0] |= packetCounter & 0x0F;
             TP20Message canMessage{ _txId, std::move(payload) };
@@ -380,7 +380,7 @@ namespace common {
         _impl->disconnect();
     }
 
-    std::vector<uint8_t> TP20Session::process(const std::vector<uint8_t>& request)
+    std::vector<uint8_t> TP20Session::process(const std::vector<uint8_t>& request) const
     {
         try {
             FSM::Instance fsm{ *_impl };

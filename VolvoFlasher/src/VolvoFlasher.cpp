@@ -16,6 +16,7 @@
 #include <flasher/SBLProviderVBF.hpp>
 #include <flasher/SBLProviderCommon.hpp>
 #include <flasher/UDSFlasher.hpp>
+#include <flasher/KWPFlasher.hpp>
 
 #include <argparse/argparse.hpp>
 
@@ -624,21 +625,49 @@ void requestAndPrint(common::TP20Session& session, const std::vector<uint8_t>& r
 
 void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 {
+	const auto carPlatform{ common::CarPlatform::VAG };
 	const auto channel{ common::openTP20Channel(*j2534, 500000, 0x201) };
-	common::TP20Session session(*channel, common::CarPlatform::VAG, 0x01);
+	const auto ecuId{ 0x01 };
+	common::TP20Session session(*channel, carPlatform, ecuId);
 	if (!session.start()) {
 		std::cout << "Failed to start TP20 session" << std::endl;
 		return;
 	}
-	requestAndPrint(session, { 0x1a,  0x86 });
-	requestAndPrint(session, { 0x1a,  0x90 });
-	requestAndPrint(session, { 0x1a,  0x91 });
-	requestAndPrint(session, { 0x1a,  0x92 });
-	requestAndPrint(session, { 0x1a,  0x94 });
-	requestAndPrint(session, { 0x1a,  0x97 });
-	requestAndPrint(session, { 0x1a,  0x9A });
-	requestAndPrint(session, { 0x1a,  0x9B });
-	requestAndPrint(session, { 0x1a,  0x9C });
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+		nullptr,
+		flash
+	};
+	flasher::KWPFlasherParameters kwpFlasherParameters{
+		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
+	flasher::KWPFlasher flasher{ *j2534, std::move(flasherParameters), std::move(kwpFlasherParameters) };
+	FlasherCallback callback;
+	flasher.registerCallback(callback);
+	flasher.start();
+	while (flasher.getCurrentState() !=
+		flasher::FlasherState::Done && flasher.getCurrentState() !=
+		flasher::FlasherState::Error) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::cout << ".";
+	}
+	const bool success = flasher.getCurrentState() ==
+		flasher::FlasherState::Done;
+	std::cout << std::endl
+		<< ((success)
+			? "Flashing done"
+			: "Flashing error. Try again.")
+		<< std::endl;
+	//requestAndPrint(session, { 0x1a,  0x86 });
+	//requestAndPrint(session, { 0x1a,  0x90 });
+	//requestAndPrint(session, { 0x1a,  0x91 });
+	//requestAndPrint(session, { 0x1a,  0x92 });
+	//requestAndPrint(session, { 0x1a,  0x94 });
+	//requestAndPrint(session, { 0x1a,  0x97 });
+	//requestAndPrint(session, { 0x1a,  0x9A });
+	//requestAndPrint(session, { 0x1a,  0x9B });
+	//requestAndPrint(session, { 0x1a,  0x9C });
 }
 
 void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,

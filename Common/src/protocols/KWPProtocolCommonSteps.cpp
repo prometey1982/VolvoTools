@@ -38,70 +38,16 @@ namespace common {
 
 	}
 
-    std::vector<std::unique_ptr<j2534::J2534Channel>> KWPProtocolCommonSteps::openChannels(
-		j2534::J2534& j2534, unsigned long baudrate, uint32_t canId)
-	{
-		std::vector<std::unique_ptr<j2534::J2534Channel>> result;
-		result.emplace_back(openUDSChannel(j2534, baudrate, canId));
-		result.emplace_back(openLowSpeedChannel(j2534, CAN_ID_BOTH));
-		return result;
-	}
 
-    bool KWPProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-	{
-		std::vector<std::vector<unsigned long>> msgIds(channels.size());
-		for (size_t i = 0; i < channels.size(); ++i) {
-			const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x10, 0x02 }), 5);
-			if (ids.empty()) {
-				return false;
-			}
-			msgIds[i] = ids;
-		}
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-		for (size_t i = 0; i < channels.size(); ++i) {
-			channels[i]->stopPeriodicMsg(msgIds[i]);
-		}
-		return true;
-	}
-
-    std::vector<unsigned long> KWPProtocolCommonSteps::keepAlive(const j2534::J2534Channel& channel)
-	{
-		return channel.startPeriodicMsgs(UDSMessage(0x7DF, { 0x3E, 0x80 }), 1900);
-	}
-
-    void KWPProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
-	{
-        for(const auto& idToWakeUp: {0x11, 0x81}) {
-            std::vector<std::vector<unsigned long>> msgIds(channels.size());
-            for (size_t i = 0; i < channels.size(); ++i) {
-                const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x11, static_cast<uint8_t>(idToWakeUp) }), 20);
-                if (ids.empty()) {
-                    return;
-                }
-                msgIds[i] = ids;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            for (size_t i = 0; i < channels.size(); ++i) {
-                channels[i]->stopPeriodicMsg(msgIds[i]);
-            }
-        }
-        return;
-	}
-
-    bool KWPProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
-		const std::array<uint8_t, 5>& pin)
+    bool KWPProtocolCommonSteps::authorize(const RequestProcessorBase& requestProcessor, const std::array<uint8_t, 5>& pin)
 	{
 		try {
-			channel.clearRx();
-			UDSRequest seedRequest(canId, { 0x27, 0x01 });
-			const auto seedResponse(seedRequest.process(channel));
+			const auto seedResponse{ requestProcessor.process({ 0x27, 0x01 }) };
 			if (seedResponse.size() < 9)
 				return false;
 			std::array<uint8_t, 3> seed = { seedResponse[6], seedResponse[7], seedResponse[8] };
 			uint32_t key = generateKey(pin, seed);
-			channel.clearRx();
-			UDSRequest keyRequest(canId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
-			const auto keyResponse(keyRequest.process(channel));
+			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
 			return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
 		}
 		catch (...) {
@@ -109,18 +55,16 @@ namespace common {
 		}
 	}
 
-    bool KWPProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
+    bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
                                               const std::function<void(size_t)>& progressCallback)
 	{
 		try {
 			for (const auto& chunk : data.chunks) {
 				const auto startAddr = chunk.writeOffset;
 				const auto dataSize = chunk.data.size();
-				UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
+				const auto downloadResponse{ requestProcessor.process({ 0x34, 0x00, 0x44,
 					(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
-				unsigned long numMsgs;
-				const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
+					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF }) };
 				if (downloadResponse.size() < 2) {
 					return false;
 				}
@@ -130,13 +74,13 @@ namespace common {
 					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
 					std::vector<uint8_t> data{ 0x36, chunkIndex };
 					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-					UDSRequest transferDataRequest{ canId, std::move(data) };
-					transferDataRequest.process(channel, { chunkIndex }, 60000);
+					requestProcessor.process(std::move(data), 60000);
                     progressCallback(chunkEnd - i);
 				}
-				UDSRequest transferExitRequest{ canId, { 0x37 } };
-				transferExitRequest.process(
-					channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) });
+				const auto transferExitResponse{ requestProcessor.process({ 0x37 }) };
+				return transferExitResponse.size() >= 4
+					&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc >> 8)
+					&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc);
 			}
 		}
 		catch (...) {
@@ -146,36 +90,28 @@ namespace common {
 		return true;
 	}
 
-    bool KWPProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+    bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBF& data)
 	{
 		for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
 			const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
-			UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
+			const auto eraseResult{ requestProcessor.process({ 0x31, 0x01, 0xff, 0x00,
 				eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
-				eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
-			unsigned long numMsgs;
-			if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+				eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] }) };
+			if (eraseResult.size() < 8 || eraseResult[2] != 0x71 || eraseResult[3] != 0x01
+				|| eraseResult[4] != 0xFF)
 				return false;
-			}
-			if (!readMessageAndCheck(channel, { 0x71, 0x01, 0xff, 0x00, 0x00, 0x00 }, {}, 10)) {
-				return false;
-			}
 		}
 		return true;
 	}
 
-    bool KWPProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
+    bool KWPProtocolCommonSteps::startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr)
 	{
 		const auto callAddr = common::toVector(addr);
-		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
-		unsigned long numMsgs;
-		if (channel.writeMsgs(startRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+		const auto callResult{ requestProcessor.process({ 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] }) };
+		if (callResult.size() < 6 || callResult[2] != 0x71 || callResult[3] != 0x01 || callResult[4] != 0x03
+			|| callResult[5] != 0x01)
 			return false;
-		}
-		if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
-			return false;
-		}
 		return true;
 	}
 

@@ -19,7 +19,7 @@ namespace common {
         bool start();
         void stop();
 
-        std::vector<uint8_t> process(const std::vector<uint8_t>& request);
+        std::vector<uint8_t> process(const std::vector<uint8_t>& request) const;
 
     private:
         std::unique_ptr<class TP20SessionImpl> _impl;
