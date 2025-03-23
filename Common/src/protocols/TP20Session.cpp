@@ -110,7 +110,7 @@ namespace common {
                 std::copy(currentRequestOffset, currentRequestOffset + remainingSize, std::back_inserter(payload));
                 _dataToSend.emplace_back(std::move(payload));
                 payloadOffset = 1;
-                payload = PayloadT();
+                payload = PayloadT(payloadOffset);
             }
         }
 
@@ -146,7 +146,7 @@ namespace common {
                         _ackPacketCounter = (data[4] & 0x0F) + 1;
                     }
                     return _needReadMore && !_needSendAck;
-                    });
+                    }, 5000);
                 return true;
             }
             catch (...) {
@@ -294,7 +294,7 @@ namespace common {
             else if(control.context().needReadAck()) {
                 control.changeTo<WaitForAck>();
             }
-            else {
+            else if(!control.context().needSendMore()) {
                 control.changeTo<ReadResponse>();
             }
         }

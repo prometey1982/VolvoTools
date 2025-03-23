@@ -32,9 +32,13 @@ namespace flasher {
 
         size_t getMaximumProgress()
         {
-            const auto bootloader{ _flasherParameters.sblProvider->getSBL(
-                _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData)};
-            return FlasherBase::getProgressFromVBF(bootloader) + FlasherBase::getProgressFromVBF(_flasherParameters.flash);
+            size_t bootloaderSize{};
+            if (const auto sblProvider = _flasherParameters.sblProvider) {
+                const auto bootloader{ sblProvider->getSBL(
+                    _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData) };
+                bootloaderSize = FlasherBase::getProgressFromVBF(bootloader);
+            }
+            return bootloaderSize  + FlasherBase::getProgressFromVBF(_flasherParameters.flash);
         }
 
         void authorize()

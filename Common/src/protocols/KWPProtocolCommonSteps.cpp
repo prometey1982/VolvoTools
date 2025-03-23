@@ -24,7 +24,7 @@ namespace common {
 			return hash;
 		}
 
-		uint32_t generateKey(const std::array<uint8_t, 5>& pin_array, const std::array<uint8_t, 3>& seed_array)
+		uint32_t generateKey(const std::array<uint8_t, 5>& pin_array, const std::array<uint8_t, 4>& seed_array)
 		{
 			const uint32_t high_part = pin_array[4] << 24 | pin_array[3] << 16 | pin_array[2] << 8 | pin_array[1];
 			const uint32_t low_part = pin_array[0] << 24 | seed_array[2] << 16 | seed_array[1] << 8 | seed_array[0];
@@ -36,18 +36,29 @@ namespace common {
 			return result;
 		}
 
-	}
+		uint32_t generateKeyCommon(uint32_t seed)
+		{
+			for (uint8_t i = 0; i < 5; i++) {
+				if ((seed & 0x80000000) == 0x80000000) {
+					seed = (0X5FBD5DBD ^ ((seed << 1) | (seed >> 31)));
+				}
+				else {
+					seed = ((seed << 1) | (seed >> 31));
+				}
+			}
+			return seed;
+		}
 
+	}
 
     bool KWPProtocolCommonSteps::authorize(const RequestProcessorBase& requestProcessor, const std::array<uint8_t, 5>& pin)
 	{
 		try {
 			const auto seedResponse{ requestProcessor.process({ 0x27, 0x01 }) };
-			if (seedResponse.size() < 9)
+			if (seedResponse.size() < 8)
 				return false;
-			std::array<uint8_t, 3> seed = { seedResponse[6], seedResponse[7], seedResponse[8] };
-			uint32_t key = generateKey(pin, seed);
-			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
+			uint32_t key = generateKeyCommon(encode(seedResponse[7], seedResponse[6], seedResponse[5], seedResponse[4]));
+			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02, (key >> 24) & 0xFF, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
 			return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
 		}
 		catch (...) {
