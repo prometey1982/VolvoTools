@@ -11,7 +11,8 @@ namespace common {
     class KWPProtocolCommonSteps {
 	public:
 		static bool authorize(const RequestProcessorBase& requestProcessor, const std::array<uint8_t, 5>& pin);
-        static bool transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
+		static bool enterProgrammingSession(const RequestProcessorBase& requestProcessor);
+		static bool transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
                                  const std::function<void(size_t)>& progressCallback);
 		static bool eraseFlash(const RequestProcessorBase& requestProcessor, const VBF& data);
 		static bool startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr);

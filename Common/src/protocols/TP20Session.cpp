@@ -140,13 +140,17 @@ namespace common {
                     const auto op{ (data[4] >> 4) & 0x0F };
                     _needReadMore = !(op & 0x1);
                     _needSendAck = !(op & 0x02);
-                    _receivedData.reserve(_receivedData.size() + length - 5);
-                    std::copy(data + 5, data + length, std::back_inserter(_receivedData));
+                    const size_t dataOffset = _receivedData.empty() ? 7 : 5;
+                    if (length < dataOffset) {
+                        return true;
+                    }
+                    _receivedData.reserve(_receivedData.size() + length - dataOffset);
+                    std::copy(data + dataOffset, data + length, std::back_inserter(_receivedData));
                     if (_needSendAck) {
                         _ackPacketCounter = (data[4] & 0x0F) + 1;
                     }
                     return _needReadMore && !_needSendAck;
-                    }, 5000);
+                    }, 1000);
                 return true;
             }
             catch (...) {
@@ -156,18 +160,23 @@ namespace common {
 
         bool readAck()
         {
-            _channel.readMsgs([this](const uint8_t* data, size_t length) {
-                if (checkMessageForSkip(data, length)) {
+            try {
+                _channel.readMsgs([this](const uint8_t* data, size_t length) {
+                    if (checkMessageForSkip(data, length)) {
+                        return true;
+                    }
+                    if ((data[4] & 0xF0) == 0xB0) {
+                        _needReadAck = false;
+                        _packetsTillAck = _maxPacketsTillAck;
+                        return false;
+                    }
                     return true;
-                }
-                if ((data[4] & 0xF0) == 0xB0) {
-                    _needReadAck = false;
-                    _packetsTillAck = _maxPacketsTillAck;
-                    return false;
-                }
-                return true;
-            });
-            return !_needReadAck;
+                    });
+                return !_needReadAck;
+            }
+            catch (...) {
+                return false;
+            }
         }
 
         bool sendAck()
@@ -208,6 +217,8 @@ namespace common {
             _dataToSend.clear();
             _receivedData.clear();
             _needReadMore = false;
+            _needSendAck = false;
+            _needReadAck = false;
         }
 
         std::vector<uint8_t>&& releaseReceivedData()
@@ -225,6 +236,9 @@ namespace common {
                 return true;
             }
             if (data[4] == 0xA1) {
+                return true;
+            }
+            if (dataSize >= 6 && data[4] == 0x7F && data[6] == 0x78) {
                 return true;
             }
             return false;
@@ -295,7 +309,7 @@ namespace common {
                 control.changeTo<WaitForAck>();
             }
             else if(!control.context().needSendMore()) {
-                control.changeTo<ReadResponse>();
+                control.changeTo<Idle>();
             }
         }
     };
@@ -312,7 +326,7 @@ namespace common {
                     control.changeTo<SendRequest>();
                 }
                 else {
-                    control.changeTo<ReadResponse>();
+                    control.changeTo<Idle>();
                 }
             }
         }
@@ -382,10 +396,34 @@ namespace common {
 
     std::vector<uint8_t> TP20Session::process(const std::vector<uint8_t>& request) const
     {
+        if (writeMessage(request)) {
+            return readMessage();
+        }
+        return {};
+    }
+
+    bool TP20Session::writeMessage(const std::vector<uint8_t>& request) const
+    {
         try {
             FSM::Instance fsm{ *_impl };
             _impl->setRequestData(request);
             fsm.immediateChangeTo<SendRequest>();
+            while (!fsm.isActive<Idle>() && !fsm.isActive<Error>()) {
+                fsm.update();
+            }
+            return !fsm.isActive<Error>();
+        }
+        catch (...) {
+            _impl->reset();
+            return {};
+        }
+    }
+
+    std::vector<uint8_t> TP20Session::readMessage() const
+    {
+        try {
+            FSM::Instance fsm{ *_impl };
+            fsm.immediateChangeTo<ReadResponse>();
             while (!fsm.isActive<Idle>() && !fsm.isActive<Error>()) {
                 fsm.update();
             }
@@ -394,7 +432,7 @@ namespace common {
             }
             return _impl->releaseReceivedData();
         }
-        catch(...) {
+        catch (...) {
             _impl->reset();
             return {};
         }

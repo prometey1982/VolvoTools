@@ -49,6 +49,14 @@ namespace flasher {
             }
         }
 
+        void swithToProgramming()
+        {
+            _stateUpdater(FlasherState::ProgrammingSession);
+            if (!common::KWPProtocolCommonSteps::enterProgrammingSession(_requestProcessor)) {
+                setFailed("Failed to enter programming session");
+            }
+        }
+
         void eraseFlash()
         {
             _stateUpdater(FlasherState::EraseFlash);
@@ -109,6 +117,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         M::Composite<
             struct StartWork,
             struct Authorize,
+            struct ProgrammingSession,
             struct EraseFlash,
             struct WriteFlash>,
         struct Done,
@@ -140,7 +149,8 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             auto plan = control.plan();
-            plan.change<Authorize, EraseFlash>();
+            plan.change<Authorize, ProgrammingSession>();
+            plan.change<ProgrammingSession, EraseFlash>();
             plan.change<EraseFlash, WriteFlash>();
         }
 
@@ -158,6 +168,13 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().authorize();
+        }
+    };
+
+    struct ProgrammingSession : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().swithToProgramming();
         }
     };
 

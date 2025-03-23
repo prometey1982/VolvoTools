@@ -10,9 +10,9 @@ namespace common {
     {
     }
 
-    std::vector<uint8_t> UDSRequestProcessor::process(std::vector<uint8_t>&& data, size_t timeout) const
+    std::vector<uint8_t> UDSRequestProcessor::process(std::vector<uint8_t>&& service, std::vector<uint8_t>&& params, size_t timeout) const
     {
-        UDSRequest request{ _canId, std::move(data) };
+        UDSRequest request{ _canId, std::move(service) };
         return request.process(_channel, timeout);
     }
 

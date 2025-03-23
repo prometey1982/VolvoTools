@@ -55,18 +55,29 @@ namespace common {
 	{
 		try {
 			const auto seedResponse{ requestProcessor.process({ 0x27, 0x01 }) };
-			if (seedResponse.size() < 8)
+			if (seedResponse.size() < 6)
 				return false;
-			uint32_t key = generateKeyCommon(encode(seedResponse[7], seedResponse[6], seedResponse[5], seedResponse[4]));
-			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02, (key >> 24) & 0xFF, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
-			return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
+			uint32_t key = generateKeyCommon(encode(seedResponse[5], seedResponse[4], seedResponse[3], seedResponse[2]));
+			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02 }, { (key >> 24) & 0xFF, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
+			return keyResponse.size() >= 3 && keyResponse[2] == 0x34;
 		}
 		catch (...) {
 			return false;
 		}
 	}
 
-    bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
+	bool KWPProtocolCommonSteps::enterProgrammingSession(const RequestProcessorBase& requestProcessor)
+	{
+		try {
+			requestProcessor.process({ 0x10, 0x85 });
+			return true;
+		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
                                               const std::function<void(size_t)>& progressCallback)
 	{
 		try {
@@ -85,7 +96,7 @@ namespace common {
 					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
 					std::vector<uint8_t> data{ 0x36, chunkIndex };
 					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-					requestProcessor.process(std::move(data), 60000);
+					requestProcessor.process(std::move(data), {}, 60000);
                     progressCallback(chunkEnd - i);
 				}
 				const auto transferExitResponse{ requestProcessor.process({ 0x37 }) };

@@ -21,6 +21,9 @@ namespace common {
 
         std::vector<uint8_t> process(const std::vector<uint8_t>& request) const;
 
+        bool writeMessage(const std::vector<uint8_t>& request) const;
+        std::vector<uint8_t> readMessage() const;
+
     private:
         std::unique_ptr<class TP20SessionImpl> _impl;
     };

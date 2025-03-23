@@ -210,7 +210,10 @@ public:
         case FlasherState::Authorize:
             std::cout << "Authorizing";
             break;
-        case FlasherState::LoadBootloader:
+		case FlasherState::ProgrammingSession:
+			std::cout << "Enter programming session";
+			break;
+		case FlasherState::LoadBootloader:
             std::cout << "Bootloader loading";
             break;
         case FlasherState::StartBootloader:

@@ -7,6 +7,7 @@ enum class FlasherState {
     OpenChannels,
     FallAsleep,
     Authorize,
+    ProgrammingSession,
     LoadBootloader,
     StartBootloader,
     EraseFlash,
