@@ -66,11 +66,17 @@ namespace common {
 		}
 	}
 
-	bool KWPProtocolCommonSteps::enterProgrammingSession(const RequestProcessorBase& requestProcessor)
+	bool KWPProtocolCommonSteps::enterProgrammingSession(RequestProcessorBase& requestProcessor)
 	{
 		try {
 			requestProcessor.process({ 0x10, 0x85 });
-			return true;
+			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+			requestProcessor.disconnect();
+			std::this_thread::sleep_for(std::chrono::milliseconds(500));
+			if (requestProcessor.connect()) {
+				return authorize(requestProcessor, {});
+			}
+			return false;
 		}
 		catch (...) {
 			return false;
@@ -114,20 +120,71 @@ namespace common {
 
     bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBF& data)
 	{
-		for (const auto& chunk : data.chunks) {
-			const auto eraseAddr = toVector(chunk.writeOffset);
-			const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
-			const auto eraseResult{ requestProcessor.process({ 0x31, 0x01, 0xff, 0x00,
-				eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
-				eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] }) };
-			if (eraseResult.size() < 8 || eraseResult[2] != 0x71 || eraseResult[3] != 0x01
-				|| eraseResult[4] != 0xFF)
-				return false;
+		try {
+			for (const auto& chunk : data.chunks) {
+				const auto eraseAddr = toVector(chunk.writeOffset);
+				const auto eraseEndAddr = toVector(chunk.writeOffset + static_cast<uint32_t>(chunk.data.size()) - 1);
+				const auto eraseResult{ requestProcessor.process({ 0x31, 0xC4 }, {
+					eraseAddr[1], eraseAddr[2], eraseAddr[3],
+					eraseEndAddr[1], eraseEndAddr[2], eraseEndAddr[3], 0, 1, 2, 3, 4, 5 }, 10000) };
+			}
+			return true;
 		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk,
+		const std::function<void(size_t)>& progressCallback)
+	{
+		try {
+			const auto startAddr = chunk.writeOffset;
+			const auto dataSize = chunk.data.size();
+			const auto downloadResponse{ requestProcessor.process({ 0x34, 0x00, 0x44,
+				(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+				(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF }) };
+			if (downloadResponse.size() < 2) {
+				return false;
+			}
+			const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
+			uint8_t chunkIndex = 1;
+			for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+				const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
+				std::vector<uint8_t> dataToTransfer{ 0x36, chunkIndex };
+				dataToTransfer.insert(dataToTransfer.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
+				requestProcessor.process(std::move(dataToTransfer), {}, 60000);
+				progressCallback(chunkEnd - i);
+			}
+			const auto transferExitResponse{ requestProcessor.process({ 0x37 }) };
+			return transferExitResponse.size() >= 4;
+			// TODO: add calculation of chunks' CRC32 here and check for download results
+				//&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc >> 8)
+				//&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc);
+		}
+		catch (...) {
+			return false;
+		}
+
 		return true;
 	}
 
-    bool KWPProtocolCommonSteps::startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr)
+	bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
+	{
+		try {
+			const auto eraseAddr = toVector(chunk.writeOffset);
+			const auto eraseEndAddr = toVector(chunk.writeOffset + static_cast<uint32_t>(chunk.data.size()) - 1);
+			const auto eraseResult{ requestProcessor.process({ 0x31, 0xC4 }, {
+				eraseAddr[1], eraseAddr[2], eraseAddr[3],
+				eraseEndAddr[1], eraseEndAddr[2], eraseEndAddr[3], 0, 1, 2, 3, 4, 5 }, 10000) };
+			return true;
+		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool KWPProtocolCommonSteps::startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr)
 	{
 		const auto callAddr = common::toVector(addr);
 		const auto callResult{ requestProcessor.process({ 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] }) };

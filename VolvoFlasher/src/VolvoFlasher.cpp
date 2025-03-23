@@ -7,6 +7,7 @@
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/protocols/UDSPinFinder.hpp>
 #include <common/protocols/UDSRequest.hpp>
+#include <common/VBFUtil.hpp>
 #include <common/Util.hpp>
 
 #include <j2534/J2534.hpp>
@@ -629,25 +630,28 @@ void requestAndPrint(common::TP20Session& session, const std::vector<uint8_t>& r
 
 void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 {
-	const auto carPlatform{ common::CarPlatform::VAG };
-	const auto channel{ common::openTP20Channel(*j2534, 500000, 0x201) };
+	const auto carPlatform{ common::CarPlatform::VAG_MED91 };
+//	const auto channel{ common::openTP20Channel(*j2534, 500000, 0x201) };
     const auto ecuId{ 0x01 };
-    common::TP20Session session{ *channel, carPlatform, ecuId };
-	if (!session.start()) {
-		std::cout << "Failed to start TP20 session" << std::endl;
-		return;
-	}
+	const std::string binPath{ "C:\\misc\\gcflasher\\8P0907115K_0040_2_0l_R4_4V_TFSI_extFLASH_CHKFIXED.bin" };
+	std::ifstream binStream(binPath, std::ios_base::binary);
+	const auto flashVbf{ common::loadVBFForFlasher(carPlatform, ecuId, {}, binPath, binStream) };
+	//common::TP20Session session{ *channel, carPlatform, ecuId };
+	//if (!session.start()) {
+	//	std::cout << "Failed to start TP20 session" << std::endl;
+	//	return;
+	//}
+//    common::TP20RequestProcessor requestProcessor{session};
 	flasher::FlasherParameters flasherParameters{
 		carPlatform,
 		ecuId,
 		"",
         nullptr,
-        {{}, {}}//flash
+		flashVbf
 	};
 	flasher::KWPFlasherParameters kwpFlasherParameters{
 		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
-    common::TP20RequestProcessor requestProcessor{session};
-    flasher::KWPFlasher flasher{ *j2534, requestProcessor, std::move(flasherParameters), std::move(kwpFlasherParameters) };
+    flasher::KWPFlasher flasher{ *j2534, std::move(flasherParameters), std::move(kwpFlasherParameters) };
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();

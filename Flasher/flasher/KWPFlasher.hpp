@@ -22,7 +22,7 @@ namespace flasher {
 
     class KWPFlasher: public FlasherBase {
     public:
-        KWPFlasher(j2534::J2534& j2534, const common::RequestProcessorBase& requestProcessor,
+        KWPFlasher(j2534::J2534& j2534,
             FlasherParameters&& flasherParameters, KWPFlasherParameters&& kwpFlasherParameters);
         ~KWPFlasher();
 
@@ -30,7 +30,6 @@ namespace flasher {
         void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     private:
-        const common::RequestProcessorBase& _requestProcessor;
         KWPFlasherParameters _kwpFlasherParameters;
     };
 

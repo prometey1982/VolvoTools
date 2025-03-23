@@ -16,4 +16,13 @@ namespace common {
         return request.process(_channel, timeout);
     }
 
+    void UDSRequestProcessor::disconnect()
+    {
+    }
+
+    bool UDSRequestProcessor::connect()
+    {
+        return true;
+    }
+
 } // namespace common

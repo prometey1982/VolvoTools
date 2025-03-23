@@ -5,12 +5,12 @@
 
 namespace common {
 
-    TP20RequestProcessor::TP20RequestProcessor(const TP20Session& session)
+    TP20RequestProcessor::TP20RequestProcessor(TP20Session& session)
         : _session{ session }
     {
     }
 
-    std::vector<uint8_t> TP20RequestProcessor::process(std::vector<uint8_t>&& service, std::vector<uint8_t>&& params, size_t) const
+    std::vector<uint8_t> TP20RequestProcessor::process(std::vector<uint8_t>&& service, std::vector<uint8_t>&& params, size_t timeout) const
     {
         auto fullRequest{ service };
         fullRequest.insert(fullRequest.end(), params.cbegin(), params.cend());
@@ -21,7 +21,7 @@ namespace common {
             throw std::runtime_error("Can't write message");
         }
         while (true) {
-            const auto response{ _session.readMessage() };
+            const auto response{ _session.readMessage(timeout) };
             if (response.empty()) {
                 throw std::runtime_error("Empty response");
             }
@@ -38,6 +38,16 @@ namespace common {
                 return response;
             }
         }
+    }
+
+    void TP20RequestProcessor::disconnect()
+    {
+        _session.stop();
+    }
+
+    bool TP20RequestProcessor::connect()
+    {
+        return _session.start();
     }
 
 } // namespace common

@@ -502,7 +502,9 @@ namespace common {
             return "Y285/Y286/Y381";
         case CarPlatform::SPA:
             return "EUCD/C1MCA - Generic";
-        case CarPlatform::VAG:
+        case CarPlatform::VAG_MED91:
+            return "vag_med91";
+        case CarPlatform::VAG_MED912:
             return "vag_med912";
         }
         return {};
@@ -627,10 +629,10 @@ namespace common {
 
     void checkTP20Error(uint8_t requestId, const uint8_t* data, size_t dataSize)
     {
-        if (dataSize < 7 || data[4] != 0x7F || data[5] != requestId) {
+        if (dataSize < 3 || data[0] != 0x7F || data[1] != requestId) {
             return;
         }
-        throw TP20Error(data[6]);
+        throw TP20Error(data[2]);
     }
 
     void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize)

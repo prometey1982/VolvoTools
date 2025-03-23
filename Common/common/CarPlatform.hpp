@@ -14,7 +14,9 @@ enum class CarPlatform
     P3,
     SPA,
     Ford,
-    VAG
+    VAG,
+    VAG_MED91,
+    VAG_MED912
 };
 
 }

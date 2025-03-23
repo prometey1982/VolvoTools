@@ -4,6 +4,8 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <common/protocols/KWPProtocolCommonSteps.hpp>
+#include <common/protocols/TP20RequestProcessor.hpp>
+#include <common/protocols/UDSRequestProcessor.hpp>
 #include <common/CommonData.hpp>
 #include <common/Util.hpp>
 
@@ -14,7 +16,7 @@ namespace flasher {
 
     class KWPFlasherImpl {
     public:
-        KWPFlasherImpl(const common::RequestProcessorBase& requestProcessor,
+        KWPFlasherImpl(common::RequestProcessorBase& requestProcessor,
                        const FlasherParameters& flasherParameters,
                        const KWPFlasherParameters& kwpFlasherParameters,
                        uint32_t canId,
@@ -102,7 +104,7 @@ namespace flasher {
         }
 
     private:
-        const common::RequestProcessorBase& _requestProcessor;
+        common::RequestProcessorBase& _requestProcessor;
         const FlasherParameters& _flasherParameters;
         const KWPFlasherParameters& _kwpFlasherParameters;
         const uint32_t _canId;
@@ -206,10 +208,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         }
     };
 
-    KWPFlasher::KWPFlasher(j2534::J2534& j2534, const common::RequestProcessorBase& requestProcessor,
+    KWPFlasher::KWPFlasher(j2534::J2534& j2534,
         FlasherParameters&& flasherParameters, KWPFlasherParameters&& kwpFlasherParameters)
         : FlasherBase{ j2534, std::move(flasherParameters) }
-        , _requestProcessor{ requestProcessor }
         , _kwpFlasherParameters{ std::move(kwpFlasherParameters) }
     {
     }
@@ -223,7 +224,26 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };
 
-        KWPFlasherImpl impl(_requestProcessor, getFlasherParameters(), _kwpFlasherParameters,
+        const auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform, getFlasherParameters().ecuId, channels) };
+
+        std::unique_ptr<common::TP20Session> tp20Session;
+        std::unique_ptr<common::RequestProcessorBase> requestProcessor;
+        switch (std::get<0>(ecuInfo).protocolId) {
+        case ISO15765:
+            requestProcessor = std::make_unique<common::UDSRequestProcessor>(channel, std::get<1>(ecuInfo).canId);
+            break;
+        case CAN:
+            tp20Session = std::make_unique<common::TP20Session>(channel, getFlasherParameters().carPlatform, getFlasherParameters().ecuId);
+            if (!tp20Session->start()) {
+                throw std::runtime_error("Can't start TP20 session");
+            }
+            requestProcessor = std::make_unique<common::TP20RequestProcessor>(*tp20Session);
+            break;
+        default:
+            throw std::runtime_error("Unsupported protocol for KWP flasher");
+        }
+
+        KWPFlasherImpl impl(*requestProcessor, getFlasherParameters(), _kwpFlasherParameters,
             std::get<1>(ecuInfo).canId, [this](FlasherState state) {
             setCurrentState(state);
         },

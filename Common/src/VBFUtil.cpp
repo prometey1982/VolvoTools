@@ -42,6 +42,22 @@ VBF createVBFForME9(std::vector<uint8_t>& data)
                  createChunk(data, 0xA0000, data.size() - 0xA0000)}};
 }
 
+VBF createVBFForVAGMED91(std::vector<uint8_t>& data)
+{
+    return { {}, {createChunk(data, 0x20000, 0x60000),
+                  createChunk(data, 0xA0000, 0x120000),
+                  createChunk(data, 0x1F0000, 0x10000),
+                  createChunk(data, 0x80000, 0x20000),
+                  createChunk(data, 0x1C0000, 0x30000)} };
+}
+
+VBF createVBFForVAGMED912(std::vector<uint8_t>& data)
+{
+    updateChecksum(data);
+    return { {}, {createChunk(data, 0x20000, 0x70000),
+                 createChunk(data, 0xA0000, data.size() - 0xA0000)} };
+}
+
 VBF createVBFForTCM(std::vector<uint8_t>& data)
 {
     return {{}, {createChunk(data, 0x8000, 0x8000),
@@ -76,6 +92,11 @@ VBF createVbfFromBinary(CarPlatform carPlatform, uint8_t ecuId,
         else if(ecuId == 0x6E || ecuId == 0x18) {
             return createVBFForTCM(data);
         }
+        break;
+    case common::CarPlatform::VAG_MED91:
+        return createVBFForVAGMED91(data);
+    case common::CarPlatform::VAG_MED912:
+        return createVBFForVAGMED912(data);
     default:
         break;
     }

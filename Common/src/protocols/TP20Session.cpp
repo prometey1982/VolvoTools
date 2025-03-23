@@ -25,7 +25,7 @@ namespace common {
 
         using PayloadT = std::vector<uint8_t>;
 
-        TP20SessionImpl(j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
+        TP20SessionImpl(const j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
             : _channel{ channel }
             , _carPlatform{ carPlatform }
             , _ecuId{ ecuId }
@@ -41,6 +41,7 @@ namespace common {
             , _needReadMore{ false }
             , _needSendAck{ false }
             , _needReadAck{ false }
+            , _readTimeout{ 1000 }
         {
         }
 
@@ -114,6 +115,11 @@ namespace common {
             }
         }
 
+        void setReadTimeout(size_t readTimeout)
+        {
+            _readTimeout = readTimeout;
+        }
+
         bool sendRequest()
         {
             if (_dataToSend.empty()) {
@@ -150,7 +156,7 @@ namespace common {
                         _ackPacketCounter = (data[4] & 0x0F) + 1;
                     }
                     return _needReadMore && !_needSendAck;
-                    }, 1000);
+                    }, _readTimeout);
                 return true;
             }
             catch (...) {
@@ -171,7 +177,7 @@ namespace common {
                         return false;
                     }
                     return true;
-                    });
+                    }, 10000);
                 return !_needReadAck;
             }
             catch (...) {
@@ -275,6 +281,7 @@ namespace common {
         bool _needReadMore;
         bool _needSendAck;
         bool _needReadAck;
+        size_t _readTimeout;
     };
 
     using M = hfsm2::MachineT<hfsm2::Config::ContextT<TP20SessionImpl&>>;
@@ -374,7 +381,7 @@ namespace common {
         }
     };
 
-    TP20Session::TP20Session(j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
+    TP20Session::TP20Session(const j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
         : _impl{ std::make_unique<TP20SessionImpl>(channel, carPlatform, ecuId) }
     {
     }
@@ -419,10 +426,11 @@ namespace common {
         }
     }
 
-    std::vector<uint8_t> TP20Session::readMessage() const
+    std::vector<uint8_t> TP20Session::readMessage(size_t timeout) const
     {
         try {
             FSM::Instance fsm{ *_impl };
+            _impl->setReadTimeout(timeout);
             fsm.immediateChangeTo<ReadResponse>();
             while (!fsm.isActive<Idle>() && !fsm.isActive<Error>()) {
                 fsm.update();

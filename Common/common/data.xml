@@ -1040,6 +1040,14 @@
             <Node Address="00" Name="NON Not Configured ECU LH"/>
         </Bus>
     </Configuration>
+    <Configuration Name="vag_med91">
+        <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="tp20" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+        </Bus>
+        <Bus Name="CAN HS" BusType="1" SamplePoint="80" SWDLProtocol="tp20" P4CANMax="300000" BaudRate="500" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+            <Node Address="01" CANIdentifier="201" Name="ECM"/>
+            <Node Address="02" CANIdentifier="202" Name="TCM"/>
+        </Bus>
+    </Configuration>
     <Configuration Name="vag_med912">
         <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="tp20" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
         </Bus>

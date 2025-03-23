@@ -4824,7 +4824,7 @@ Configuration:
         Enabled: 1
         Name: CAN MS
         P4CANMax: 300000
-        SWDLProtocol: 14230-3
+        SWDLProtocol: tp20
         SWDLSpecification: 31808456
         SamplePoint: 68
       - 
@@ -4843,7 +4843,39 @@ Configuration:
             CANIdentifier: 202
             Name: TCM
         P4CANMax: 300000
-        SWDLProtocol: 14230-3
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: vag_med91
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '01'
+            CANIdentifier: 201
+            Name: ECM
+          - 
+            Address: '02'
+            CANIdentifier: 202
+            Name: TCM
+        P4CANMax: 300000
+        SWDLProtocol: tp20
         SWDLSpecification: 31808456
         SamplePoint: 80
     Name: vag_med912
