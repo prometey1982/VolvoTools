@@ -17,6 +17,7 @@
 #include <codecvt>
 #include <locale>
 #include <unordered_map>
+#include <fstream>
 
 namespace common {
 
@@ -457,6 +458,24 @@ namespace common {
                 result = CarPlatform::P1;
                 break;
             }
+            return result;
+        }
+        const std::string fordPrefix = "WF";
+        if (vin.find(fordPrefix) == 0)
+        {
+            switch(vin[8])
+            {
+            case 'B':
+                result = CarPlatform::Ford_UDS;
+                break;
+            }
+            return result;
+        }
+        const std::string havalPrefix = "XZG";
+        if (vin.find(havalPrefix) == 0)
+        {
+            result = CarPlatform::Haval_UDS;
+            return result;
         }
         return result;
     }
@@ -478,8 +497,12 @@ namespace common {
             return common::CarPlatform::P3;
         else if ("spa" == input)
             return common::CarPlatform::SPA;
-        else if ("ford" == input)
-            return common::CarPlatform::Ford;
+        else if ("ford_kwp" == input)
+            return common::CarPlatform::Ford_KWP;
+        else if ("ford_uds" == input)
+            return common::CarPlatform::Ford_UDS;
+        else if ("haval_uds" == input)
+            return common::CarPlatform::Haval_UDS;
         return common::CarPlatform::Undefined;
     }
 
@@ -506,6 +529,12 @@ namespace common {
             return "vag_med91";
         case CarPlatform::VAG_MED912:
             return "vag_med912";
+        case CarPlatform::Ford_KWP:
+            return "ford_kwp";
+        case CarPlatform::Ford_UDS:
+            return "ford_uds";
+        case CarPlatform::Haval_UDS:
+            return "haval_uds";
         }
         return {};
     }
@@ -668,14 +697,24 @@ namespace common {
             return common::CarPlatform::P3;
         else if ("spa" == input)
             return common::CarPlatform::SPA;
-        else if ("ford" == input)
-            return common::CarPlatform::Ford;
+        else if ("ford_kwp" == input)
+            return common::CarPlatform::Ford_KWP;
+        else if ("ford_uds" == input)
+            return common::CarPlatform::Ford_UDS;
+        else if ("haval_uds" == input)
+            return common::CarPlatform::Haval_UDS;
         return common::CarPlatform::Undefined;
     }
 
     std::array<uint8_t, 5> getPinArray(uint64_t pin)
     {
         return { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
+    }
+
+    void writeToLog(const std::string& str)
+    {
+        static std::ofstream log{"output.log", std::ios_base::app };
+        log << str << std::endl;
     }
 
 } // namespace common

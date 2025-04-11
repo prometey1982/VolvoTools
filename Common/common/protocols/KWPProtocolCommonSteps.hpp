@@ -15,8 +15,9 @@ namespace common {
 		static bool transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
                                  const std::function<void(size_t)>& progressCallback);
 		static bool eraseFlash(const RequestProcessorBase& requestProcessor, const VBF& data);
+		static size_t requestDownload(const RequestProcessorBase& requestProcessor, const VBFChunk& data);
 		static bool eraseFlash(const RequestProcessorBase& requestProcessor, const VBFChunk& data);
-		static bool transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& data,
+		static bool transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& data, size_t maxSizeToTransfer,
 			const std::function<void(size_t)>& progressCallback);
 
 		static bool startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr);

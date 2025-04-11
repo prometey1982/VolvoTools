@@ -135,29 +135,51 @@ namespace common {
 		}
 	}
 
-	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk,
-		const std::function<void(size_t)>& progressCallback)
+	size_t KWPProtocolCommonSteps::requestDownload(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
 	{
 		try {
 			const auto startAddr = chunk.writeOffset;
 			const auto dataSize = chunk.data.size();
-			const auto downloadResponse{ requestProcessor.process({ 0x34, 0x00, 0x44,
-				(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-				(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF }) };
-			if (downloadResponse.size() < 2) {
-				return false;
-			}
-			const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
-			uint8_t chunkIndex = 1;
-			for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+			const auto downloadResponse{ requestProcessor.process({ 0x34 },
+				{ (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+				0x11,
+				(dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF }) };
+			return downloadResponse.size() > 2 ? encode(downloadResponse[2], downloadResponse[1]) : encode(downloadResponse[1]);
+		}
+		catch (...) {
+			return 0;
+		}
+	}
+
+	bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
+	{
+		try {
+			const auto eraseAddr = toVector(chunk.writeOffset);
+			const auto eraseEndAddr = toVector(chunk.writeOffset + static_cast<uint32_t>(chunk.data.size()) - 1);
+			const auto eraseStartResult{ requestProcessor.process({ 0x31, 0xC4 }, {
+				eraseAddr[1], eraseAddr[2], eraseAddr[3],
+				eraseEndAddr[1], eraseEndAddr[2], eraseEndAddr[3], 0, 1, 2, 3, 4, 5 }, 10000) };
+			const auto eraseResult{ requestProcessor.process({ 0x33, 0xC4 }, {}, 10000) };
+			return true;
+		}
+		catch (...) {
+			return false;
+		}
+	}
+
+	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk,
+		size_t maxSizeToTransfer, const std::function<void(size_t)>& progressCallback)
+	{
+		try {
+			maxSizeToTransfer -= 5;
+			for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer) {
 				const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
-				std::vector<uint8_t> dataToTransfer{ 0x36, chunkIndex };
+				std::vector<uint8_t> dataToTransfer;
 				dataToTransfer.insert(dataToTransfer.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-				requestProcessor.process(std::move(dataToTransfer), {}, 60000);
+				requestProcessor.process({ 0x36 }, std::move(dataToTransfer), 60000);
 				progressCallback(chunkEnd - i);
 			}
 			const auto transferExitResponse{ requestProcessor.process({ 0x37 }) };
-			return transferExitResponse.size() >= 4;
 			// TODO: add calculation of chunks' CRC32 here and check for download results
 				//&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc >> 8)
 				//&& transferExitResponse[2] == static_cast<uint8_t>(chunk.crc);
@@ -167,21 +189,6 @@ namespace common {
 		}
 
 		return true;
-	}
-
-	bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
-	{
-		try {
-			const auto eraseAddr = toVector(chunk.writeOffset);
-			const auto eraseEndAddr = toVector(chunk.writeOffset + static_cast<uint32_t>(chunk.data.size()) - 1);
-			const auto eraseResult{ requestProcessor.process({ 0x31, 0xC4 }, {
-				eraseAddr[1], eraseAddr[2], eraseAddr[3],
-				eraseEndAddr[1], eraseEndAddr[2], eraseEndAddr[3], 0, 1, 2, 3, 4, 5 }, 10000) };
-			return true;
-		}
-		catch (...) {
-			return false;
-		}
 	}
 
 	bool KWPProtocolCommonSteps::startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr)

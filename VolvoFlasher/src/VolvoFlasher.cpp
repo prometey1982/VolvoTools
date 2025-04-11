@@ -220,7 +220,10 @@ public:
         case FlasherState::StartBootloader:
             std::cout << "Bootloader starting";
             break;
-        case FlasherState::EraseFlash:
+		case FlasherState::RequestDownload:
+			std::cout << "Request download";
+			break;
+		case FlasherState::EraseFlash:
             std::cout << "Flash erasing";
             break;
         case FlasherState::WriteFlash:

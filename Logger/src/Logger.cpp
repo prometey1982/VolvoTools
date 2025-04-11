@@ -15,6 +15,8 @@
 #include <algorithm>
 #include <chrono>
 #include <numeric>
+#include <ios>
+#include <sstream>
 
 namespace logger {
 
@@ -219,6 +221,78 @@ namespace logger {
         std::vector<DidInfo> _didRequests;
 	};
 
+    class UDSSlowLoggerImpl : public LoggerImpl {
+    public:
+        UDSSlowLoggerImpl(uint32_t canId)
+            : LoggerImpl()
+            , _canId{ canId }
+        {
+        }
+
+    private:
+
+        virtual void
+        registerParameters(j2534::J2534Channel& channel,
+                           const LogParameters& parameters) override {
+
+            common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
+            if(diagSessionRequest.process(channel).empty()) {
+                return;
+            }
+        }
+
+        template<typename T>
+        std::string dumpArray(const T& vec)
+        {
+            std::stringstream ss;
+            for(const auto& i: vec) {
+                ss << std::hex << int(i) << " ";
+            }
+            return ss.str();
+        }
+
+        virtual std::vector<uint32_t>
+        requestMemory(j2534::J2534Channel& channel,
+                      const LogParameters& parameters) override {
+            std::vector<uint32_t> result;
+            constexpr uint8_t addrLength = 4;
+            constexpr uint8_t dataLength = 1;
+            constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
+            for (size_t i = 0; i < parameters.parameters().size(); ++i) {
+                const auto& param = parameters.parameters()[i];
+                std::vector<uint8_t> formattedParams{ 0x23, dataFormat };
+                const auto formattedAddr = common::toVector(param.addr());
+                const auto formattedSize = static_cast<uint8_t>(param.size());
+                formattedParams.insert(formattedParams.end(), formattedAddr.cbegin(), formattedAddr.cend());
+                formattedParams.push_back(formattedSize);
+                common::UDSRequest dataRequest(_canId, formattedParams);
+                try {
+                    const auto data = dataRequest.process(channel);
+                    if(data.empty()) {
+                        continue;
+                    }
+                    size_t paramOffset = 0;
+                    uint32_t value = 0;
+                    for(size_t j = 5; j < data.size(); ++j) {
+                        value += data[j] << (paramOffset * 8);
+                        ++paramOffset;
+                        if (paramOffset >= param.size()) {
+                            result.push_back(value);
+                            break;
+                        }
+                    }
+                }
+                catch(const std::exception& ex) {
+                }
+                catch(...) {
+                }
+            }
+            return result;
+        }
+
+        const uint32_t _canId;
+    };
+
     std::unique_ptr<LoggerImpl> createLoggerImpl(common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo)
 	{
 		using common::CarPlatform;
@@ -237,9 +311,12 @@ namespace logger {
 				return {};
 			}
         }
-        if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford || carPlatform == CarPlatform::VAG) {
-            const common::ECUInfo ecuInfo = std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId));
+        const common::ECUInfo ecuInfo{ std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId)) };
+        if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford_UDS || carPlatform == CarPlatform::VAG) {
             return std::make_unique<UDSLoggerImpl>(ecuInfo.canId);
+        }
+        else if (carPlatform == CarPlatform::Haval_UDS) {
+            return std::make_unique<UDSSlowLoggerImpl>(ecuInfo.canId);
         }
         throw std::runtime_error("Not implemented");
 	}
@@ -253,7 +330,8 @@ namespace logger {
 		case common::CarPlatform::P80:
 			return LoggerType::LT_D2;
 		case common::CarPlatform::P3:
-		case common::CarPlatform::Ford:
+        case common::CarPlatform::Haval_UDS:
+        case common::CarPlatform::Ford_UDS:
 			return LoggerType::LT_UDS;
 		default:
 			throw std::runtime_error("Unsupported car platform");

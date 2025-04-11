@@ -1056,4 +1056,25 @@
             <Node Address="02" CANIdentifier="202" Name="TCM"/>
         </Bus>
     </Configuration>
+    <Configuration Name="ford_kwp">
+        <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="kwp" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+        </Bus>
+        <Bus Name="CAN HS" BusType="1" SamplePoint="80" SWDLProtocol="kwp" P4CANMax="300000" BaudRate="500" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+            <Node Address="10" CANIdentifier="7E0" Name="ECM - Engine Control Module"/>
+        </Bus>
+    </Configuration>
+    <Configuration Name="ford_uds">
+        <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="15765-2" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+        </Bus>
+        <Bus Name="CAN HS" BusType="1" SamplePoint="80" SWDLProtocol="15765-2" P4CANMax="300000" BaudRate="500" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+            <Node Address="10" CANIdentifier="7E0" Name="ECM - Engine Control Module"/>
+        </Bus>
+    </Configuration>
+    <Configuration Name="haval_uds">
+        <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="15765-2" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+        </Bus>
+        <Bus Name="CAN HS" BusType="1" SamplePoint="80" SWDLProtocol="15765-2" P4CANMax="300000" BaudRate="500" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
+            <Node Address="10" CANIdentifier="7E0" Name="ECM - Engine Control Module"/>
+        </Bus>
+    </Configuration>
 </VehiclePlattform>

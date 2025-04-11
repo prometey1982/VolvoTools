@@ -10,6 +10,7 @@ enum class FlasherState {
     ProgrammingSession,
     LoadBootloader,
     StartBootloader,
+    RequestDownload,
     EraseFlash,
     WriteFlash,
     ReadFlash,

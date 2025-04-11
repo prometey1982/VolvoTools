@@ -86,13 +86,14 @@ namespace common {
             case 3:
                 _minimimSendDelay *= 100;
             }
-            _channel.startPeriodicMsgs(common::TP20Message(_txId, { 0xA3 }), 1000);
+            _keepAliveIds = _channel.startPeriodicMsgs(common::TP20Message(_txId, { 0xA3 }), 1000);
             return true;
         }
 
-        bool disconnect()
+        void disconnect()
         {
-            return false;
+            _channel.stopPeriodicMsg(_keepAliveIds);
+            _keepAliveIds.clear();
         }
 
         void setRequestData(const std::vector<uint8_t>& request)
@@ -127,10 +128,10 @@ namespace common {
             }
             auto payload{ _dataToSend.front() };
             _dataToSend.pop_front();
-            payload[0] = _dataToSend.empty() ? 0x10 : _packetsTillAck > 0 ? 0x20 : 0x10;
+            payload[0] = _dataToSend.empty() ? 0x10 : _packetsTillAck > 1 ? 0x20 : 0x10;
             const auto result{ sendMessage(_sendPacketCounter++, std::move(payload)) };
             if (result) {
-                --_packetsTillAck;
+                //--_packetsTillAck;
                 _needReadAck = !_packetsTillAck || _dataToSend.empty();
             }
             return result;
@@ -260,6 +261,7 @@ namespace common {
             payload[0] |= packetCounter & 0x0F;
             TP20Message canMessage{ _txId, std::move(payload) };
             unsigned long msgsNum = 1;
+            _lastRequestTime = now;
             return _channel.writeMsgs(canMessage, msgsNum) == STATUS_NOERROR;
         }
 
@@ -267,9 +269,10 @@ namespace common {
         const j2534::J2534Channel& _channel;
         const CarPlatform _carPlatform;
         const uint8_t _ecuId;
-        std::chrono::milliseconds _lastRequestTime;
+        std::chrono::steady_clock::duration _lastRequestTime;
         uint32_t _rxId;
         uint32_t _txId;
+        std::vector<unsigned long> _keepAliveIds;
         uint32_t _minimimSendDelay;
         uint8_t _maxPacketsTillAck;
         uint8_t _packetsTillAck;

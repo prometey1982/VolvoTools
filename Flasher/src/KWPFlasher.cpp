@@ -59,20 +59,27 @@ namespace flasher {
             }
         }
 
-        void eraseFlash()
-        {
-            _stateUpdater(FlasherState::EraseFlash);
-            if (!common::KWPProtocolCommonSteps::eraseFlash(_requestProcessor, _flasherParameters.flash)) {
-                setFailed("Flash erasing failed");
-            }
-        }
-
         void writeFlash()
         {
-            _stateUpdater(FlasherState::WriteFlash);
-            if (!common::KWPProtocolCommonSteps::transferData(_requestProcessor, _flasherParameters.flash,
-                                                              _progressUpdater)) {
-                setFailed("Flash writing failed");
+            for (size_t i = 0; i < _flasherParameters.flash.chunks.size(); ++i) {
+                const auto& chunk = _flasherParameters.flash.chunks[i];
+                _stateUpdater(FlasherState::RequestDownload);
+                const auto maxDownloadSize{ common::KWPProtocolCommonSteps::requestDownload(_requestProcessor, chunk) };
+                if (!maxDownloadSize) {
+                    setFailed("Request download failed");
+                    break;
+                }
+                _stateUpdater(FlasherState::EraseFlash);
+                if (!common::KWPProtocolCommonSteps::eraseFlash(_requestProcessor, chunk)) {
+                    setFailed("Flash erasing failed");
+                    break;
+                }
+                _stateUpdater(FlasherState::WriteFlash);
+                if (!common::KWPProtocolCommonSteps::transferData(_requestProcessor, chunk,
+                    maxDownloadSize, _progressUpdater)) {
+                    setFailed("Flash writing failed");
+                    break;
+                }
             }
         }
 
@@ -120,7 +127,6 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
             struct StartWork,
             struct Authorize,
             struct ProgrammingSession,
-            struct EraseFlash,
             struct WriteFlash>,
         struct Done,
         struct Error
@@ -152,8 +158,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         {
             auto plan = control.plan();
             plan.change<Authorize, ProgrammingSession>();
-            plan.change<ProgrammingSession, EraseFlash>();
-            plan.change<EraseFlash, WriteFlash>();
+            plan.change<ProgrammingSession, WriteFlash>();
         }
 
         void planSucceeded(FullControl& control) {
@@ -177,13 +182,6 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().swithToProgramming();
-        }
-    };
-
-    struct EraseFlash : public BaseState {
-        void enter(PlanControl& control)
-        {
-            control.context().eraseFlash();
         }
     };
 
