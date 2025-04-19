@@ -43,16 +43,26 @@ namespace common {
 
     uint32_t encodeBigEndian(const std::vector<uint8_t>& data) {
         uint32_t result{};
-        for(size_t i = 0; i < data.size() && i < 4; ++i) {
-            result += (data[i] << (i * 8));
+        auto it = data.cbegin();
+        for(size_t i = 0; i < 4; ++i) {
+            result += (*it) << (i * 8);
+            ++it;
+            if(it == data.cend()) {
+                break;
+            }
         }
         return result;
     }
 
     uint32_t encodeLittleEndian(const std::vector<uint8_t>& data) {
         uint32_t result{};
-        for(size_t i = 0; i < data.size() && i < 4; ++i) {
-            result += (data[i] << ((3 - i) * 8));
+        auto it = data.crbegin();
+        for(size_t i = 0; i < 4; ++i) {
+            result += ((*it) << (i * 8));
+            ++it;
+            if(it == data.crend()) {
+                break;
+            }
         }
         return result;
     }

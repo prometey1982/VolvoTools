@@ -122,7 +122,7 @@ namespace logger {
                     static_cast<uint8_t>(common::ECUType::TCM), parameters.parameters()[i].addr(),
                         static_cast<uint8_t>(parameters.parameters()[i].size())) };
 
-                const auto readResponse{ readMemoryRequest.process(channel) };
+                auto readResponse{ readMemoryRequest.process(channel) };
                 result[i] = common::encodeBigEndian(readResponse);
             }
             return result;
@@ -149,8 +149,9 @@ namespace logger {
                         parameters.parameters()[i].addr(),
                         parameters.parameters()[i].size()) };
 
-                const auto readResponse{ readMemoryRequest.process(channel) };
-                result[i] = common::encodeBigEndian(readResponse);
+                auto readResponse{ readMemoryRequest.process(channel, 200, 3) };
+                readResponse.erase(readResponse.begin(), readResponse.begin() + 4);
+                result[i] = common::encodeLittleEndian(readResponse);
             }
             return result;
         }
@@ -354,7 +355,7 @@ namespace logger {
 			|| carPlatform == CarPlatform::P2 || carPlatform == CarPlatform::P2_250)) {
             return std::make_unique<D2LoggerImpl>();
 		}
-		if (cmId == 0x6A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
+        if (cmId == 0x6E && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
 			|| carPlatform == CarPlatform::P2_250)) {
 			if (common::toLower(cmInfo) == "aw55") {
                 return std::make_unique<AW55D2LoggerImpl>();
@@ -462,28 +463,41 @@ namespace logger {
 				callback->onStatusChanged(true);
 			}
 		}
+        const size_t maxErrorCount = 10;
+        size_t errorCount = 0;
         auto channel{_j2534ChannelProvider.getChannelForEcu(_ecuId)};
         const auto startTimepoint{ std::chrono::steady_clock::now() };
-		for (size_t timeoffset = 0;; timeoffset += 50) {
+        for (size_t timeoffset = 0; errorCount < maxErrorCount; timeoffset += 50) {
 			{
 				std::unique_lock<std::mutex> lock{ _mutex };
 				if (_stopped)
 					break;
 			}
-            channel->clearRx();
-            channel->clearTx();
-            auto logRecord = _loggerImpl->requestMemory(*channel, _parameters);
-			const auto now{ std::chrono::steady_clock::now() };
-			pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
-				now - startTimepoint),
-				std::move(logRecord)));
-			std::unique_lock<std::mutex> lock{ _mutex };
-			_cond.wait_until(lock,
-				startTimepoint + std::chrono::milliseconds(timeoffset));
-		}
-		{
+            try {
+                channel->clearRx();
+                channel->clearTx();
+                auto logRecord = _loggerImpl->requestMemory(*channel, _parameters);
+                const auto now{ std::chrono::steady_clock::now() };
+                pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
+                    now - startTimepoint),
+                    std::move(logRecord)));
+                errorCount = 0;
+            }
+            catch(...) {
+                ++errorCount;
+            }
+            std::unique_lock<std::mutex> lock{ _mutex };
+            _cond.wait_until(lock,
+                startTimepoint + std::chrono::milliseconds(timeoffset));
+        }
+        {
+            std::unique_lock<std::mutex> lock{ _mutex };
+            _stopped = true;
+        }
+        {
 			std::unique_lock<std::mutex> lock{ _callbackMutex };
-			for (const auto callback : _callbacks) {
+            _callbackCond.notify_all();
+            for (const auto callback : _callbacks) {
 				callback->onStatusChanged(false);
 			}
 		}

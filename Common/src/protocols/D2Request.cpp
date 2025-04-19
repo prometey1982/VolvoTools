@@ -28,10 +28,10 @@ D2Request::D2Request(const D2Message& message)
 {
 }
 
-std::vector<uint8_t> D2Request::process(const j2534::J2534Channel& channel, size_t timeout)
+std::vector<uint8_t> D2Request::process(const j2534::J2534Channel& channel, size_t timeout, size_t sendMessagesDelay)
 {
     unsigned long numMsgs = 0;
-    if(channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
+    if(channel.writeMsgs(_message, numMsgs, timeout, sendMessagesDelay) != STATUS_NOERROR || numMsgs < 1) {
         throw std::runtime_error("Failed to send CAN message");
     }
     const uint8_t ecuId = _message.getEcuId();

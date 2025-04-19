@@ -42,13 +42,18 @@ generateCANProtocolMessages(uint8_t ecuId, const std::vector<uint8_t>& requestId
   const bool isMultipleMessages = requestId.size() + params.size() > maxSingleMessagePayload;
   uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
   uint8_t seriesId = 0x08;
+  bool inSeries = 0;
   const auto dataSize = requestId.size() + params.size() + 1;
   for (size_t i = 0; i < dataSize; i += maxSingleMessagePayload) {
     const auto payloadSize =
         std::min(dataSize - i, maxSingleMessagePayload);
-    bool inSeries = isMultipleMessages && (i + payloadSize < dataSize);
     seriesId = ((seriesId - 8) + 1) % 8 + 8;
+    // Last message
+    if(i + payloadSize >= dataSize) {
+        inSeries = false;
+    }
     uint8_t newPrefix = inSeries? seriesId : messagePrefix + payloadSize;
+    inSeries = isMultipleMessages && (i + payloadSize < dataSize);
     std::array<uint8_t, 8> canPayload;
     canPayload[0] = newPrefix;
     memset(&canPayload[1], 0, canPayload.size() - 1);
