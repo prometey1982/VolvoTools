@@ -20,7 +20,7 @@ struct D2Messages {
   static std::vector<D2Message>
   createWriteDataMsgs(uint8_t ecuId, const std::vector<uint8_t> &bin,
                       size_t beginOffset, size_t endOffset);
-  static D2Message createReadTCMDataByAddr(uint32_t addr, size_t dataSize);
+  static D2Message createReadTCMTF80DataByAddr(uint32_t addr, size_t dataSize);
   static D2Message createWriteDataByAddrMsg(uint8_t ecuId, uint32_t addr,
                                             uint8_t data);
   static D2Message clearDTCMsgs(uint8_t ecuId);

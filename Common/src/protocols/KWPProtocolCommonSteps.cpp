@@ -57,7 +57,7 @@ namespace common {
 			const auto seedResponse{ requestProcessor.process({ 0x27, 0x01 }) };
 			if (seedResponse.size() < 6)
 				return false;
-			uint32_t key = generateKeyCommon(encode(seedResponse[5], seedResponse[4], seedResponse[3], seedResponse[2]));
+            uint32_t key = generateKeyCommon(encodeBigEndian(seedResponse[5], seedResponse[4], seedResponse[3], seedResponse[2]));
 			const auto keyResponse{ requestProcessor.process({ 0x27, 0x02 }, { (key >> 24) & 0xFF, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF }) };
 			return keyResponse.size() >= 3 && keyResponse[2] == 0x34;
 		}
@@ -96,7 +96,7 @@ namespace common {
 				if (downloadResponse.size() < 2) {
 					return false;
 				}
-				const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
+                const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
 				uint8_t chunkIndex = 1;
 				for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
 					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
@@ -144,7 +144,7 @@ namespace common {
 				{ (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
 				0x11,
 				(dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF }) };
-			return downloadResponse.size() > 2 ? encode(downloadResponse[2], downloadResponse[1]) : encode(downloadResponse[1]);
+            return encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;;
 		}
 		catch (...) {
 			return 0;

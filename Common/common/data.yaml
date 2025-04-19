@@ -4925,9 +4925,14 @@ Configuration:
         Enabled: 1
         Name: CAN HS
         Node: 
-          Address: 10
-          CANIdentifier: '7E0'
-          Name: ECM - Engine Control Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
         P4CANMax: 300000
         SWDLProtocol: 15765-2
         SWDLSpecification: 31808456
@@ -4952,9 +4957,14 @@ Configuration:
         Enabled: 1
         Name: CAN HS
         Node: 
-          Address: 10
-          CANIdentifier: '7E0'
-          Name: ECM - Engine Control Module
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
         P4CANMax: 300000
         SWDLProtocol: 15765-2
         SWDLSpecification: 31808456

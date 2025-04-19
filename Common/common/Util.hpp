@@ -19,8 +19,12 @@ namespace common {
     std::wstring toWstring(const std::string& str);
     std::string toString(const std::wstring& str);
 
-    uint32_t encode(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0,
+    uint32_t encodeBigEndian(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0,
         uint8_t byte4 = 0);
+    uint32_t encodeLittleEndian(uint8_t byte1, uint8_t byte2, uint8_t byte3,
+                             uint8_t byte4);
+    uint32_t encodeBigEndian(const std::vector<uint8_t>& data);
+    uint32_t encodeLittleEndian(const std::vector<uint8_t>& data);
 
     std::vector<uint8_t> toVector(uint16_t value);
     std::vector<uint8_t> toVector(uint32_t value);

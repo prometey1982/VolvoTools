@@ -33,8 +33,28 @@ namespace common {
         return converter.to_bytes(str);
     }
 
-    uint32_t encode(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4) {
+    uint32_t encodeBigEndian(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4) {
         return byte1 + (byte2 << 8) + (byte3 << 16) + (byte4 << 24);
+    }
+
+    uint32_t encodeLittleEndian(uint8_t byte1, uint8_t byte2, uint8_t byte3, uint8_t byte4) {
+        return byte4 + (byte3 << 8) + (byte2 << 16) + (byte1 << 24);
+    }
+
+    uint32_t encodeBigEndian(const std::vector<uint8_t>& data) {
+        uint32_t result{};
+        for(size_t i = 0; i < data.size() && i < 4; ++i) {
+            result += (data[i] << (i * 8));
+        }
+        return result;
+    }
+
+    uint32_t encodeLittleEndian(const std::vector<uint8_t>& data) {
+        uint32_t result{};
+        for(size_t i = 0; i < data.size() && i < 4; ++i) {
+            result += (data[i] << ((3 - i) * 8));
+        }
+        return result;
     }
 
     std::vector<uint8_t> toVector(uint16_t value) {

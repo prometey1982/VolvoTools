@@ -47,7 +47,7 @@ namespace common {
             if (dataSize < 4) {
                 return true;
             }
-            const auto receivedCanId{ encode(data[3], data[2], data[1], data[0]) };
+            const auto receivedCanId{ encodeBigEndian(data[3], data[2], data[1], data[0]) };
             if (receivedCanId != _responseCanId) {
                 return true;
             }

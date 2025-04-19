@@ -57,10 +57,10 @@ namespace common {
             if (csResp.size() < 6) {
                 return false;
             }
-            if (!(csResp[0] == 0 && csResp[1] == TP20ServiceID::ChannelSetupPositiveResponse && encode(csResp[2], csResp[3]) == requestedChannel)) {
+            if (!(csResp[0] == 0 && csResp[1] == TP20ServiceID::ChannelSetupPositiveResponse && encodeBigEndian(csResp[2], csResp[3]) == requestedChannel)) {
                 return false;
             }
-            const auto channelTxId{ encode(csResp[4], csResp[5]) };
+            const auto channelTxId{ encodeBigEndian(csResp[4], csResp[5]) };
             prepareTP20Channel(_channel, requestedChannel);
             TP20Request channelParametersRequest{ channelTxId, requestedChannel,
                                                 { TP20ServiceID::SetupChannelParameters, 0xF, 0x8A, 0xFF, 0x32, 0xFF } };
@@ -239,7 +239,7 @@ namespace common {
             if (dataSize < 5) {
                 return true;
             }
-            if (encode(data[3], data[2], data[1], data[0]) != _rxId) {
+            if (encodeBigEndian(data[3], data[2], data[1], data[0]) != _rxId) {
                 return true;
             }
             if (data[4] == 0xA1) {

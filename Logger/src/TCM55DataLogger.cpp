@@ -114,19 +114,19 @@ void TCM55DataLogger::logFunction(unsigned long protocolId,
           size_t msg2Offset = 5;
           if (messagesSize == 1) {
             if (_parameters.parameters()[i].size() == 1)
-              logRecord[i] = common::encode(data1[msg1Offset]);
+              logRecord[i] = common::encodeBigEndian(data1[msg1Offset]);
             else if (_parameters.parameters()[i].size() == 2)
               logRecord[i] =
-                  common::encode(data1[msg1Offset + 1], data1[msg1Offset]);
+                  common::encodeBigEndian(data1[msg1Offset + 1], data1[msg1Offset]);
           } else {
             auto logMessage2 = logMessages[1];
             const auto &data2 = logMessage2.Data;
             if (_parameters.parameters()[i].size() == 3)
-              logRecord[i] = common::encode(
+              logRecord[i] = common::encodeBigEndian(
                   data2[msg2Offset], data1[msg1Offset + 1], data1[msg1Offset]);
             else if (_parameters.parameters()[i].size() == 4)
               logRecord[i] =
-                  common::encode(data2[msg2Offset + 1], data2[msg2Offset],
+                  common::encodeBigEndian(data2[msg2Offset + 1], data2[msg2Offset],
                                  data1[msg1Offset + 1], data1[msg1Offset]);
           }
         }

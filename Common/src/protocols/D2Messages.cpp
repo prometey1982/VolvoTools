@@ -102,8 +102,8 @@ D2Messages::createWriteDataMsgs(uint8_t ecuId,
   return result;
 }
 
-/*static*/ D2Message D2Messages::createReadTCMDataByAddr(uint32_t addr,
-                                                         size_t dataSize) {
+/*static*/ D2Message D2Messages::createReadTCMTF80DataByAddr(uint32_t addr,
+                                                             size_t dataSize) {
   const uint8_t byte1 = (addr & 0xFF000000) >> 24;
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;

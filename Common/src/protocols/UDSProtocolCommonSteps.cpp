@@ -123,7 +123,7 @@ namespace common {
 				if (downloadResponse.size() < 2) {
 					return false;
 				}
-				const size_t maxSizeToTransfer = encode(downloadResponse[1], downloadResponse[0]) - 2;
+                const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
 				uint8_t chunkIndex = 1;
 				for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
 					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };

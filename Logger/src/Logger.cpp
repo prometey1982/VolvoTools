@@ -102,6 +102,60 @@ namespace logger {
 		}
 	};
 
+    class AW55D2LoggerImpl : public LoggerImpl {
+    public:
+        AW55D2LoggerImpl() : LoggerImpl() {}
+
+    private:
+        virtual void registerParameters(j2534::J2534Channel&, const LogParameters&) override
+        {
+        }
+
+        virtual std::vector<uint32_t>
+        requestMemory(j2534::J2534Channel& channel,
+                      const LogParameters& parameters) override
+        {
+            std::vector<uint32_t> result(parameters.parameters().size());
+            for (size_t i = 0; i < parameters.parameters().size(); ++i) {
+                common::D2Request readMemoryRequest{
+                    common::D2Messages::createReadDataByOffsetMsg(
+                    static_cast<uint8_t>(common::ECUType::TCM), parameters.parameters()[i].addr(),
+                        static_cast<uint8_t>(parameters.parameters()[i].size())) };
+
+                const auto readResponse{ readMemoryRequest.process(channel) };
+                result[i] = common::encodeBigEndian(readResponse);
+            }
+            return result;
+        }
+    };
+
+    class TF80D2LoggerImpl : public LoggerImpl {
+    public:
+        TF80D2LoggerImpl() : LoggerImpl() {}
+
+    private:
+        virtual void registerParameters(j2534::J2534Channel&, const LogParameters&) override
+        {
+        }
+
+        virtual std::vector<uint32_t>
+        requestMemory(j2534::J2534Channel& channel,
+                      const LogParameters& parameters) override
+        {
+            std::vector<uint32_t> result(parameters.parameters().size());
+            for (size_t i = 0; i < parameters.parameters().size(); ++i) {
+                common::D2Request readMemoryRequest{
+                    common::D2Messages::createReadTCMTF80DataByAddr(
+                        parameters.parameters()[i].addr(),
+                        parameters.parameters()[i].size()) };
+
+                const auto readResponse{ readMemoryRequest.process(channel) };
+                result[i] = common::encodeBigEndian(readResponse);
+            }
+            return result;
+        }
+    };
+
     class UDSLoggerImpl : public LoggerImpl {
 	public:
         UDSLoggerImpl(uint32_t canId)
@@ -303,12 +357,10 @@ namespace logger {
 		if (cmId == 0x6A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
 			|| carPlatform == CarPlatform::P2_250)) {
 			if (common::toLower(cmInfo) == "aw55") {
-				throw std::runtime_error("Need to implement logger for aw55");
-				return {};
+                return std::make_unique<AW55D2LoggerImpl>();
 			}
             else if (common::toLower(cmInfo) == "tf80_p2") {
-				throw std::runtime_error("Need to implement logger for tf80");
-				return {};
+                return std::make_unique<TF80D2LoggerImpl>();
 			}
         }
         const common::ECUInfo ecuInfo{ std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId)) };
