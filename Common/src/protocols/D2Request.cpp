@@ -70,11 +70,11 @@ std::vector<uint8_t> D2Request::process(const j2534::J2534Channel& channel, size
                 inSeries = false;
                 dataSize = dataOffset + header - 0x48;
             }
-            else if(seriesId == header) {
-                seriesId = ((seriesId - 8) + 1) % 8 + 8;
-            } else {
-                throw std::runtime_error("Wrong series index");
-            }
+//            else if(seriesId == header) {
+//                seriesId = ((seriesId - 8) + 1) % 8 + 8;
+//            } else {
+//                throw std::runtime_error("Wrong series index");
+//            }
         }
         result.reserve(result.size() + dataSize - dataOffset);
         std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
