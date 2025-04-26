@@ -1,6 +1,7 @@
 [requires]
 boost/1.86.0
 yaml-cpp/0.6.3
+easyloggingpp/9.97.1
 
 [generators]
 CMakeDeps
