@@ -119,7 +119,7 @@ namespace common {
 					(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
 					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
 				unsigned long numMsgs;
-				const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
+                const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
 				if (downloadResponse.size() < 2) {
 					return false;
 				}
@@ -130,7 +130,7 @@ namespace common {
 					std::vector<uint8_t> data{ 0x36, chunkIndex };
 					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
 					UDSRequest transferDataRequest{ canId, std::move(data) };
-					transferDataRequest.process(channel, { chunkIndex }, 60000);
+                    transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
                     progressCallback(chunkEnd - i);
 				}
 				UDSRequest transferExitRequest{ canId, { 0x37 } };
@@ -157,7 +157,7 @@ namespace common {
 			if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
 				return false;
 			}
-			if (!readMessageAndCheck(channel, { 0x71, 0x01, 0xff, 0x00, 0x00, 0x00 }, {}, 10)) {
+            if (!readMessageAndCheck(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10)) {
 				return false;
 			}
 		}
