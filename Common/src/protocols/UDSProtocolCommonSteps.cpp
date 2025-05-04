@@ -90,22 +90,31 @@ namespace common {
 	bool UDSProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
 		const std::array<uint8_t, 5>& pin)
 	{
-		try {
-			channel.clearRx();
-			UDSRequest seedRequest(canId, { 0x27, 0x01 });
-			const auto seedResponse(seedRequest.process(channel));
-			if (seedResponse.size() < 9)
-				return false;
-			std::array<uint8_t, 3> seed = { seedResponse[6], seedResponse[7], seedResponse[8] };
-			uint32_t key = generateKey(pin, seed);
-			channel.clearRx();
-			UDSRequest keyRequest(canId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
-			const auto keyResponse(keyRequest.process(channel));
-			return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
-		}
-		catch (...) {
-			return false;
-		}
+        UDSRequest seedRequest(canId, { 0x27, 0x01 });
+        for(size_t i = 0; i < 5; ++i) {
+            try {
+                channel.clearRx();
+                const auto seedResponse(seedRequest.process(channel));
+                if (seedResponse.size() < 9)
+                    return false;
+                std::array<uint8_t, 3> seed = { seedResponse[6], seedResponse[7], seedResponse[8] };
+                uint32_t key = generateKey(pin, seed);
+                channel.clearRx();
+                UDSRequest keyRequest(canId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
+                try {
+                    const auto keyResponse(keyRequest.process(channel));
+                    return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
+                }
+                catch(UDSError& error) {
+                    if(error.getErrorCode() == UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
+                    }
+                }
+            }
+            catch (...) {
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        }
+        return false;
 	}
 
     bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
