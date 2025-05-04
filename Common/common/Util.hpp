@@ -96,6 +96,6 @@ namespace common {
 
     std::array<uint8_t, 5> getPinArray(uint64_t pin);
 
-    void writeToLog(const std::string& str);
+    void initLogger(const std::string& logFilename);
 
 } // namespace common

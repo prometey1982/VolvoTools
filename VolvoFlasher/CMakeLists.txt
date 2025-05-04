@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 project(VolvoFlasher VERSION 1.0.0 LANGUAGES CXX)
 
 #find_package(Boost REQUIRED)
+find_package(Easyloggingpp REQUIRED)
  
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,4 +27,4 @@ if (WIN32)
        NOMINMAX 
     )   
 endif()
-target_link_libraries(${PROJECT_NAME} Common j2534 Flasher argparse)
+target_link_libraries(${PROJECT_NAME} Common j2534 Flasher argparse easyloggingpp::easyloggingpp)

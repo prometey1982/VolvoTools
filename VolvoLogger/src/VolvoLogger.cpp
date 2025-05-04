@@ -9,11 +9,15 @@
 #include <j2534/J2534.hpp>
 
 #include <argparse/argparse.hpp>
-#include <fstream>
+
+#include <easylogging++.h>
+
 #include <iomanip>
 #include <iostream>
 #include <memory>
 #include <thread>
+
+INITIALIZE_EASYLOGGINGPP
 
 class ConsoleLogWriter final : public logger::LoggerCallback {
 public:
@@ -71,6 +75,7 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 }
 
 int main(int argc, const char *argv[]) {
+  common::initLogger("application.log");
   if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
     throw std::runtime_error("Can't set console control hander");
   }

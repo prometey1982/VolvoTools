@@ -22,6 +22,8 @@
 
 #include <argparse/argparse.hpp>
 
+#include <easylogging++.h>
+
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -31,6 +33,8 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
+
+INITIALIZE_EASYLOGGINGPP
 
 bool stopRequested = false;
 
@@ -886,7 +890,8 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 }
 
 int main(int argc, const char* argv[]) {
-	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
+    common::initLogger("application.log");
+    if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
 #if 0

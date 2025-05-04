@@ -13,6 +13,8 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <easylogging++.h>
+
 #include <algorithm>
 #include <codecvt>
 #include <locale>
@@ -741,10 +743,15 @@ namespace common {
         return { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
     }
 
-    void writeToLog(const std::string& str)
+    void initLogger(const std::string& logFilename)
     {
-        static std::ofstream log{"output.log", std::ios_base::app };
-        log << str << std::endl;
+        el::Configurations defaultConf;
+        defaultConf.setToDefault();
+        defaultConf.set(el::Level::Global,
+                        el::ConfigurationType::Format, "%datetime %level %msg");
+        defaultConf.set(el::Level::Global,
+                        el::ConfigurationType::Filename, logFilename);
+        el::Loggers::reconfigureLogger("default", defaultConf);
     }
 
 } // namespace common

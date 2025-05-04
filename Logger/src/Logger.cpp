@@ -12,6 +12,8 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <easylogging++.h>
+
 #include <algorithm>
 #include <chrono>
 #include <numeric>
@@ -338,6 +340,7 @@ namespace logger {
                     }
                 }
                 catch(const std::exception& ex) {
+                    LOG(ERROR) << ex.what();
                 }
                 catch(...) {
                 }

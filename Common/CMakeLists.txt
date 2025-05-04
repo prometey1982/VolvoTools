@@ -3,6 +3,7 @@ project(Common VERSION 1.0.0 LANGUAGES CXX)
 
 find_package(Boost REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(Easyloggingpp REQUIRED)
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/protocols SUB_SOURCES)
@@ -27,4 +28,4 @@ if (WIN32)
 endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost intelhex)
+target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost intelhex easyloggingpp::easyloggingpp)
