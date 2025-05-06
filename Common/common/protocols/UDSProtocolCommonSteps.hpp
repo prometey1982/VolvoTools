@@ -19,8 +19,11 @@ namespace common {
 		static bool authorize(const j2534::J2534Channel& channel, uint32_t canId, const std::array<uint8_t, 5>& pin);
         static bool transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
                                  const std::function<void(size_t)>& progressCallback);
-		static bool eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
-		static bool startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);
+        static bool transferChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk,
+                                 const std::function<void(size_t)>& progressCallback);
+        static bool eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
+        static bool eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk);
+        static bool startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);
 	};
 
 } // namespace common

@@ -88,22 +88,19 @@ namespace flasher {
             }
         }
 
-        void eraseFlash()
-        {
-            _stateUpdater(FlasherState::EraseFlash);
-            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
-            if (!common::UDSProtocolCommonSteps::eraseFlash(channel, _canId, _flasherParameters.flash)) {
-                setFailed("Flash erasing failed");
-            }
-        }
-
         void writeFlash()
         {
-            _stateUpdater(FlasherState::WriteFlash);
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
-            if (!common::UDSProtocolCommonSteps::transferData(channel, _canId, _flasherParameters.flash,
-                                                              _progressUpdater)) {
-                setFailed("Flash writing failed");
+            for(const auto& chunk: _flasherParameters.flash.chunks) {
+                _stateUpdater(FlasherState::EraseFlash);
+                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canId, chunk)) {
+                    setFailed("Flash erasing failed");
+                }
+                _stateUpdater(FlasherState::WriteFlash);
+                if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
+                                                                  _progressUpdater)) {
+                    setFailed("Flash writing failed");
+                }
             }
         }
 
@@ -160,7 +157,6 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             struct Authorize,
             struct LoadBootloader,
             struct StartBootloader,
-            struct EraseFlash,
             struct WriteFlash>,
         M::Composite<
             struct Finish,
@@ -198,8 +194,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             plan.change<KeepAlive, Authorize>();
             plan.change<Authorize, LoadBootloader>();
             plan.change<LoadBootloader, StartBootloader>();
-            plan.change<StartBootloader, EraseFlash>();
-            plan.change<EraseFlash, WriteFlash>();
+            plan.change<StartBootloader, WriteFlash>();
         }
 
         void planSucceeded(FullControl& control) {
@@ -244,13 +239,6 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().startBootloader();
-        }
-    };
-
-    struct EraseFlash : public BaseState {
-        void enter(PlanControl& control)
-        {
-            control.context().eraseFlash();
         }
     };
 

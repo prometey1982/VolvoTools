@@ -419,7 +419,7 @@ namespace common {
         for (size_t i = 0; i < retryCount; ++i) {
             std::vector<PASSTHRU_MSG> read_msgs;
             read_msgs.resize(1);
-            if (channel.readMsgs(read_msgs, 1000) != STATUS_NOERROR || read_msgs.empty())
+            if (channel.readMsgs(read_msgs, 10000) != STATUS_NOERROR || read_msgs.empty())
             {
                 continue;
             }

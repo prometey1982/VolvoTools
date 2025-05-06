@@ -117,35 +117,33 @@ namespace common {
         return false;
 	}
 
-    bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
+    bool UDSProtocolCommonSteps::transferChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk,
                                               const std::function<void(size_t)>& progressCallback)
 	{
 		try {
-			for (const auto& chunk : data.chunks) {
-				const auto startAddr = chunk.writeOffset;
-				const auto dataSize = chunk.data.size();
-				UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
-					(startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-					(dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
-				unsigned long numMsgs;
-                const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
-				if (downloadResponse.size() < 2) {
-					return false;
-				}
-                const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
-				uint8_t chunkIndex = 1;
-				for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
-					const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
-					std::vector<uint8_t> data{ 0x36, chunkIndex };
-					data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-					UDSRequest transferDataRequest{ canId, std::move(data) };
-                    transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
-                    progressCallback(chunkEnd - i);
-				}
-				UDSRequest transferExitRequest{ canId, { 0x37 } };
-				transferExitRequest.process(
-                    channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
-			}
+            const auto startAddr = chunk.writeOffset;
+            const auto dataSize = chunk.data.size();
+            UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
+                (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+                (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
+            unsigned long numMsgs;
+            const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
+            if (downloadResponse.size() < 2) {
+                return false;
+            }
+            const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
+            uint8_t chunkIndex = 1;
+            for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+                const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
+                std::vector<uint8_t> data{ 0x36, chunkIndex };
+                data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
+                UDSRequest transferDataRequest{ canId, std::move(data) };
+                transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
+                progressCallback(chunkEnd - i);
+            }
+            UDSRequest transferExitRequest{ canId, { 0x37 } };
+            transferExitRequest.process(
+                channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
 		}
 		catch (...) {
 			return false;
@@ -154,7 +152,44 @@ namespace common {
 		return true;
 	}
 
-	bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
+    bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
+                                              const std::function<void(size_t)>& progressCallback)
+    {
+        try {
+            for (const auto& chunk : data.chunks) {
+                const auto startAddr = chunk.writeOffset;
+                const auto dataSize = chunk.data.size();
+                UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
+                                                          (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
+                                                          (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
+                unsigned long numMsgs;
+                const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
+                if (downloadResponse.size() < 2) {
+                    return false;
+                }
+                const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
+                uint8_t chunkIndex = 1;
+                for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
+                    const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
+                    std::vector<uint8_t> data{ 0x36, chunkIndex };
+                    data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
+                    UDSRequest transferDataRequest{ canId, std::move(data) };
+                    transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
+                    progressCallback(chunkEnd - i);
+                }
+                UDSRequest transferExitRequest{ canId, { 0x37 } };
+                transferExitRequest.process(
+                    channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
+            }
+        }
+        catch (...) {
+            return false;
+        }
+
+        return true;
+    }
+
+    bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
     {
 		for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
@@ -178,7 +213,29 @@ namespace common {
         return false;
 	}
 
-	bool UDSProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
+    bool UDSProtocolCommonSteps::eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk)
+    {
+        const auto eraseAddr = toVector(chunk.writeOffset);
+        const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
+        UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
+                                           eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
+                                           eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
+        unsigned long numMsgs;
+        for(size_t i = 0; i < 1; ++i) {
+            if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+                continue;
+            }
+            const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
+            if(result.empty()) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    bool UDSProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
 	{
 		const auto callAddr = common::toVector(addr);
 		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
