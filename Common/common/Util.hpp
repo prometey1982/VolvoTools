@@ -98,4 +98,6 @@ namespace common {
 
     void initLogger(const std::string& logFilename);
 
+    uint16_t crc16(const uint8_t* data_p, size_t length);
+
 } // namespace common

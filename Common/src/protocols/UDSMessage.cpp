@@ -42,6 +42,13 @@ const std::vector<uint8_t> & UDSMessage::data() const {
   return _data;
 }
 
+const UDSMessage& UDSMessage::operator=(const UDSMessage& rhs)
+{
+  j2534::BaseMessage::operator=(rhs);
+  _data = rhs._data;
+  return *this;
+}
+
 std::vector<PASSTHRU_MSG> UDSMessage::toPassThruMsgs(unsigned long ProtocolID,
     unsigned long Flags) const {
     std::vector<PASSTHRU_MSG> result;

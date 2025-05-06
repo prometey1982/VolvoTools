@@ -144,7 +144,7 @@ namespace common {
 				}
 				UDSRequest transferExitRequest{ canId, { 0x37 } };
 				transferExitRequest.process(
-					channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) });
+                    channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
 			}
 		}
 		catch (...) {
@@ -155,7 +155,7 @@ namespace common {
 	}
 
 	bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
-	{
+    {
 		for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
 			const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
@@ -163,14 +163,19 @@ namespace common {
 				eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
 				eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
 			unsigned long numMsgs;
-			if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-				return false;
-			}
-            if (!readMessageAndCheck(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10)) {
-				return false;
-			}
+            for(size_t i = 0; i < 10; ++i) {
+                if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+                    continue;
+                }
+                const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
+                if(result.empty()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    continue;
+                }
+                return true;
+            }
 		}
-		return true;
+        return false;
 	}
 
 	bool UDSProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)

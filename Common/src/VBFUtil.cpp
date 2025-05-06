@@ -25,7 +25,7 @@ void updateChecksum(std::vector<uint8_t>& data)
 
 VBFChunk createChunk(const std::vector<uint8_t>& data, uint32_t offset, size_t size)
 {
-    return {offset, std::vector<uint8_t>(data.data() + offset, data.data() + offset + size)};
+    return {offset, std::vector<uint8_t>(data.data() + offset, data.data() + offset + size), crc16(data.data() + offset, size)};
 }
 
 VBF createVBFForME7(std::vector<uint8_t>& data)
@@ -119,7 +119,7 @@ common::VBF loadVBFForFlasher(CarPlatform carPlatform, uint8_t ecuId,
         hexData.compact();
         std::vector<common::VBFChunk> chunks;
         for(const auto& block: hexData) {
-            chunks.emplace_back(common::VBFChunk(block.first, block.second));
+            chunks.emplace_back(common::VBFChunk(block.first, block.second, crc16(block.second.data(), block.second.size())));
         }
         return {{}, chunks};
     }
