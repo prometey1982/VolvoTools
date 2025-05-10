@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #define _BYTE  char
 
 int main2(int argc, char **argv){
