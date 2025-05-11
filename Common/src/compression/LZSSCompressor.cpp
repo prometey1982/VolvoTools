@@ -76,7 +76,8 @@ std::vector<uint8_t> LZSSCompressor::compress(const std::vector<uint8_t>& input)
     output.insert(output.begin(), flags.begin(), flags.end());
     output.insert(output.begin(), header.begin(), header.end());
 
-    return output;}
+    return output;
+}
 
 std::vector<uint8_t> LZSSCompressor::decompress(const std::vector<uint8_t>& input)
 {
