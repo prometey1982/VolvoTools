@@ -8,6 +8,7 @@ find_package(Easyloggingpp REQUIRED)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/protocols SUB_SOURCES)
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/encryption SUB_SOURCES)
+aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src/compression SUB_SOURCES)
 
 set(SOURCE
   ${SOURCE}
