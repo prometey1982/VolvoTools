@@ -1,7 +1,5 @@
 #include "common/compression/LZSSCompressor.hpp"
 
-#include <stdexcept>
-
 namespace common {
 
 namespace {
@@ -10,40 +8,31 @@ static constexpr size_t WINDOW_SIZE = 4096;    // Размер скользящ�
 static constexpr size_t LOOKAHEAD_BUFFER = 18; // Размер буфера предпросмотра
 static constexpr size_t MIN_MATCH_LENGTH = 3;  // Минимальная длина совпадения
 
-// Структура для хранения совпадений
 struct Match {
     size_t offset;
     size_t length;
-    uint8_t next_char;
 };
 
-// Функция поиска наилучшего совпадения в скользящем окне
-Match find_best_match(const std::vector<uint8_t>& data, size_t window_start, size_t window_end, size_t lookahead_start, size_t lookahead_end)
-{
-    Match best_match = {0, 0, data[lookahead_start]};
-    size_t max_possible_length = std::min(LOOKAHEAD_BUFFER, lookahead_end - lookahead_start);
+Match find_match(const std::vector<uint8_t>& data, size_t pos) {
+    Match best = {0, 0};
+    if (pos >= data.size()) return best;
 
-    for (size_t i = window_start; i < window_end; ++i) {
-        size_t length = 0;
-        while (length < max_possible_length &&
-               i + length < window_end &&
-               lookahead_start + length < lookahead_end &&
-               data[i + length] == data[lookahead_start + length]) {
-            ++length;
+    size_t start = (pos > WINDOW_SIZE) ? pos - WINDOW_SIZE : 0;
+    start = std::max(start, (size_t)0);
+
+    for (size_t i = start; i < pos; ++i) {
+        size_t len = 0;
+        while (len < LOOKAHEAD_BUFFER &&
+               pos + len < data.size() &&
+               i + len < data.size() &&
+               data[i + len] == data[pos + len]) {
+            len++;
         }
-
-        if (length > best_match.length) {
-            best_match.length = length;
-            best_match.offset = window_end - i;
-            if (lookahead_start + length < lookahead_end) {
-                best_match.next_char = data[lookahead_start + length];
-            } else {
-                best_match.next_char = 0;
-            }
+        if (len > best.length) {
+            best = {pos - i, len};
         }
     }
-
-    return best_match;
+    return best;
 }
 
 }
@@ -51,86 +40,81 @@ Match find_best_match(const std::vector<uint8_t>& data, size_t window_start, siz
 std::vector<uint8_t> LZSSCompressor::compress(const std::vector<uint8_t>& input)
 {
     std::vector<uint8_t> output;
-    size_t input_size = input.size();
-    size_t pos = 0;
+    std::vector<uint8_t> flags;
+    uint8_t current_flag = 0;
+    size_t flag_bit = 0;
 
-    while (pos < input_size) {
-        size_t window_start = (pos > WINDOW_SIZE) ? (pos - WINDOW_SIZE) : 0;
-        size_t window_end = pos;
-        size_t lookahead_end = std::min(pos + LOOKAHEAD_BUFFER, input_size);
+    for (size_t pos = 0; pos < input.size();) {
+        Match match = find_match(input, pos);
 
-        Match match = find_best_match(input, window_start, window_end, pos, lookahead_end);
-
-        if (match.length >= MIN_MATCH_LENGTH) {
-            // Кодируем совпадение как (offset, length)
-            uint16_t token = ((match.offset & 0xFFF) << 4) | ((match.length - MIN_MATCH_LENGTH) & 0xF);
-            output.push_back(static_cast<uint8_t>((token >> 8) & 0xFF));
-            output.push_back(static_cast<uint8_t>(token & 0xFF));
-            output.push_back(match.next_char);
-
-            pos += match.length + 1;
+        if (match.length >= MIN_MATCH_LENGTH && match.offset <= WINDOW_SIZE) {
+            current_flag |= (1 << (7 - flag_bit));
+            uint16_t token = ((match.offset - 1) << 4) | (match.length - MIN_MATCH_LENGTH);
+            output.push_back(token >> 8);
+            output.push_back(token & 0xFF);
+            pos += match.length;
         } else {
-            // Кодируем как одиночный символ
-            output.push_back(0);
-            output.push_back(match.next_char);
+            output.push_back(input[pos]);
+            pos++;
+        }
 
-            pos += 1;
+        flag_bit = (flag_bit + 1) % 8;
+        if (flag_bit == 0) {
+            flags.push_back(current_flag);
+            current_flag = 0;
         }
     }
 
-    return output;
-}
+    if (flag_bit != 0) flags.push_back(current_flag);
+
+    // Добавляем заголовок с размером флагов (big-endian)
+    uint16_t flag_size = flags.size();
+    std::vector<uint8_t> header = {
+        static_cast<uint8_t>((flag_size >> 8) & 0xFF),
+        static_cast<uint8_t>(flag_size & 0xFF)
+    };
+    output.insert(output.begin(), flags.begin(), flags.end());
+    output.insert(output.begin(), header.begin(), header.end());
+
+    return output;}
 
 std::vector<uint8_t> LZSSCompressor::decompress(const std::vector<uint8_t>& input)
 {
+    if (input.size() < 2) return {};
+
+    // Читаем размер флагов (big-endian)
+    size_t flag_bytes = (input[0] << 8) | input[1];
+    if (input.size() < 2 + flag_bytes) return {};
+
+    std::vector<uint8_t> flags(input.begin() + 2, input.begin() + 2 + flag_bytes);
     std::vector<uint8_t> output;
-    size_t pos = 0;
-    size_t compressed_size = input.size();
+    size_t data_pos = 2 + flag_bytes;
+    size_t flag_idx = 0;
+    size_t bit_idx = 0;
 
-    output.reserve(compressed_size * 2); // Предварительное выделение памяти
+    while (data_pos < input.size() && flag_idx < flags.size()) {
+        bool is_compressed = (flags[flag_idx] & (1 << (7 - bit_idx)));
 
-    while (pos < compressed_size) {
-        if (pos + 1 < compressed_size && input[pos] == 0) {
-            // Одиночный символ
-            output.push_back(input[pos + 1]);
-            pos += 2;
-        } else if (pos + 2 < compressed_size) {
-            // Совпадение (offset, length)
-            uint16_t token = (static_cast<uint16_t>(input[pos]) << 8) | input[pos + 1];
-            size_t offset = (token >> 4) & 0xFFF;
-            size_t length = (token & 0xF) + MIN_MATCH_LENGTH;
-            uint8_t next_char = input[pos + 2];
+        if (is_compressed) {
+            if (data_pos + 1 >= input.size()) break;
 
-            if (offset == 0 || offset > output.size()) {
-                throw std::runtime_error("Invalid offset in compressed data");
+            uint16_t token = (input[data_pos] << 8) | input[data_pos + 1];
+            size_t offset = (token >> 4) + 1;
+            size_t length = (token & 0x0F) + MIN_MATCH_LENGTH;
+
+            size_t copy_pos = output.size() - std::min(offset, output.size());
+            for (size_t i = 0; i < length; ++i) {
+                output.push_back(output[copy_pos + (i % offset)]);
             }
 
-            // Копируем совпадение из предыдущих данных
-            size_t start_pos = output.size() - offset;
-            size_t end_pos = start_pos + length;
-
-            // Проверяем, нужно ли расширять выходной буфер
-            if (end_pos > output.size()) {
-                // Обработка случая, когда совпадение выходит за пределы текущих данных
-                size_t remaining = end_pos - output.size();
-                for (size_t i = 0; i < remaining; ++i) {
-                    output.push_back(output[start_pos + i]);
-                }
-            } else {
-                output.insert(output.end(), output.begin() + start_pos, output.begin() + end_pos);
-            }
-
-            // Добавляем следующий символ
-            if (next_char != 0) {
-                output.push_back(next_char);
-            }
-
-            pos += 3;
+            data_pos += 2;
         } else {
-            // Одиночный символ в конце
-            output.push_back(input[pos]);
-            pos += 1;
+            output.push_back(input[data_pos]);
+            data_pos++;
         }
+
+        bit_idx = (bit_idx + 1) % 8;
+        if (bit_idx == 0) flag_idx++;
     }
 
     return output;
