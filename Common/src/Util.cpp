@@ -627,12 +627,46 @@ namespace common {
         return input.empty() ? "0" : input;
     }
 
+    static CompressionType getEcuCompression(const YAML::Node& node)
+    {
+        const std::string tag = "CompressionType";
+        if(!node[tag].IsDefined()) {
+            return CompressionType::None;
+        }
+        const auto compressionType = toLower(node[tag].as<std::string>());
+        if(compressionType == "bosch") {
+            return CompressionType::Bosch;
+        }
+        else if(compressionType == "lzss") {
+            return CompressionType::LZSS;
+        }
+        return CompressionType::None;
+    }
+
+    static EncryptionType getEcuEncryption(const YAML::Node& node)
+    {
+        const std::string tag = "EncryptionType";
+        if(!node[tag].IsDefined()) {
+            return EncryptionType::None;
+        }
+        const auto compressionType = toLower(node[tag].as<std::string>());
+        if(compressionType == "xor") {
+            return EncryptionType::XOR;
+        }
+        else if(compressionType == "aes") {
+            return EncryptionType::AES;
+        }
+        return EncryptionType::None;
+    }
+
     static ECUInfo processEcuNode(const YAML::Node& node)
     {
         ECUInfo ecuInfo;
         ecuInfo.name = node["Name"].as<std::string>();
         ecuInfo.ecuId = std::stoi(node["Address"].as<std::string>(), 0, 16);
         ecuInfo.canId = std::stoi(getNonEmptyHexIntString(node["CANIdentifier"].as<std::string>("")), 0, 16);
+        ecuInfo.compressionType = getEcuCompression(node);
+        ecuInfo.encryptionType = getEcuEncryption(node);
         return ecuInfo;
     }
 

@@ -1,6 +1,6 @@
 #pragma once
 
-namespace flasher {
+namespace common {
 
 enum class EncryptionType {
     None,
@@ -8,4 +8,4 @@ enum class EncryptionType {
     AES,
 };
 
-} // namespace flasher
+} // namespace common

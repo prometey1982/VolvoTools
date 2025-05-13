@@ -1052,7 +1052,7 @@
         <Bus Name="CAN MS" BusType="0" SamplePoint="68" SWDLProtocol="tp20" P4CANMax="300000" BaudRate="125" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
         </Bus>
         <Bus Name="CAN HS" BusType="1" SamplePoint="80" SWDLProtocol="tp20" P4CANMax="300000" BaudRate="500" CANIdBitSize="11" Enabled="1" SWDLSpecification="31808456">
-            <Node Address="01" CANIdentifier="201" Name="ECM"/>
+            <Node Address="01" CANIdentifier="201" Name="ECM" EncryptionType="XOR" CompressionType="Bosch"/>
             <Node Address="02" CANIdentifier="202" Name="TCM"/>
         </Bus>
     </Configuration>
