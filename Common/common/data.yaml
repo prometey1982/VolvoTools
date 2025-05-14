@@ -4869,6 +4869,8 @@ Configuration:
           - 
             Address: '01'
             CANIdentifier: 201
+            CompressionType: Bosch
+            EncryptionType: XOR
             Name: ECM
           - 
             Address: '02'
