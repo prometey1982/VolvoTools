@@ -4,6 +4,8 @@
 #include "common/protocols/UDSError.hpp"
 #include "common/Util.hpp"
 
+#include <easylogging++.h>
+
 #include <thread>
 
 namespace common {
@@ -108,6 +110,8 @@ namespace common {
                 catch(UDSError& error) {
                     if(error.getErrorCode() == UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
                     }
+                    LOG(ERROR) << "authorize error: " << error.what() << ", pin = "
+                               << std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
                 }
             }
             catch (...) {
@@ -145,8 +149,13 @@ namespace common {
             transferExitRequest.process(
                 channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
 		}
-		catch (...) {
-			return false;
+        catch(const std::exception& ex) {
+            LOG(ERROR) << "transferChunk error, ex = " << ex.what() << ", offset = " << chunk.writeOffset;
+            return false;
+        }
+        catch (...) {
+            LOG(ERROR) << "transferChunk error: offset = " << chunk.writeOffset;
+            return false;
 		}
 
 		return true;
@@ -182,7 +191,12 @@ namespace common {
                     channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
             }
         }
+        catch(const std::exception& ex) {
+            LOG(ERROR) << "transferData error, ex = " << ex.what();
+            return false;
+        }
         catch (...) {
+            LOG(ERROR) << "transferData error";
             return false;
         }
 
@@ -210,6 +224,7 @@ namespace common {
                 return true;
             }
 		}
+        LOG(ERROR) << "Failed to erase data";
         return false;
 	}
 
@@ -232,6 +247,7 @@ namespace common {
             }
             return true;
         }
+        LOG(ERROR) << "Failed to erase chunk: " << chunk.writeOffset;
         return false;
     }
 

@@ -5,6 +5,8 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <easylogging++.h>
+
 #include <numeric>
 
 namespace flasher {
@@ -125,7 +127,12 @@ void FlasherBase::runOnThread(std::function<void()> callable)
         try {
             callable();
         }
+        catch(const std::exception& ex) {
+            LOG(ERROR) << "Exception during flashing, what = " << ex.what();
+            setCurrentState(FlasherState::Error);
+        }
         catch(...) {
+            LOG(ERROR) << "Exception during flashing";
             setCurrentState(FlasherState::Error);
         }
     });
