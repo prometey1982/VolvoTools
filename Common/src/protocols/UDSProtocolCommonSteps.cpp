@@ -41,16 +41,19 @@ namespace common {
 
 	std::vector<std::unique_ptr<j2534::J2534Channel>> UDSProtocolCommonSteps::openChannels(
 		j2534::J2534& j2534, unsigned long baudrate, uint32_t canId)
-	{
-		std::vector<std::unique_ptr<j2534::J2534Channel>> result;
+    {
+        LOG(INFO) << "openChannels enter";
+        std::vector<std::unique_ptr<j2534::J2534Channel>> result;
 		result.emplace_back(openUDSChannel(j2534, baudrate, canId));
 		result.emplace_back(openLowSpeedChannel(j2534, CAN_ID_BOTH));
-		return result;
+        LOG(INFO) << "openChannels exit";
+        return result;
 	}
 
 	bool UDSProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
-		std::vector<std::vector<unsigned long>> msgIds(channels.size());
+        LOG(INFO) << "fallAsleep enter";
+        std::vector<std::vector<unsigned long>> msgIds(channels.size());
 		for (size_t i = 0; i < channels.size(); ++i) {
 			const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x10, 0x02 }), 5);
 			if (ids.empty()) {
@@ -62,7 +65,8 @@ namespace common {
 		for (size_t i = 0; i < channels.size(); ++i) {
 			channels[i]->stopPeriodicMsg(msgIds[i]);
 		}
-		return true;
+        LOG(INFO) << "fallAsleep exit";
+        return true;
 	}
 
 	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(const j2534::J2534Channel& channel)
@@ -72,11 +76,13 @@ namespace common {
 
 	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
+        LOG(INFO) << "wakeUp enter";
         for(const auto& idToWakeUp: {0x11, 0x81}) {
             std::vector<std::vector<unsigned long>> msgIds(channels.size());
             for (size_t i = 0; i < channels.size(); ++i) {
                 const auto ids = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x11, static_cast<uint8_t>(idToWakeUp) }), 20);
                 if (ids.empty()) {
+                    LOG(ERROR) << "wakeUp error, failed to start periodic messages on channel = " << i;
                     return;
                 }
                 msgIds[i] = ids;
@@ -86,12 +92,14 @@ namespace common {
                 channels[i]->stopPeriodicMsg(msgIds[i]);
             }
         }
+        LOG(INFO) << "wakeUp exit";
         return;
 	}
 
 	bool UDSProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
 		const std::array<uint8_t, 5>& pin)
 	{
+        LOG(INFO) << "authorize enter pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
         UDSRequest seedRequest(canId, { 0x27, 0x01 });
         for(size_t i = 0; i < 5; ++i) {
             try {
@@ -105,7 +113,14 @@ namespace common {
                 UDSRequest keyRequest(canId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
                 try {
                     const auto keyResponse(keyRequest.process(channel));
-                    return keyResponse.size() >= 6 && keyResponse[5] == 0x02;
+                    const bool result = keyResponse.size() >= 6 && keyResponse[5] == 0x02;
+                    if(!result) {
+                        LOG(ERROR) << "authorize wrong pin, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                    }
+                    else {
+                        LOG(INFO) << "authorize success, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                    }
+                    return result;
                 }
                 catch(UDSError& error) {
                     if(error.getErrorCode() == UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
@@ -118,13 +133,15 @@ namespace common {
                 std::this_thread::sleep_for(std::chrono::seconds(5));
             }
         }
+        LOG(INFO) << "authorization failed, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
         return false;
 	}
 
     bool UDSProtocolCommonSteps::transferChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk,
                                               const std::function<void(size_t)>& progressCallback)
 	{
-		try {
+        LOG(INFO) << "transferChunk enter chunk: " << std::hex << chunk.writeOffset;
+        try {
             const auto startAddr = chunk.writeOffset;
             const auto dataSize = chunk.data.size();
             UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
@@ -150,20 +167,21 @@ namespace common {
                 channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
 		}
         catch(const std::exception& ex) {
-            LOG(ERROR) << "transferChunk error, ex = " << ex.what() << ", offset = " << chunk.writeOffset;
+            LOG(ERROR) << "transferChunk error, ex = " << ex.what() << ", offset = " << std::hex << chunk.writeOffset;
             return false;
         }
         catch (...) {
-            LOG(ERROR) << "transferChunk error: offset = " << chunk.writeOffset;
+            LOG(ERROR) << "transferChunk error: offset = " << std::hex << chunk.writeOffset;
             return false;
-		}
-
+        }
+        LOG(INFO) << "transferChunk completed, offset = " << std::hex << chunk.writeOffset;
 		return true;
 	}
 
     bool UDSProtocolCommonSteps::transferData(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data,
                                               const std::function<void(size_t)>& progressCallback)
     {
+        LOG(INFO) << "transferData enter";
         try {
             for (const auto& chunk : data.chunks) {
                 const auto startAddr = chunk.writeOffset;
@@ -199,13 +217,15 @@ namespace common {
             LOG(ERROR) << "transferData error";
             return false;
         }
+        LOG(INFO) << "transferData completed";
 
         return true;
     }
 
     bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
     {
-		for (const auto& chunk : data.chunks) {
+        LOG(INFO) << "eraseFlash enter";
+        for (const auto& chunk : data.chunks) {
 			const auto eraseAddr = toVector(chunk.writeOffset);
 			const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
 			UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
@@ -222,6 +242,7 @@ namespace common {
                     continue;
                 }
                 return true;
+                LOG(INFO) << "eraseFlash completed";
             }
 		}
         LOG(ERROR) << "Failed to erase data";
@@ -230,6 +251,7 @@ namespace common {
 
     bool UDSProtocolCommonSteps::eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk)
     {
+        LOG(INFO) << "eraseChunk enter chunk: " << std::hex << chunk.writeOffset;
         const auto eraseAddr = toVector(chunk.writeOffset);
         const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
         UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
@@ -245,24 +267,29 @@ namespace common {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 continue;
             }
+            LOG(INFO) << "eraseChunk completed, offset = " << std::hex << chunk.writeOffset;
             return true;
         }
-        LOG(ERROR) << "Failed to erase chunk: " << chunk.writeOffset;
+        LOG(ERROR) << "Failed to erase chunk: " << std::hex << chunk.writeOffset;
         return false;
     }
 
     bool UDSProtocolCommonSteps::startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr)
-	{
-		const auto callAddr = common::toVector(addr);
+    {
+        LOG(INFO) << "startRoutine enter, addr = " << std::hex << addr;
+        const auto callAddr = common::toVector(addr);
 		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
 		unsigned long numMsgs;
-		if (channel.writeMsgs(startRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-			return false;
+        if (channel.writeMsgs(startRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+            LOG(ERROR) << "startRoutine failed to write message, addr = " << std::hex << addr;
+            return false;
 		}
 		if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
-			return false;
+            LOG(ERROR) << "startRoutine failed to read message, addr = " << std::hex << addr;
+            return false;
 		}
-		return true;
+        LOG(INFO) << "startRoutine completed, addr = " << std::hex << addr;
+        return true;
 	}
 
 } // namespace common

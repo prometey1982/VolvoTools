@@ -25,6 +25,9 @@ void updateChecksum(std::vector<uint8_t>& data)
 
 VBFChunk createChunk(const std::vector<uint8_t>& data, uint32_t offset, size_t size)
 {
+    if(offset + size > data.size()) {
+        throw std::runtime_error("Flash file too small");
+    }
     return {offset, std::vector<uint8_t>(data.data() + offset, data.data() + offset + size), crc16(data.data() + offset, size)};
 }
 
@@ -44,11 +47,13 @@ VBF createVBFForME9P1(std::vector<uint8_t>& data)
 
 VBF createVBFForME9P3(std::vector<uint8_t>& data)
 {
-    updateChecksum(data);
+    // TODO: need to detect checksum areas correctly.
+    //updateChecksum(data);
     return {{}, {createChunk(data, 0x20000, 0x70000),
                  createChunk(data, 0xA0000, 0x120000),
                  createChunk(data, 0x1C2000, 0x1E000),
-                 createChunk(data, 0x1E0000, 0x20000)}};
+                 createChunk(data, 0x1E0000, 0x20000)
+                }};
 }
 
 VBF createVBFForVAGMED91(std::vector<uint8_t>& data)
