@@ -156,12 +156,15 @@ namespace common {
             uint8_t chunkIndex = 1;
             for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
                 const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
+                LOG(INFO) << "transferChunk write chunk: {" << std::hex << i << ", " << chunkEnd <<"}";
                 std::vector<uint8_t> data{ 0x36, chunkIndex };
                 data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
                 UDSRequest transferDataRequest{ canId, std::move(data) };
                 transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
                 progressCallback(chunkEnd - i);
             }
+            LOG(INFO) << "transferChunk finish transfer, crc: {" << std::hex
+                      << ((chunk.crc >> 8) & 0xFF) << ", " << (chunk.crc & 0xFF) <<"}";
             UDSRequest transferExitRequest{ canId, { 0x37 } };
             transferExitRequest.process(
                 channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
@@ -291,5 +294,20 @@ namespace common {
         LOG(INFO) << "startRoutine completed, addr = " << std::hex << addr;
         return true;
 	}
+
+    bool UDSProtocolCommonSteps::checkValidApplication(const j2534::J2534Channel& channel, uint32_t canId)
+    {
+        LOG(INFO) << "checkValidApplication enter";
+        UDSRequest checkValidApplicationRequest{ canId, { 0x31, 0x01, 0x03, 0x04 } };
+        try {
+            checkValidApplicationRequest.process(channel);
+        }
+        catch(const std::exception& ex) {
+            LOG(ERROR) << "checkValidApplication error, ex = " << ex.what();
+            return false;
+        }
+        LOG(INFO) << "checkValidApplication finshed";
+        return true;
+    }
 
 } // namespace common

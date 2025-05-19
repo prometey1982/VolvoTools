@@ -24,6 +24,7 @@ namespace common {
         static bool eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
         static bool eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk);
         static bool startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);
+        static bool checkValidApplication(const j2534::J2534Channel& channel, uint32_t canId);
 	};
 
 } // namespace common

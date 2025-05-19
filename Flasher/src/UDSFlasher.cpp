@@ -104,6 +104,12 @@ namespace flasher {
             }
         }
 
+        void checkValidApplication()
+        {
+            auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId);
+        }
+
         void wakeUp()
         {
             _stateUpdater(FlasherState::WakeUp);
@@ -157,7 +163,8 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             struct Authorize,
             struct LoadBootloader,
             struct StartBootloader,
-            struct WriteFlash>,
+            struct WriteFlash,
+            struct CheckValidApplication>,
         M::Composite<
             struct Finish,
             struct WakeUp,
@@ -195,6 +202,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             plan.change<Authorize, LoadBootloader>();
             plan.change<LoadBootloader, StartBootloader>();
             plan.change<StartBootloader, WriteFlash>();
+            plan.change<WriteFlash, CheckValidApplication>();
         }
 
         void planSucceeded(FullControl& control) {
@@ -246,6 +254,13 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().writeFlash();
+        }
+    };
+
+    struct CheckValidApplication : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().checkValidApplication();
         }
     };
 
