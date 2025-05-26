@@ -1,13 +1,17 @@
-#include <common/CommonData.hpp>
+#include <common/compression/BoschCompressor.hpp>
+#include <common/compression/CompressorFactory.hpp>
+#include <common/encryption/EncryptorFactory.hpp>
+#include <common/encryption/XOREncryptor.hpp>
 #include <common/protocols/D2Messages.hpp>
-#include <common/VBFParser.hpp>
-#include <common/SBL.hpp>
 #include <common/protocols/TP20RequestProcessor.hpp>
 #include <common/protocols/TP20Session.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/protocols/UDSPinFinder.hpp>
 #include <common/protocols/UDSRequest.hpp>
+#include <common/CommonData.hpp>
+#include <common/VBFParser.hpp>
 #include <common/VBFUtil.hpp>
+#include <common/SBL.hpp>
 #include <common/Util.hpp>
 
 #include <j2534/J2534.hpp>
@@ -649,12 +653,16 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 	//	return;
 	//}
 //    common::TP20RequestProcessor requestProcessor{session};
+    std::map<std::string, std::string> encryptionParams;
+    encryptionParams["key"] = "CodeRobert";
 	flasher::FlasherParameters flasherParameters{
 		carPlatform,
 		ecuId,
 		"",
         nullptr,
-		flashVbf
+        flashVbf,
+        common::CompressorFactory::create(common::CompressionType::Bosch),
+        common::EncryptorFactory::create(common::EncryptionType::XOR, std::move(encryptionParams))
 	};
 	flasher::KWPFlasherParameters kwpFlasherParameters{
 		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
