@@ -147,6 +147,9 @@ common::VBF loadVBFForFlasher(CarPlatform carPlatform, uint8_t ecuId,
     }
     input.seekg (0, input.end);
     const int length = input.tellg();
+    if (length < 0) {
+        return {{}, {}};
+    }
     input.seekg (0, input.beg);
     std::vector<uint8_t> data(length);
     input.read(reinterpret_cast<char*>(data.data()), data.size());
