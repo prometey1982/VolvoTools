@@ -653,8 +653,6 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 	//	return;
 	//}
 //    common::TP20RequestProcessor requestProcessor{session};
-    std::map<std::string, std::string> encryptionParams;
-    encryptionParams["key"] = "CodeRobert";
 	flasher::FlasherParameters flasherParameters{
 		carPlatform,
 		ecuId,
@@ -662,7 +660,7 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
         nullptr,
         flashVbf,
         common::CompressorFactory::create(common::CompressionType::Bosch),
-        common::EncryptorFactory::create(common::EncryptionType::XOR, std::move(encryptionParams))
+        common::EncryptorFactory::create(common::EncryptionType::XOR, {{"key", "CodeRobert"}})
 	};
 	flasher::KWPFlasherParameters kwpFlasherParameters{
 		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
