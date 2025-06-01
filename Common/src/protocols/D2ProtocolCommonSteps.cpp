@@ -7,6 +7,7 @@
 #include <map>
 #include <stdexcept>
 #include <thread>
+#include <chrono>
 
 namespace common {
 
@@ -195,5 +196,18 @@ namespace {
         }
         return true;
 	}
+
+    void D2ProtocolCommonSteps::setDIMTime(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    {
+        const auto now{std::chrono::system_clock::now()};
+        const auto time_t = std::chrono::system_clock::to_time_t(now);
+        struct tm lt;
+        localtime_s(&lt, &time_t);
+
+        unsigned long numMsgs = 0;
+        channels[1]->writeMsgs(
+            common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min), numMsgs,
+            5000);
+    }
 
 } // namespace common

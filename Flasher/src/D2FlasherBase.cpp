@@ -59,11 +59,15 @@ void D2FlasherBase::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>&
         writeStep(channel, ecuId);
         setCurrentState(FlasherState::WakeUp);
         common::D2ProtocolCommonSteps::wakeUp(channels);
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        common::D2ProtocolCommonSteps::setDIMTime(channels);
         setCurrentState(FlasherState::Done);
     }
     catch(...) {
         setCurrentState(FlasherState::WakeUp);
         common::D2ProtocolCommonSteps::wakeUp(channels);
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        common::D2ProtocolCommonSteps::setDIMTime(channels);
         setCurrentState(FlasherState::Error);
     }
 }

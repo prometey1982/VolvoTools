@@ -18,7 +18,8 @@ namespace common {
                                  const std::function<void(size_t)>& progressCallback);
         static bool eraseFlash(const j2534::J2534Channel& channel, uint8_t ecuId, const VBF& data);
         static void jumpTo(const j2534::J2534Channel& channel, uint8_t ecuId, uint32_t addr);
-		static bool startRoutine(const j2534::J2534Channel& channel, uint8_t ecuId, uint32_t addr);
-	};
+        static bool startRoutine(const j2534::J2534Channel& channel, uint8_t ecuId, uint32_t addr);
+        static void setDIMTime(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+    };
 
 } // namespace common
