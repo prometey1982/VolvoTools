@@ -1,7 +1,7 @@
 #include "LoggerApplication.hpp"
 
-#include <logger/Logger.hpp>
 #include <j2534/J2534.hpp>
+#include <logger/Logger.hpp>
 
 #include <windows.h>
 
@@ -13,13 +13,12 @@ namespace logger {
 }
 
 void LoggerApplication::start(unsigned long baudrate,
-                              const std::shared_ptr<j2534::J2534> &j2534,
+                              j2534::J2534 &j2534,
                               const LogParameters &params,
                               const common::CarPlatform carPlatform,
                               uint32_t cmId,
                               const std::vector<LoggerCallback *> &callbacks) {
-  _j2534 = j2534;
-  _logger = std::make_unique<Logger>(*_j2534, carPlatform, cmId, std::string());
+  _logger = std::make_unique<Logger>(j2534, carPlatform, cmId, std::string());
   for (const auto &callback : callbacks) {
     _logger->registerCallback(*callback);
   }
@@ -30,10 +29,6 @@ void LoggerApplication::stop() {
   if (nullptr != _logger) {
     _logger->stop();
     _logger.reset();
-  }
-  if (nullptr != _j2534) {
-    _j2534->PassThruClose();
-    _j2534.reset();
   }
 }
 

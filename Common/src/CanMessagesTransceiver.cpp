@@ -1,6 +1,6 @@
 #include "common/CanMessagesTransceiver.hpp"
 
-#include "common/D2Message.hpp"
+#include "common/protocols/D2Message.hpp"
 
 #include <j2534/J2534Channel.hpp>
 
@@ -28,10 +28,10 @@ CanMessagesTransceiver::~CanMessagesTransceiver()
     _thread.join();
 }
 
-void CanMessagesTransceiver::subscribe(ECUType ecuType, ICanMessagesReceiver& receiver)
+void CanMessagesTransceiver::subscribe(uint8_t ecuId, ICanMessagesReceiver& receiver)
 {
     std::unique_lock<std::mutex> lock{_mutex};
-    _subscribers.insert(std::make_pair(ecuType, &receiver));
+    _subscribers.insert(std::make_pair(ecuId, &receiver));
 }
 
 void CanMessagesTransceiver::unsubscribeAll(const ICanMessagesReceiver& receiver)

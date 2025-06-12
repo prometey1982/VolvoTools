@@ -4,6 +4,7 @@
 
 #include <common/CarPlatform.hpp>
 #include <common/ConfigurationInfo.hpp>
+#include <common/J2534ChannelProvider.hpp>
 
 #include <chrono>
 #include <condition_variable>
@@ -12,11 +13,6 @@
 #include <mutex>
 #include <thread>
 #include <vector>
-
-namespace j2534 {
-	class J2534;
-	class J2534Channel;
-} // namespace j2534
 
 namespace logger {
 	class LoggerCallback;
@@ -27,7 +23,7 @@ namespace logger {
 
 	class Logger final {
 	public:
-		explicit Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo);
+        explicit Logger(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId, const std::string& cmInfo);
 		~Logger();
 
 		void registerCallback(LoggerCallback& callback);
@@ -55,10 +51,9 @@ namespace logger {
 		void callbackFunction();
 
 	private:
-		const std::vector<common::ConfigurationInfo> _configurationInfo;
-		j2534::J2534& _j2534;
+        common::J2534ChannelProvider _j2534ChannelProvider;
 		common::CarPlatform _carPlatform;
-		uint32_t _cmId;
+        uint32_t _ecuId;
 		std::string _cmInfo;
 		LogParameters _parameters;
 		std::thread _loggingThread;
@@ -73,8 +68,6 @@ namespace logger {
 
 		std::deque<LogRecord> _loggedRecords;
 		std::vector<LoggerCallback*> _callbacks;
-
-		std::vector<std::unique_ptr<j2534::J2534Channel>> _channels;
 	};
 
 } // namespace logger

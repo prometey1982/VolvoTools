@@ -2,8 +2,8 @@
 
 #include "logger/LoggerCallback.hpp"
 
-#include <common/D2Message.hpp>
-#include <common/D2Messages.hpp>
+#include <common/protocols/D2Message.hpp>
+#include <common/protocols/D2Messages.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -96,7 +96,7 @@ void TCM80DataLogger::logFunction(unsigned long protocolId,
     }
     const auto now{std::chrono::steady_clock::now()};
     for (size_t i = 0; i < _parameters.parameters().size(); ++i) {
-      auto message = common::D2Messages::createReadTCMDataByAddr(
+      auto message = common::D2Messages::createReadTCMTF80DataByAddr(
           _parameters.parameters()[i].addr(),
           _parameters.parameters()[i].size());
 
@@ -117,15 +117,15 @@ void TCM80DataLogger::logFunction(unsigned long protocolId,
           const auto &data = logMessage.Data;
           size_t msgOffset = 6;
           if (_parameters.parameters()[i].size() == 1)
-            logRecord[i] = common::encode(data[msgOffset]);
+            logRecord[i] = common::encodeBigEndian(data[msgOffset]);
           else if (_parameters.parameters()[i].size() == 2)
-            logRecord[i] = common::encode(data[msgOffset + 1], data[msgOffset]);
+            logRecord[i] = common::encodeBigEndian(data[msgOffset + 1], data[msgOffset]);
           else if (_parameters.parameters()[i].size() == 3)
-            logRecord[i] = common::encode(data[msgOffset + 2],
+            logRecord[i] = common::encodeBigEndian(data[msgOffset + 2],
                                           data[msgOffset + 1], data[msgOffset]);
           else if (_parameters.parameters()[i].size() == 4)
             logRecord[i] =
-                common::encode(data[msgOffset + 3], data[msgOffset + 2],
+                common::encodeBigEndian(data[msgOffset + 3], data[msgOffset + 2],
                                data[msgOffset + 1], data[msgOffset]);
         }
       }

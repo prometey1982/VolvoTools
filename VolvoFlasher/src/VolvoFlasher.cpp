@@ -1,17 +1,35 @@
-#include <common/D2Messages.hpp>
+#include <common/compression/BoschCompressor.hpp>
+#include <common/compression/CompressorFactory.hpp>
+#include <common/encryption/EncryptorFactory.hpp>
+#include <common/encryption/XOREncryptor.hpp>
+#include <common/protocols/D2Messages.hpp>
+#include <common/protocols/TP20RequestProcessor.hpp>
+#include <common/protocols/TP20Session.hpp>
+#include <common/protocols/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/UDSPinFinder.hpp>
+#include <common/protocols/UDSRequest.hpp>
+#include <common/CommonData.hpp>
 #include <common/VBFParser.hpp>
+#include <common/VBFUtil.hpp>
+#include <common/SBL.hpp>
 #include <common/Util.hpp>
-#include <common/UDSProtocolCallback.hpp>
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
 #include <flasher/D2Flasher.hpp>
+#include <flasher/D2Reader.hpp>
+#include <flasher/SBLProviderVBF.hpp>
+#include <flasher/SBLProviderCommon.hpp>
 #include <flasher/UDSFlasher.hpp>
+#include <flasher/KWPFlasher.hpp>
 
 #include <argparse/argparse.hpp>
 
+#include <easylogging++.h>
+
 #include <algorithm>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -19,6 +37,10 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
+
+INITIALIZE_EASYLOGGINGPP
+
+bool stopRequested = false;
 
 enum class RunMode
 {
@@ -31,31 +53,33 @@ enum class RunMode
 };
 
 bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
-	unsigned long& baudrate, std::string& flashPath, unsigned long& pinStart,
-	uint8_t& cmId, unsigned long& start, unsigned long& datasize,
-	RunMode& runMode) {
+	unsigned long& baudrate, std::string& flashPath, uint64_t& pin,
+	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
+	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform, bool& pinUpward) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
+	program.add_argument("-f", "--platform").default_value(std::string{ "P2" }).help("Car's platform, supported values: P80, P1, P1_UDS, P2, P2_250, P2_UDS, P3, SPA");
+	program.add_argument("-e", "--ecu").scan<'x', uint8_t>().default_value(0x7A).help("ECU id");
+	program.add_argument("-p", "--pin").scan<'x', uint64_t>().default_value(static_cast<uint64_t>(0)).help("PIN to unlock ECU");
 
 	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
 	flash_command.add_description("Flash BIN to ECU");
 	flash_command.add_argument("-i", "--input").help("File to flash");
+	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL");
 
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
 	read_command.add_description("Read BIN from ECU");
 	read_command.add_argument("-o", "--output").help("File to write");
 	read_command.add_argument("-s", "--start").scan<'x', unsigned long>().help("Begin address to read");
 	read_command.add_argument("-sz", "--size").scan<'x', unsigned long>().help("Datasize to read");
-	read_command.add_argument("-e", "--ecu").scan<'x', uint8_t>().help("ECU id to read");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
-	test_command.add_argument("-p", "--pin").scan<'x', unsigned long>().default_value(static_cast<unsigned long>(0)).help("PIN to unlock ECU");
 	test_command.add_description("Test purposes");
 
 	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
-	pin_command.add_description("Bruteforce ECM PIN code");
-	pin_command.add_argument("-s", "--start").scan<'x', unsigned long>().default_value(static_cast<unsigned long>(0)).help("Start PIN");
+	pin_command.add_description("Bruteforce ECM PIN code. If you provide -p argument then program starts from providen PIN");
+	pin_command.add_argument("-d", "--down").default_value(false).implicit_value(true).nargs(0).help("Scan pins downward");
 
 	argparse::ArgumentParser wakeup_command("wakeup", "1.0", argparse::default_arguments::help);
 	wakeup_command.add_description("Wake up CAN network");
@@ -69,21 +93,20 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		program.parse_args(argc, argv);
 		if (program.is_subcommand_used(flash_command)) {
 			flashPath = flash_command.get("-i");
+			sblPath = flash_command.get("-s");
 			runMode = RunMode::Flash;
 		}
 		else if (program.is_subcommand_used(read_command)) {
 			flashPath = read_command.get("-o");
-			cmId = read_command.get<uint8_t>("-e");
 			start = read_command.get<unsigned long>("-s");
 			datasize = read_command.get<unsigned long>("-sz");
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
-			pinStart = test_command.get<unsigned long>("-p");
 			runMode = RunMode::Test;
 		}
 		else if (program.is_subcommand_used(pin_command)) {
-			pinStart = pin_command.get<unsigned long>("-s");
+			pinUpward = !pin_command.get<bool>("-d");
 			runMode = RunMode::Pin;
 		}
 		else if (program.is_subcommand_used(wakeup_command)) {
@@ -95,6 +118,9 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		}
 		deviceName = program.get("-d");
 		baudrate = program.get<unsigned>("-b");
+		ecuId = program.get<uint8_t>("-e");
+		carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
+		pin = program.get<uint64_t>("-p");
 		return true;
 	}
 	catch (const std::exception& err) {
@@ -169,41 +195,71 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 #endif
 }
 
-BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
-	//    logger::LoggerApplication::instance().stop();
-	return TRUE;
-}
-
-class UDSFlasherCallback final : public common::UDSProtocolCallback {
-public:
-	UDSFlasherCallback() = default;
-
-	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
-		size_t maxValue) override {}
-	void OnMessage(const std::string& message) override {
-		std::cout << std::endl << message;
-	}
-	void OnStep(common::UDSStepType step) override {
-		std::cout << std::endl << common::toString(step);
-	}
-};
-
 class FlasherCallback final : public flasher::FlasherCallback {
 public:
-	FlasherCallback() = default;
+    FlasherCallback() = default;
 
 	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
 		size_t maxValue) override {
 	}
-	void OnMessage(const std::string& message) override {
-		std::cout << std::endl << message;
-	}
+
+    void OnState(flasher::FlasherState state) override {
+        std::cout << std::endl;
+        using flasher::FlasherState;
+        switch(state) {
+        case FlasherState::Initial:
+            std::cout << "Starting";
+            break;
+        case FlasherState::OpenChannels:
+            std::cout << "Open channels";
+            break;
+        case FlasherState::FallAsleep:
+            std::cout << "Go to sleep";
+            break;
+        case FlasherState::Authorize:
+            std::cout << "Authorizing";
+            break;
+		case FlasherState::ProgrammingSession:
+			std::cout << "Enter programming session";
+			break;
+		case FlasherState::LoadBootloader:
+            std::cout << "Bootloader loading";
+            break;
+        case FlasherState::StartBootloader:
+            std::cout << "Bootloader starting";
+            break;
+		case FlasherState::RequestDownload:
+			std::cout << "Request download";
+			break;
+		case FlasherState::EraseFlash:
+            std::cout << "Flash erasing";
+            break;
+        case FlasherState::WriteFlash:
+            std::cout << "Flash writing";
+            break;
+        case FlasherState::ReadFlash:
+            std::cout << "Flash reading";
+            break;
+        case FlasherState::WakeUp:
+            std::cout << "Waking up";
+            break;
+        case FlasherState::CloseChannels:
+            std::cout << "Close channels";
+            break;
+        case FlasherState::Done:
+            std::cout << "Done";
+            break;
+        case FlasherState::Error:
+            std::cout << "Error";
+            break;
+        }
+    }
 };
 
 void writeBinToFile(const std::vector<uint8_t>& bin, const std::string& path) {
 	std::fstream out(path, std::ios::out | std::ios::binary);
 	const auto msgs =
-		common::D2Messages::createWriteDataMsgs(common::ECUType::ECM_ME, bin);
+		common::D2Messages::createWriteDataMsgs(static_cast<uint8_t>(common::ECUType::ECM_ME), bin);
 	for (const auto& msg : msgs) {
 		auto passThruMsgs = msg.toPassThruMsgs(123, 456);
 		for (const auto& msg : passThruMsgs) {
@@ -401,7 +457,7 @@ bool authByKey(j2534::J2534Channel& channel, unsigned long protocolId, const std
 	return false;
 }
 
-void findPin(j2534::J2534& j2534, uint32_t i = 0)
+void findPin(j2534::J2534& j2534, uint64_t i = 0)
 {
 	const unsigned long baudrate = 500000;
 	j2534::J2534Channel channel(j2534, CAN, CAN_ID_BOTH, baudrate, 0);
@@ -455,7 +511,6 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 			<< std::hex << std::setfill('0') << std::setw(2) << int(p2) << " XX" << std::endl;
 
 		std::array<uint8_t, 5> pin = { 0, 0, p1, p2, p3 };
-#if 1
 		if(authByKey(channel, CAN, pin))
 		{
 			std::cout << "Found PIN code 00 00 "
@@ -464,55 +519,53 @@ void findPin(j2534::J2534& j2534, uint32_t i = 0)
 				<< std::hex << std::setfill('0') << std::setw(2) << int(p3) << std::endl;
 			return;
 		}
-#endif
-#if 0
-		bool success = false;
-		for (int l = 0; l < 10; ++l)
-		{
-			if (sendMessage(channel, CAN, {0x07, 0xE0, 0x02, 0x27, 0x01}) == STATUS_NOERROR)
-			{
-				success = true;
-				break;
+	}
+}
+
+void findPin2(j2534::J2534& j2534, common::CarPlatform carPlatform, uint8_t ecuId, uint64_t startPin = 0, bool upward = true)
+{
+	std::chrono::time_point savedTime = std::chrono::steady_clock::now();
+	uint64_t savedPin = startPin;
+	common::UDSPinFinder pinFinder(j2534, carPlatform, ecuId, [&savedTime, &savedPin](common::UDSPinFinder::State state, uint64_t currentPin) {
+		switch (state) {
+		case common::UDSPinFinder::State::FallAsleep:
+			std::cout << "Fall asleep" << std::endl;
+			break;
+		case common::UDSPinFinder::State::KeepAlive:
+			std::cout << "Start keep alive" << std::endl;
+			break;
+		case common::UDSPinFinder::State::Work:
+			if (!(currentPin & 0xFF)) {
+				const auto now = std::chrono::steady_clock::now();
+				uint64_t pinDiff = currentPin > savedPin ? currentPin - savedPin : savedPin - currentPin;
+				const auto pinPerSec = pinDiff / ((now - savedTime).count() / 1000000000);
+				savedPin = currentPin;
+				savedTime = now;
+				std::cout << "Trying PIN " << std::hex << currentPin << ", " << std::dec << pinPerSec << " pins/sec" << std::endl;
 			}
-			else
-				std::cout << "Retry send request seed message" << std::endl;
+			break;
 		}
-		if (!success)
-		{
-			std::cout << "Can't request seed" << std::endl;
-			return;
+		}, upward ? common::UDSPinFinder::Direction::Up : common::UDSPinFinder::Direction::Down, startPin);
+
+	if (!pinFinder.start()) {
+		std::cout << "Failed to start PIN finder" << std::endl;
+	}
+	else {
+		while (pinFinder.getCurrentState() != common::UDSPinFinder::State::Done && pinFinder.getCurrentState() != common::UDSPinFinder::State::Error) {
+			if (stopRequested) {
+				pinFinder.stop();
+				stopRequested = false;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
-		std::vector<PASSTHRU_MSG> read_msgs;
-		read_msgs.resize(1);
-		if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
-		{
-			std::cout << "Can't read seed" << std::endl;
-			return;
+		if (const auto foundPin{ pinFinder.getFoundPin() }) {
+			std::cout << "Found PIN code "
+				<< std::hex << std::setfill('0') << *foundPin << std::endl;
 		}
-		uint8_t seed[3] = { read_msgs[0].Data[7], read_msgs[0].Data[8], read_msgs[0].Data[9] };
-		uint8_t key[4];
-		VolvoGenerateKey(pin, seed, key);
-		if (sendMessage(channel, CAN, { 0x07, 0xE0, 5, 0x27, 0x02, key[0], key[1], key[2]}) != STATUS_NOERROR)
-		{
-			std::cout << "Can't write key" << std::endl;
-			return;
+		else {
+			std::cout << "Last checked PIN code "
+				<< std::hex << std::setfill('0') << savedPin << std::endl;
 		}
-		read_msgs.resize(1);
-		if (channel.readMsgs(read_msgs) != STATUS_NOERROR || read_msgs.empty())
-		{
-			std::cout << "Can't read key result" << std::endl;
-			return;
-		}
-		const auto& answer_data = read_msgs[0].Data;
-		if (answer_data[4] == 2 && answer_data[5] == 0x67)
-		{
-			std::cout << "Found PIN code 00 00 "
-				<< std::hex << std::setfill('0') << std::setw(2) << int(p1) << " "
-				<< std::hex << std::setfill('0') << std::setw(2) << int(p2) << " "
-				<< std::hex << std::setfill('0') << std::setw(2) << int(p3) << std::endl;
-			return;
-		}
-#endif
 	}
 }
 
@@ -570,30 +623,152 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 	return false;
 }
 
-void doSomeStuff(j2534::J2534& j2534, uint64_t pin)
+template<int N, typename T>
+std::array<uint8_t, N> toArray(T val)
 {
-	std::ifstream confStream("C:\\misc\\programming\\VolvoTools2\\Common\\common\\data.yaml ");
-	[[maybe_unused]] auto conf = common::loadConfiguration(confStream);
-	common::VBFParser vbfParser;
-	std::ifstream inpVbf("C:\\misc\\Volvo tools\\30788272_p3_3.2_sbl.vbf", std::ios_base::binary);
-	const common::VBF bootloader = vbfParser.parse(inpVbf);
-	std::ifstream flashVbf("c:\\misc\\denso\\p3\\test2.vbf ", std::ios_base::binary);
-	const common::VBF flash = vbfParser.parse(flashVbf);
-	const unsigned long baudrate = 500000;
-	unsigned long protocolId = CAN;
-	UDSFlasherCallback callback;
-	flasher::UDSFlasher flasher(j2534, 0x7E0, { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }, bootloader, flash);
+    if(N > 0)
+        return { static_cast<uint8_t>(val >> ((N + 1) * 8)), toArray<N - 1>(val)};
+    return {};
+}
+
+void requestAndPrint(common::TP20Session& session, const std::vector<uint8_t>& request)
+{
+	const auto requestResult{ session.process(request) };
+	if (!requestResult.empty()) {
+		std::cout << "Request result: " << std::string(requestResult.begin() + 4, requestResult.end()) << std::endl;
+	}
+}
+
+void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
+{
+	const auto carPlatform{ common::CarPlatform::VAG_MED91 };
+//	const auto channel{ common::openTP20Channel(*j2534, 500000, 0x201) };
+    const auto ecuId{ 0x01 };
+	const std::string binPath{ "C:\\misc\\gcflasher\\8P0907115K_0040_2_0l_R4_4V_TFSI_extFLASH_CHKFIXED.bin" };
+	std::ifstream binStream(binPath, std::ios_base::binary);
+	const auto flashVbf{ common::loadVBFForFlasher(carPlatform, ecuId, {}, binPath, binStream) };
+	//common::TP20Session session{ *channel, carPlatform, ecuId };
+	//if (!session.start()) {
+	//	std::cout << "Failed to start TP20 session" << std::endl;
+	//	return;
+	//}
+//    common::TP20RequestProcessor requestProcessor{session};
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+        nullptr,
+        flashVbf,
+        common::CompressorFactory::create(common::CompressionType::Bosch),
+        common::EncryptorFactory::create(common::EncryptionType::XOR, {{"key", "CodeRobert"}})
+	};
+	flasher::KWPFlasherParameters kwpFlasherParameters{
+		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
+    flasher::KWPFlasher flasher{ *j2534, std::move(flasherParameters), std::move(kwpFlasherParameters) };
+	FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
-	while (flasher.getState() ==
-		common::UDSProtocolBase::State::InProgress) {
+	while (flasher.getCurrentState() !=
+		flasher::FlasherState::Done && flasher.getCurrentState() !=
+		flasher::FlasherState::Error) {
 		std::this_thread::sleep_for(std::chrono::seconds(1));
 		std::cout << ".";
 	}
-	const bool success = flasher.getState() ==
-		common::UDSProtocolBase::State::Done;
+	const bool success = flasher.getCurrentState() ==
+		flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
+			? "Flashing done"
+			: "Flashing error. Try again.")
+		<< std::endl;
+	//requestAndPrint(session, { 0x1a,  0x86 });
+	//requestAndPrint(session, { 0x1a,  0x90 });
+	//requestAndPrint(session, { 0x1a,  0x91 });
+	//requestAndPrint(session, { 0x1a,  0x92 });
+	//requestAndPrint(session, { 0x1a,  0x94 });
+	//requestAndPrint(session, { 0x1a,  0x97 });
+	//requestAndPrint(session, { 0x1a,  0x9A });
+	//requestAndPrint(session, { 0x1a,  0x9B });
+	//requestAndPrint(session, { 0x1a,  0x9C });
+}
+
+void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
+	std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate, uint64_t pin, const std::string& flashPath, const std::string& sblPath)
+{
+	common::VBFParser vbfParser;
+	std::ifstream sblVbf(sblPath, std::ios_base::binary);
+	const common::VBF bootloader{ vbfParser.parse(sblVbf) };
+	std::ifstream flashVbf(flashPath, std::ios_base::binary);
+	const common::VBF flash{ vbfParser.parse(flashVbf) };
+    const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
+
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+        std::make_unique<flasher::SBLProviderVBF>(bootloader),
+        flash
+	};
+	flasher::UDSFlasherParameters udsFlasherParameters{
+        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }};
+    flasher::UDSFlasher flasher{ *j2534, std::move(flasherParameters), std::move(udsFlasherParameters) };
+	FlasherCallback callback;
+	flasher.registerCallback(callback);
+	flasher.start();
+    while (flasher.getCurrentState() !=
+        flasher::FlasherState::Done && flasher.getCurrentState() !=
+        flasher::FlasherState::Error) {
+		std::this_thread::sleep_for(std::chrono::seconds(1));
+		std::cout << ".";
+	}
+    const bool success = flasher.getCurrentState() ==
+        flasher::FlasherState::Done;
+	std::cout << std::endl
+		<< ((success)
+			? "Flashing done"
+			: "Flashing error. Try again.")
+		<< std::endl;
+}
+
+common::VBF vbfForFlasher(const std::vector<uint8_t>& input, common::CMType cmType)
+{
+    (void)cmType;
+    return common::VBF({}, { { 0x0, input } });
+}
+
+void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate)
+{
+	std::fstream input(flashPath,
+		std::ios_base::binary | std::ios_base::in);
+	std::vector<uint8_t> bin{ std::istreambuf_iterator<char>(input), {} };
+
+    const common::CMType cmType = bin.size() == 2048 * 1024
+                                      ? common::CMType::ECM_ME9_P1
+                                      : common::CMType::ECM_ME7;
+
+    const auto vbf = vbfForFlasher(bin, cmType);
+	const auto carPlatform = baudrate == 500000 ? common::CarPlatform::P2 : common::CarPlatform::P2_250;
+
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		0x7A,
+		"",
+        std::make_unique<flasher::SBLProviderCommon>(),
+        vbf
+	};
+    flasher::D2Flasher flasher(*j2534, std::move(flasherParameters));
+	FlasherCallback callback;
+	flasher.registerCallback(callback);
+    flasher.start();
+    while (flasher.getCurrentState() !=
+               flasher::FlasherState::Done && flasher.getCurrentState() !=
+                  flasher::FlasherState::Error) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << ".";
+    }
+    std::cout << std::endl
+        << ((flasher.getCurrentState() ==
+            flasher::FlasherState::Done)
 			? "Flashing done"
 			: "Flashing error. Try again.")
 		<< std::endl;
@@ -623,20 +798,28 @@ void fill_crc_map()
 	}
 }
 
-void readFlash(j2534::J2534& j2534, uint8_t cmId, unsigned long baudrate, const std::string& flashPath, unsigned long start, unsigned long datasize)
+void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId, const std::string& flashPath, unsigned long start, unsigned long datasize)
 {
-	FlasherCallback callback;
-	flasher::D2Flasher flasher(j2534);
-	flasher.registerCallback(callback);
+	flasher::FlasherParameters flasherParameters{
+		carPlatform,
+		ecuId,
+		"",
+        std::make_unique<flasher::SBLProviderCommon>(),
+        {{}, {}}
+	};
 	std::vector<uint8_t> bin;
-	flasher.read(cmId, baudrate, start, datasize, bin);
-	while (flasher.getState() ==
-		flasher::D2Flasher::State::InProgress) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		std::cout << ".";
-	}
-	const bool success = flasher.getState() ==
-		flasher::D2Flasher::State::Done;
+    flasher::D2Reader flasher(*j2534, std::move(flasherParameters), start, datasize, bin);
+    FlasherCallback callback;
+    flasher.registerCallback(callback);
+    flasher.start();
+    while (flasher.getCurrentState() !=
+               flasher::FlasherState::Done && flasher.getCurrentState() !=
+                  flasher::FlasherState::Error) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::cout << ".";
+    }
+    const bool success = flasher.getCurrentState() ==
+        flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
 			? "Reading done"
@@ -707,8 +890,14 @@ void findMultiplePins()
 	}
 }
 
+BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
+	stopRequested = true;
+	return TRUE;
+}
+
 int main(int argc, const char* argv[]) {
-	if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
+    common::initLogger("application.log");
+    if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
 #if 0
@@ -738,13 +927,16 @@ int main(int argc, const char* argv[]) {
 	unsigned long baudrate = 0;
 	std::string deviceName;
 	std::string flashPath;
-	unsigned long pinStart = 0;
+	std::string sblPath;
+	common::CarPlatform carPlatform = common::CarPlatform::Undefined;
+	uint64_t pin = 0;
 	unsigned long start = 0;
 	unsigned long datasize = 0;
-	uint8_t cmId = 0;
+	uint8_t ecuId = 0;
 	RunMode runMode = RunMode::None;
+	bool scanPinsUpward = true;
 	const auto devices = common::getAvailableDevices();
-	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pinStart, cmId, start, datasize, runMode)) {
+	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize, runMode, sblPath, carPlatform, scanPinsUpward)) {
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
 				device.deviceName.find(deviceName) != std::string::npos) {
@@ -756,42 +948,29 @@ int main(int argc, const char* argv[]) {
 					std::unique_ptr<j2534::J2534> j2534{
 						std::make_unique<j2534::J2534>(device.libraryName) };
 					j2534->PassThruOpen(name);
-					if (runMode == RunMode::Wakeup) {
-						flasher::D2Flasher flasher(*j2534);
-						flasher.canWakeUp(baudrate);
+                    if (runMode == RunMode::Wakeup) {
+						// TODO: wake up should be implemented separately.
+						// Need to iterate over D2 and UDS protocols with different BUS speeds for D2 protocol.
+//                        flasher::D2Flasher flasher(std::move(j2534), baudrate, common::CMType::ECM_ME7, {{}, {}});
+//						flasher.canWakeUp(baudrate);
 					}
 					else if (runMode == RunMode::Pin) {
-						findPin(*j2534, pinStart);
+						findPin2(*j2534, carPlatform, ecuId, pin, scanPinsUpward);
 					}
 					else if (runMode == RunMode::Read) {
-						readFlash(*j2534, cmId, baudrate, flashPath, start, datasize);
+						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize);
 					}
 					else if (runMode == RunMode::Flash) {
-						std::fstream input(flashPath,
-							std::ios_base::binary | std::ios_base::in);
-						std::vector<uint8_t> bin{ std::istreambuf_iterator<char>(input), {} };
-
-						FlasherCallback callback;
-						flasher::D2Flasher flasher(*j2534);
-						flasher.registerCallback(callback);
-						const common::CMType cmType = bin.size() == 2048 * 1024
-							? common::CMType::ECM_ME9_P1
-							: common::CMType::ECM_ME7;
-						flasher.flash(cmType, baudrate, bin);
-						while (flasher.getState() ==
-							flasher::D2Flasher::State::InProgress) {
-							std::this_thread::sleep_for(std::chrono::seconds(1));
-							std::cout << ".";
+                        const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
+						if (std::get<0>(ecuInfo).protocolId == ISO15765) {
+                            UDSFlash(carPlatform, ecuId, std::move(j2534), baudrate, pin, flashPath, sblPath);
 						}
-						std::cout << std::endl
-							<< ((flasher.getState() ==
-								flasher::D2Flasher::State::Done)
-								? "Flashing done"
-								: "Flashing error. Try again.")
-							<< std::endl;
+						else {
+							D2Flash(flashPath, std::move(j2534), baudrate);
+						}
 					}
 					else if (runMode == RunMode::Test) {
-						doSomeStuff(*j2534, pinStart);
+						doSomeStuff(std::move(j2534), pin);
 					}
 				}
 				catch (const std::exception& ex) {

@@ -12,6 +12,7 @@ namespace {
 PASSTHRU_MSG toPassThruMsg(uint32_t msgId, const uint8_t* Data, size_t DataSize,
     unsigned long ProtocolID, unsigned long Flags) {
     PASSTHRU_MSG result;
+    memset(&result, 0, sizeof(result));
     result.ProtocolID = ProtocolID;
     result.RxStatus = 0;
     result.TxFlags = Flags;
@@ -41,6 +42,12 @@ CanMessage::CanMessage(uint32_t canId, std::vector<DataType> &&data) noexcept
 CanMessage::CanMessage(uint32_t canId, const DataType& data)
     : BaseMessage{ canId }
     , _data{ data }
+{
+}
+
+CanMessage::CanMessage(uint32_t canId, DataType&& data)
+    : BaseMessage{ canId }
+    , _data{ std::move(data) }
 {
 }
 

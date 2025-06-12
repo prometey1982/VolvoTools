@@ -1,7 +1,5 @@
 #pragma once
 
-#include "D2Message.hpp"
-
 #include <j2534/J2534_v0404.h>
 
 #include <condition_variable>
@@ -39,7 +37,7 @@ public:
                                     );
     ~CanMessagesTransceiver();
 
-    void subscribe(ECUType ecuType, ICanMessagesReceiver& receiver);
+    void subscribe(uint8_t, ICanMessagesReceiver& receiver);
     void unsubscribeAll(const ICanMessagesReceiver& receiver);
 
     void sendMessage(const std::vector<uint8_t>& data);
@@ -55,8 +53,8 @@ private:
     std::mutex _mutex;
     std::condition_variable _cond;
 
-    std::map<ECUType, std::vector<uint8_t>> _receivedMessages;
-    std::multimap<ECUType, ICanMessagesReceiver*> _subscribers;
+    std::map<uint8_t, std::vector<uint8_t>> _receivedMessages;
+    std::multimap<uint8_t, ICanMessagesReceiver*> _subscribers;
 
     bool _isReadEnabled;
     bool _isShutdown;

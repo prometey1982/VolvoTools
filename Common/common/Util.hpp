@@ -19,8 +19,12 @@ namespace common {
     std::wstring toWstring(const std::string& str);
     std::string toString(const std::wstring& str);
 
-    uint32_t encode(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0,
+    uint32_t encodeBigEndian(uint8_t byte1, uint8_t byte2 = 0, uint8_t byte3 = 0,
         uint8_t byte4 = 0);
+    uint32_t encodeLittleEndian(uint8_t byte1, uint8_t byte2, uint8_t byte3,
+                             uint8_t byte4);
+    uint32_t encodeBigEndian(const std::vector<uint8_t>& data);
+    uint32_t encodeLittleEndian(const std::vector<uint8_t>& data);
 
     std::vector<uint8_t> toVector(uint16_t value);
     std::vector<uint8_t> toVector(uint32_t value);
@@ -42,15 +46,18 @@ namespace common {
             unsigned long Baudrate, bool AdditionalConfiguration = false);
 
     std::unique_ptr<j2534::J2534Channel>
-        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId);
+        openUDSChannel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId = 0);
+
+    bool prepareUDSChannel(const j2534::J2534Channel& channel, uint32_t canId);
+    bool prepareTP20Channel(const j2534::J2534Channel& channel, uint32_t canId);
+
+    std::unique_ptr<j2534::J2534Channel>
+    openTP20Channel(j2534::J2534& j2534, unsigned long Baudrate, uint32_t canId = 0);
 
     std::unique_ptr<j2534::J2534Channel> openLowSpeedChannel(j2534::J2534& j2534,
         unsigned long Flags);
 
     std::unique_ptr<j2534::J2534Channel> openBridgeChannel(j2534::J2534& j2534);
-
-    std::vector<uint8_t> readMessageSequence(j2534::J2534Channel& channel,
-        size_t queryLength);
 
     std::vector<uint8_t> readMessageCheckAndGet(
         const j2534::J2534Channel& channel,
@@ -66,13 +73,31 @@ namespace common {
 
     CarPlatform getPlatfromFromVIN(const std::string& vin);
 
-    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t ecuId);
+    CarPlatform parseCarPlatform(std::string input);
 
-    j2534::J2534Channel& getChannelByEcuId(uint32_t ecuId, const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
-    j2534::J2534Channel& getChannelByEcuId(const std::vector<ConfigurationInfo>& configurationInfo, CarPlatform carPlatform, uint32_t cmId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+    ConfigurationInfo getConfigurationInfoByCarPlatform(CarPlatform carPlatform);
+
+    std::tuple<BusConfiguration, ECUInfo> getEcuInfoByEcuId(CarPlatform carPlatform, uint32_t ecuId);
+
+    j2534::J2534Channel& getChannelByEcuId(CarPlatform carPlatform, uint32_t ecuId,
+                                           const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+
+    size_t getChannelIndexByEcuId(CarPlatform carPlatform, uint32_t ecuId,
+                                  const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     std::vector<ConfigurationInfo> loadConfiguration(std::istream& input);
     std::vector<ConfigurationInfo> loadConfiguration(const std::string& input);
+
+    void checkTP20Error(uint8_t requestId, const uint8_t* data, size_t dataSize);
+    void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize);
+    void checkD2Error(uint8_t ecuId, const std::vector<uint8_t>& requestId, const uint8_t* data, size_t dataSize);
+
+    CarPlatform parseCarPlatform(std::string input);
+
+    std::array<uint8_t, 5> getPinArray(uint64_t pin);
+
+    void initLogger(const std::string& logFilename);
+
+    uint16_t crc16(const uint8_t* data_p, size_t length);
 
 } // namespace common

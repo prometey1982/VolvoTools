@@ -1,3 +1,4 @@
+--- 
 Configuration: 
   - 
     Bus: 
@@ -4814,4 +4815,161 @@ Configuration:
         SWDLSpecification: 31808456
         SamplePoint: 80
     Name: 15765-2 Not configured ECU HS
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '01'
+            CANIdentifier: 201
+            Name: ECM
+          - 
+            Address: '02'
+            CANIdentifier: 202
+            Name: TCM
+        P4CANMax: 300000
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: vag_med91
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: '01'
+            CANIdentifier: 201
+            CompressionType: Bosch
+            EncryptionType: XOR
+            Name: ECM
+          - 
+            Address: '02'
+            CANIdentifier: 202
+            Name: TCM
+        P4CANMax: 300000
+        SWDLProtocol: tp20
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: vag_med912
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: kwp
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          Address: 10
+          CANIdentifier: '7E0'
+          Name: ECM - Engine Control Module
+        P4CANMax: 300000
+        SWDLProtocol: kwp
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: ford_kwp
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: ford_uds
+  - 
+    Bus: 
+      - 
+        BaudRate: 125
+        BusType: 0
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN MS
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 68
+      - 
+        BaudRate: 500
+        BusType: 1
+        CANIdBitSize: 11
+        Enabled: 1
+        Name: CAN HS
+        Node: 
+          - 
+            Address: 10
+            CANIdentifier: '7E0'
+            Name: ECM - Engine Control Module
+          - 
+            Address: 18
+            CANIdentifier: '7E1'
+            Name: TCM - Transmission Control Module
+        P4CANMax: 300000
+        SWDLProtocol: 15765-2
+        SWDLSpecification: 31808456
+        SamplePoint: 80
+    Name: haval_uds
 CurrentConfiguration: 9
