@@ -34,12 +34,13 @@ jobs:
         shell: pwsh
         run: |
           $date = Get-Date -Format "ddMMyy"
-          $commit = "${{ github.sha.Substring(0,7) }}"
+          $commit = "${{ github.sha }}"
+          $shortCommit = $commit.Substring(0, 7)
           $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
           foreach ($binary in $binaries) {
             $name = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName)
             $ext = [System.IO.Path]::GetExtension($binary.FullName)
-            $newName = "${name}_x86_${date}_${commit}${ext}"
+            $newName = "${name}_x86_${date}_${shortCommit}${ext}"
             Rename-Item -Path $binary.FullName -NewName $newName
           }
       - name: Upload build artifacts
@@ -73,12 +74,13 @@ jobs:
         shell: pwsh
         run: |
           $date = Get-Date -Format "ddMMyy"
-          $commit = "${{ github.sha.Substring(0,7) }}"
+          $commit = "${{ github.sha }}"
+          $shortCommit = $commit.Substring(0, 7)
           $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
           foreach ($binary in $binaries) {
             $name = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName)
             $ext = [System.IO.Path]::GetExtension($binary.FullName)
-            $newName = "${name}_x64_${date}_${commit}${ext}"
+            $newName = "${name}_x64_${date}_${shortCommit}${ext}"
             Rename-Item -Path $binary.FullName -NewName $newName
           }
       - name: Upload build artifacts
