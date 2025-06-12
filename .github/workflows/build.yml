@@ -30,12 +30,16 @@ jobs:
         run: |
           cd build
           cmake --build . --config Release --parallel 4 || exit 1
-      - name: Rename binaries with architecture suffix
+      - name: Rename binaries with architecture, date, and commit hash
         shell: pwsh
         run: |
+          $date = Get-Date -Format "ddMMyy"
+          $commit = "${{ github.sha.Substring(0,7) }}"
           $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
           foreach ($binary in $binaries) {
-            $newName = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName) + "_x86" + [System.IO.Path]::GetExtension($binary.FullName)
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName)
+            $ext = [System.IO.Path]::GetExtension($binary.FullName)
+            $newName = "${name}_x86_${date}_${commit}${ext}"
             Rename-Item -Path $binary.FullName -NewName $newName
           }
       - name: Upload build artifacts
@@ -65,12 +69,16 @@ jobs:
         run: |
           cd build
           cmake --build . --config Release --parallel 4 || exit 1
-      - name: Rename binaries with architecture suffix
+      - name: Rename binaries with architecture, date, and commit hash
         shell: pwsh
         run: |
+          $date = Get-Date -Format "ddMMyy"
+          $commit = "${{ github.sha.Substring(0,7) }}"
           $binaries = Get-ChildItem -Path build -Filter "*.exe" -Recurse
           foreach ($binary in $binaries) {
-            $newName = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName) + "_x64" + [System.IO.Path]::GetExtension($binary.FullName)
+            $name = [System.IO.Path]::GetFileNameWithoutExtension($binary.FullName)
+            $ext = [System.IO.Path]::GetExtension($binary.FullName)
+            $newName = "${name}_x64_${date}_${commit}${ext}"
             Rename-Item -Path $binary.FullName -NewName $newName
           }
       - name: Upload build artifacts
