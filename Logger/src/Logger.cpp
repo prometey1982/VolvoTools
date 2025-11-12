@@ -22,6 +22,16 @@
 
 namespace logger {
 
+    template<typename T>
+    std::string dumpArray(const T& vec)
+    {
+        std::stringstream ss;
+        for(const auto& i: vec) {
+            ss << std::hex << int(i) << " ";
+        }
+        return ss.str();
+    }
+
 	class LoggerImpl {
 	public:
         LoggerImpl() {}
@@ -296,16 +306,6 @@ namespace logger {
             if(diagSessionRequest.process(channel).empty()) {
                 return;
             }
-        }
-
-        template<typename T>
-        std::string dumpArray(const T& vec)
-        {
-            std::stringstream ss;
-            for(const auto& i: vec) {
-                ss << std::hex << int(i) << " ";
-            }
-            return ss.str();
         }
 
         virtual std::vector<uint32_t>

@@ -475,6 +475,7 @@ namespace common {
             switch (vin[3])
             {
             case 'A':
+            case 'B':
                 result = CarPlatform::P3;
                 break;
             case 'L':
