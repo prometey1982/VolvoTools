@@ -782,11 +782,9 @@ namespace common {
     {
         el::Configurations defaultConf;
         defaultConf.setToDefault();
-        defaultConf.set(el::Level::Global,
-                        el::ConfigurationType::Format, "%datetime %level %msg");
-        defaultConf.set(el::Level::Global,
-                        el::ConfigurationType::Filename, logFilename);
-        el::Loggers::reconfigureLogger("default", defaultConf);
+        defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level %msg");
+        defaultConf.setGlobally(el::ConfigurationType::Filename, logFilename);
+        el::Loggers::reconfigureAllLoggers(defaultConf);
     }
 
     uint16_t crc16(const uint8_t* data_p, size_t length)
