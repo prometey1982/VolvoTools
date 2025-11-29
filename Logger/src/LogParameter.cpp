@@ -1,7 +1,7 @@
 #include "logger/LogParameter.hpp"
 
 namespace {
-	double processSign(uint32_t value, bool isSigned, size_t size) {
+    float processSign(uint32_t value, bool isSigned, size_t size) {
 		if (isSigned) {
 			switch (size) {
 			case 1:
@@ -11,7 +11,7 @@ namespace {
 			default:
 				return static_cast<int32_t>(value);
 			}
-		}
+        }
 		else {
 			return value;
 		}
@@ -63,17 +63,21 @@ namespace logger {
 	}
 
 	double LogParameter::formatValue(uint32_t value) const {
+        float float_value = 0;
 		if (_dataType == DataType::Float) {
-			return ieee_float(value);
+            float_value = ieee_float(value);
 		}
-		if (_bitmask) {
-			value &= _bitmask;
-		}
+        else {
+            if (_bitmask) {
+                value &= _bitmask;
+            }
+            float_value = processSign(value, _isSigned, _size);
+        }
 		if (_isInverseConversion) {
-			return _factor / (processSign(value, _isSigned, _size) + _offset);
+            return _factor / (float_value + _offset);
 		}
 		else {
-			return processSign(value, _isSigned, _size) * _factor + _offset;
+            return float_value * _factor + _offset;
 		}
 	}
 
