@@ -107,7 +107,9 @@ namespace flasher {
         void checkValidApplication()
         {
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
-            common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId);
+            if (!common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId)) {
+                setFailed("Application validation failed");
+            }
         }
 
         void wakeUp()
