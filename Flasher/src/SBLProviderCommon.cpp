@@ -31,6 +31,7 @@ common::VBF SBLProviderCommon::getSBL(common::CarPlatform carPlatform, uint32_t 
                 return parser.parse(common::SBLData::P3_3_2_SBL);
             }
         }
+        break;
     case common::CarPlatform::Ford_UDS:
         if(ecuId == 0x10) {
             if(additionalInfo == "me9_p3") {

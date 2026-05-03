@@ -37,6 +37,7 @@
 #include <chrono>
 #include <iomanip>
 #include <unordered_map>
+#include <stdexcept>
 
 INITIALIZE_EASYLOGGINGPP
 
@@ -696,17 +697,39 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate, uint64_t pin, const std::string& flashPath, const std::string& sblPath)
 {
 	common::VBFParser vbfParser;
-	std::ifstream sblVbf(sblPath, std::ios_base::binary);
-	const common::VBF bootloader{ vbfParser.parse(sblVbf) };
 	std::ifstream flashVbf(flashPath, std::ios_base::binary);
 	const common::VBF flash{ vbfParser.parse(flashVbf) };
     const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
+	std::string additionalData;
+	std::unique_ptr<flasher::SBLProviderBase> sblProvider;
+	if (sblPath.empty()) {
+		if (carPlatform == common::CarPlatform::P3 && ecuId == 0x10) {
+			additionalData = "me9_p3";
+		}
+		else if (carPlatform == common::CarPlatform::Ford_UDS && ecuId == 0x10) {
+			additionalData = "me9_p3";
+		}
+		if (additionalData.empty()) {
+			throw std::runtime_error("No built-in SBL profile for this platform/ECU; pass -s/--sbl");
+		}
+		std::cout << "Using built-in SBL";
+		if (!additionalData.empty()) {
+			std::cout << " profile: " << additionalData;
+		}
+		std::cout << std::endl;
+		sblProvider = std::make_unique<flasher::SBLProviderCommon>();
+	}
+	else {
+		std::ifstream sblVbf(sblPath, std::ios_base::binary);
+		const common::VBF bootloader{ vbfParser.parse(sblVbf) };
+		sblProvider = std::make_unique<flasher::SBLProviderVBF>(bootloader);
+	}
 
 	flasher::FlasherParameters flasherParameters{
 		carPlatform,
 		ecuId,
-		"",
-        std::make_unique<flasher::SBLProviderVBF>(bootloader),
+		additionalData,
+		std::move(sblProvider),
         flash
 	};
 	flasher::UDSFlasherParameters udsFlasherParameters{
