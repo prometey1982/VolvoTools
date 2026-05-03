@@ -61,7 +61,6 @@ enum class RunMode
 
 enum class ProgramMode
 {
-	Auto,
 	Vehicle,
 	Bench
 };
@@ -69,23 +68,18 @@ enum class ProgramMode
 ProgramMode parseProgramMode(const std::string& input)
 {
 	const auto normalized = common::toLower(input);
-	if (normalized == "auto") {
-		return ProgramMode::Auto;
-	}
 	if (normalized == "vehicle") {
 		return ProgramMode::Vehicle;
 	}
 	if (normalized == "bench") {
 		return ProgramMode::Bench;
 	}
-	throw std::runtime_error("Invalid --program-mode, supported values: auto, vehicle, bench");
+	throw std::runtime_error("Invalid --program-mode, required values: vehicle or bench");
 }
 
 const char* programModeToString(ProgramMode mode)
 {
 	switch (mode) {
-	case ProgramMode::Auto:
-		return "auto";
 	case ProgramMode::Vehicle:
 		return "vehicle";
 	case ProgramMode::Bench:
@@ -114,8 +108,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	flash_command.add_description("Flash BIN to ECU");
 	flash_command.add_argument("-i", "--input").help("File to flash");
 	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL, required for UDS flashing");
-	flash_command.add_argument("--program-mode").default_value(std::string{ "auto" })
-		.help("Programming mode handling: auto, vehicle, bench");
+	flash_command.add_argument("--program-mode").required()
+		.help("Programming mode handling, required: vehicle or bench");
 
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
 	read_command.add_description("Read BIN from ECU");
@@ -798,20 +792,9 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	}
 
 	bool skipFallAsleep = false;
-	if (programMode == ProgramMode::Vehicle || programMode == ProgramMode::Auto) {
-		try {
-			UDSProgramMode(carPlatform, ecuId, *j2534, 0);
-			skipFallAsleep = true;
-		}
-		catch (const std::exception& ex) {
-			if (programMode == ProgramMode::Vehicle) {
-				throw;
-			}
-			std::cout << "Vehicle programming mode unavailable, continuing as bench: "
-				<< ex.what() << std::endl;
-			LOG(WARNING) << "Vehicle programming mode unavailable in auto mode, continuing as bench: "
-			             << ex.what();
-		}
+	if (programMode == ProgramMode::Vehicle) {
+		UDSProgramMode(carPlatform, ecuId, *j2534, 0);
+		skipFallAsleep = true;
 	}
 	else {
 		LOG(INFO) << "Bench program mode selected, skipping CEM programming mode";
@@ -1011,7 +994,7 @@ bool readCemProgramModeStatus(const j2534::J2534Channel& cemChannel, uint32_t ce
 	}
 }
 
-void UDSProgramMode(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534,
+void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J2534& j2534,
 	unsigned long holdSeconds)
 {
 	constexpr uint8_t cemEcuId = 0x52;
@@ -1028,7 +1011,6 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534
 	if (!cemChannel) {
 		throw std::runtime_error("Failed to open J2534 channel for CEM");
 	}
-	auto channels = channelProvider.getAllChannels(ecuId);
 
 	uint8_t status = 0;
 	if (readCemProgramModeStatus(*cemChannel, cemCanId, status)) {
@@ -1040,9 +1022,12 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534
 	}
 
 	{
-		if (!common::UDSProtocolCommonSteps::broadcastProgrammingMode(channels)) {
+		const auto ids = cemChannel->startPeriodicMsgs(common::UDSMessage(0x7DF, { 0x10, 0x82 }), 20);
+		if (ids.empty()) {
 			throw std::runtime_error("Program mode failed to start periodic messages");
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(180));
+		cemChannel->stopPeriodicMsg(ids);
 	}
 
 	status = 0;
@@ -1060,22 +1045,13 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534
 	}
 
 	if (holdSeconds > 0) {
-		std::vector<std::vector<unsigned long>> keepAliveIds(channels.size());
-		bool keepAliveStarted = true;
-		for (size_t i = 0; i < channels.size(); ++i) {
-			keepAliveIds[i] = common::UDSProtocolCommonSteps::keepAlive(*channels[i]);
-			if (keepAliveIds[i].empty()) {
-				LOG(ERROR) << "TesterPresent hold failed to start periodic message on channel " << i;
-				keepAliveStarted = false;
-			}
-		}
-		if (!keepAliveStarted) {
-			stopPeriodicOnAllChannels(channels, keepAliveIds);
+		const auto keepAliveIds = common::UDSProtocolCommonSteps::keepAlive(*cemChannel);
+		if (keepAliveIds.empty()) {
 			throw std::runtime_error("TesterPresent hold failed to start periodic messages");
 		}
 		std::cout << "Holding TesterPresent for " << holdSeconds << " seconds" << std::endl;
 		std::this_thread::sleep_for(std::chrono::seconds(holdSeconds));
-		stopPeriodicOnAllChannels(channels, keepAliveIds);
+		cemChannel->stopPeriodicMsg(keepAliveIds);
 	}
 }
 
@@ -1238,8 +1214,16 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 	return TRUE;
 }
 
+LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
+	LOG(ERROR) << "Unhandled SEH 0x" << std::hex
+		<< ep->ExceptionRecord->ExceptionCode
+		<< " at 0x" << reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress);
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int main(int argc, const char* argv[]) {
     common::initLogger("VolvoFlasher.log");
+    SetUnhandledExceptionFilter(SehLoggingFilter);
     if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
 	}
@@ -1280,7 +1264,7 @@ int main(int argc, const char* argv[]) {
 	bool scanPinsUpward = true;
 	bool resetFunctional = false;
 	unsigned long programHoldSeconds = 0;
-	ProgramMode flashProgramMode = ProgramMode::Auto;
+	ProgramMode flashProgramMode = ProgramMode::Bench;
 	const auto devices = common::getAvailableDevices();
 	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize,
 		runMode, sblPath, carPlatform, scanPinsUpward, resetFunctional, programHoldSeconds, flashProgramMode)) {

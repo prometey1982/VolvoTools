@@ -74,8 +74,16 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
   return TRUE;
 }
 
+LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
+  LOG(ERROR) << "Unhandled SEH 0x" << std::hex
+    << ep->ExceptionRecord->ExceptionCode
+    << " at 0x" << reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress);
+  return EXCEPTION_EXECUTE_HANDLER;
+}
+
 int main(int argc, const char *argv[]) {
   common::initLogger("VolvoLogger.log");
+  SetUnhandledExceptionFilter(SehLoggingFilter);
   if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
     throw std::runtime_error("Can't set console control hander");
   }
