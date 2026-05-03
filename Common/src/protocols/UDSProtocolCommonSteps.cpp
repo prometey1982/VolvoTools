@@ -6,7 +6,9 @@
 
 #include <easylogging++.h>
 
+#include <set>
 #include <thread>
+#include <utility>
 
 namespace common {
 
@@ -36,6 +38,71 @@ namespace common {
 				| ((hash & 0xFF0) << 12) | ((hash & 0xF0000) >> 16);
 			return result;
 		}
+
+        bool rangesOverlap(uint32_t firstAddr, uint32_t firstSize, uint32_t secondAddr, uint32_t secondSize)
+        {
+            if (firstSize == 0 || secondSize == 0) {
+                return false;
+            }
+            const uint64_t firstEnd = static_cast<uint64_t>(firstAddr) + firstSize;
+            const uint64_t secondEnd = static_cast<uint64_t>(secondAddr) + secondSize;
+            return firstAddr < secondEnd && secondAddr < firstEnd;
+        }
+
+        bool rangeContains(uint32_t outerAddr, uint32_t outerSize, uint32_t innerAddr, uint32_t innerSize)
+        {
+            if (outerSize == 0 || innerSize == 0) {
+                return false;
+            }
+            const uint64_t outerEnd = static_cast<uint64_t>(outerAddr) + outerSize;
+            const uint64_t innerEnd = static_cast<uint64_t>(innerAddr) + innerSize;
+            return outerAddr <= innerAddr && innerEnd <= outerEnd;
+        }
+
+        bool eraseRange(const j2534::J2534Channel& channel, uint32_t canId, uint32_t startAddr,
+                        uint32_t eraseLength, size_t retryCount)
+        {
+            const auto eraseAddr = toVector(startAddr);
+            const auto eraseSize = toVector(eraseLength);
+            UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
+                                                eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
+                                                eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
+            unsigned long numMsgs;
+            for(size_t i = 0; i < retryCount; ++i) {
+                if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+                    continue;
+                }
+                const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
+                if(result.empty()) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                    continue;
+                }
+                return true;
+            }
+            return false;
+        }
+
+        bool eraseBlockTouchesData(const EraseBlock& eraseBlock, const std::vector<VBFChunk>& chunks)
+        {
+            for (const auto& chunk: chunks) {
+                if (rangesOverlap(eraseBlock.startAddr, eraseBlock.length, chunk.writeOffset,
+                                  static_cast<uint32_t>(chunk.data.size()))) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool chunkCoveredByEraseBlock(const std::vector<EraseBlock>& eraseBlocks, const VBFChunk& chunk)
+        {
+            for (const auto& eraseBlock: eraseBlocks) {
+                if (rangeContains(eraseBlock.startAddr, eraseBlock.length, chunk.writeOffset,
+                                  static_cast<uint32_t>(chunk.data.size()))) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
 	}
 
@@ -228,48 +295,43 @@ namespace common {
     bool UDSProtocolCommonSteps::eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data)
     {
         LOG(INFO) << "eraseFlash enter";
-        for (const auto& chunk : data.chunks) {
-			const auto eraseAddr = toVector(chunk.writeOffset);
-			const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
-			UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
-				eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
-				eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
-			unsigned long numMsgs;
-            for(size_t i = 0; i < 10; ++i) {
-                if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-                    continue;
-                }
-                const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
-                if(result.empty()) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    continue;
-                }
-                return true;
-                LOG(INFO) << "eraseFlash completed";
+        std::set<std::pair<uint32_t, uint32_t>> erasedBlocks;
+        for (const auto& eraseBlock : data.header.eraseBlocks) {
+            if (eraseBlock.length == 0 || !eraseBlockTouchesData(eraseBlock, data.chunks)) {
+                continue;
             }
-		}
-        LOG(ERROR) << "Failed to erase data";
-        return false;
+            const auto blockKey = std::make_pair(eraseBlock.startAddr, eraseBlock.length);
+            if (!erasedBlocks.insert(blockKey).second) {
+                continue;
+            }
+            LOG(INFO) << "eraseFlash erase block: " << std::hex << eraseBlock.startAddr
+                      << ", length = " << eraseBlock.length;
+            if (!eraseRange(channel, canId, eraseBlock.startAddr, eraseBlock.length, 10)) {
+                LOG(ERROR) << "Failed to erase block: " << std::hex << eraseBlock.startAddr;
+                return false;
+            }
+        }
+        for (const auto& chunk : data.chunks) {
+            if (chunk.data.empty() || chunkCoveredByEraseBlock(data.header.eraseBlocks, chunk)) {
+                continue;
+            }
+            if (!eraseRange(channel, canId, chunk.writeOffset, static_cast<uint32_t>(chunk.data.size()), 10)) {
+                LOG(ERROR) << "Failed to erase chunk: " << std::hex << chunk.writeOffset;
+                return false;
+            }
+        }
+        LOG(INFO) << "eraseFlash completed";
+        return true;
 	}
 
     bool UDSProtocolCommonSteps::eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk)
     {
         LOG(INFO) << "eraseChunk enter chunk: " << std::hex << chunk.writeOffset;
-        const auto eraseAddr = toVector(chunk.writeOffset);
-        const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
-        UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
-                                           eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
-                                           eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
-        unsigned long numMsgs;
-        for(size_t i = 0; i < 1; ++i) {
-            if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-                continue;
-            }
-            const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
-            if(result.empty()) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                continue;
-            }
+        if (chunk.data.empty()) {
+            LOG(INFO) << "eraseChunk skipped empty chunk, offset = " << std::hex << chunk.writeOffset;
+            return true;
+        }
+        if (eraseRange(channel, canId, chunk.writeOffset, static_cast<uint32_t>(chunk.data.size()), 1)) {
             LOG(INFO) << "eraseChunk completed, offset = " << std::hex << chunk.writeOffset;
             return true;
         }
