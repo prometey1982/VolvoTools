@@ -18,7 +18,7 @@ jobs:
           submodules: true
       - name: Install Conan and detect profile
         run: |
-          pip install conan
+          pip install "conan<3"
           conan profile detect --force
       - name: Install dependencies
         run: >-
@@ -48,7 +48,7 @@ jobs:
         with:
           name: VolvoTools_Build_x86
           path: build/**/Release/*.exe
-          if-no-files-found: warn
+          if-no-files-found: error
   build-x64:
     runs-on: windows-2022
     steps:
@@ -58,7 +58,7 @@ jobs:
           submodules: true
       - name: Install Conan and detect profile
         run: |
-          pip install conan
+          pip install "conan<3"
           conan profile detect --force
       - name: Install dependencies
         run: >-
@@ -88,13 +88,15 @@ jobs:
         with:
           name: VolvoTools_Build_x64
           path: build/**/Release/*.exe
-          if-no-files-found: warn
+          if-no-files-found: error
   release:
     needs:
       - build-x86
       - build-x64
     runs-on: windows-2022
     if: 'startsWith(github.ref, ''refs/tags/'')'
+    permissions:
+      contents: write
     steps:
       - name: Download x64 artifacts
         uses: actions/download-artifact@v7
