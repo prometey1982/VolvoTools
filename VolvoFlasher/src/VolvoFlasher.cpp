@@ -113,7 +113,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
 	flash_command.add_description("Flash BIN to ECU");
 	flash_command.add_argument("-i", "--input").help("File to flash");
-	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL");
+	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL, required for UDS flashing");
 	flash_command.add_argument("--program-mode").default_value(std::string{ "auto" })
 		.help("Programming mode handling: auto, vehicle, bench");
 
@@ -777,7 +777,7 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 		<< " ecu=0x" << std::hex << static_cast<int>(ecuId)
 		<< " baudrate=" << std::dec << baudrate
 		<< " flashPath=" << flashPath
-		<< " sblPath=" << (sblPath.empty() ? "<built-in>" : sblPath)
+		<< " sblPath=" << (sblPath.empty() ? "<missing>" : sblPath)
 		<< " programMode=" << programModeToString(programMode);
 	common::VBFParser vbfParser;
 	std::ifstream flashVbf(flashPath, std::ios_base::binary);
@@ -789,21 +789,7 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	std::string additionalData;
 	std::unique_ptr<flasher::SBLProviderBase> sblProvider;
 	if (sblPath.empty()) {
-		if (carPlatform == common::CarPlatform::P3 && ecuId == 0x10) {
-			additionalData = "me9_p3";
-		}
-		else if (carPlatform == common::CarPlatform::Ford_UDS && ecuId == 0x10) {
-			additionalData = "me9_p3";
-		}
-		if (additionalData.empty()) {
-			throw std::runtime_error("No built-in SBL profile for this platform/ECU; pass -s/--sbl");
-		}
-		std::cout << "Using built-in SBL";
-		if (!additionalData.empty()) {
-			std::cout << " profile: " << additionalData;
-		}
-		std::cout << std::endl;
-		sblProvider = std::make_unique<flasher::SBLProviderCommon>();
+		throw std::runtime_error("SBL VBF is required for UDS flashing; pass -s/--sbl");
 	}
 	else {
 		std::ifstream sblVbf(sblPath, std::ios_base::binary);
