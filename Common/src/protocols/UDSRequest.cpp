@@ -70,7 +70,7 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
             checkUDSError(_requestId, data, dataSize);
         }
         catch (const UDSError& ex) {
-            if (UDSError::ErrorCode::RequestReceivedResponsePending) {
+            if (ex.getErrorCode() == UDSError::ErrorCode::RequestReceivedResponsePending) {
                 return true;
             }
             throw;
@@ -88,7 +88,7 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
             if(--retryCount == 0) {
                 throw std::runtime_error("Failed to receive correct answer");
             }
-            return (--retryCount != 0);
+            return true;
         }
         dataOffset += checkData.size();
         result.reserve(result.size() + dataSize);

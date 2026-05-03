@@ -91,15 +91,17 @@ namespace flasher {
         void writeFlash()
         {
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            _stateUpdater(FlasherState::EraseFlash);
+            if (!common::UDSProtocolCommonSteps::eraseFlash(channel, _canId, _flasherParameters.flash)) {
+                setFailed("Flash erasing failed");
+                return;
+            }
             for(const auto& chunk: _flasherParameters.flash.chunks) {
-                _stateUpdater(FlasherState::EraseFlash);
-                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canId, chunk)) {
-                    setFailed("Flash erasing failed");
-                }
                 _stateUpdater(FlasherState::WriteFlash);
                 if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
                                                                   _progressUpdater)) {
                     setFailed("Flash writing failed");
+                    return;
                 }
             }
         }
@@ -107,7 +109,9 @@ namespace flasher {
         void checkValidApplication()
         {
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
-            common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId);
+            if (!common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId)) {
+                setFailed("Application validation failed");
+            }
         }
 
         void wakeUp()

@@ -1,10 +1,12 @@
 #include "common/VBFParser.hpp"
+#include "common/Util.hpp"
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/fusion/include/adapt_struct.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 
+#include <iterator>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -258,15 +260,34 @@ namespace common {
 		}
 
 		template<typename T>
+		size_t remaining(T begin, T end)
+		{
+			return static_cast<size_t>(std::distance(begin, end));
+		}
+
+		template<typename T>
 		std::vector<VBFChunk> parseVBFBody(const VBFHeader& header, T begin, T end)
 		{
 			std::vector<VBFChunk> result;
+			const size_t checksumSize = header.vbfVersion >= 2 ? 2 : 1;
 			while (begin < end) {
+				if (remaining(begin, end) < 8) {
+					throw std::runtime_error("Truncated VBF block header");
+				}
+
 				uint32_t writeOffset = getUint32(begin);
 				uint32_t dataSize = getUint32(begin);
+
+				if (remaining(begin, end) < dataSize + checksumSize) {
+					throw std::runtime_error("Truncated VBF block data");
+				}
+
 				std::vector<uint8_t> data{ begin, begin + dataSize };
 				begin += dataSize;
 				uint16_t crc = header.vbfVersion >= 2 ? getUint16(begin) : static_cast<uint8_t>(*begin++);
+				if (header.vbfVersion >= 2 && crc16(data.data(), data.size()) != crc) {
+					throw std::runtime_error("VBF block CRC mismatch");
+				}
 				result.emplace_back(writeOffset, std::move(data), crc);
 			}
 			return result;
