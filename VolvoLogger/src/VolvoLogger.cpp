@@ -75,7 +75,7 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 }
 
 int main(int argc, const char *argv[]) {
-  common::initLogger("application.log");
+  common::initLogger("VolvoLogger.log");
   if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
     throw std::runtime_error("Can't set console control hander");
   }

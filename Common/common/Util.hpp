@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <string>
 #include <utility>
@@ -28,6 +29,8 @@ namespace common {
 
     std::vector<uint8_t> toVector(uint16_t value);
     std::vector<uint8_t> toVector(uint32_t value);
+    std::string toHexString(const std::vector<uint8_t>& data);
+    std::string j2534StatusToString(unsigned long status);
 
     std::string toLower(std::string data);
 

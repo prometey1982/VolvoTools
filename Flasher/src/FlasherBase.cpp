@@ -7,6 +7,7 @@
 
 #include <easylogging++.h>
 
+#include <algorithm>
 #include <numeric>
 
 namespace flasher {
@@ -55,6 +56,12 @@ size_t FlasherBase::getMaximumProgress() const
     return _maximumProgress;
 }
 
+std::string FlasherBase::getLastError() const
+{
+    std::unique_lock<std::mutex> lock(_mutex);
+    return _lastError;
+}
+
 void FlasherBase::registerCallback(FlasherCallback &callback)
 {
     std::unique_lock<std::mutex> lock{_mutex};
@@ -75,7 +82,14 @@ void FlasherBase::start()
             auto channels{_j2534ChannelProvider.getAllChannels(_flasherParameters.ecuId)};
             startImpl(channels);
         }
+        catch(const std::exception& ex) {
+            LOG(ERROR) << "Exception during flashing, what = " << ex.what();
+            setLastError(ex.what());
+            setCurrentState(FlasherState::Error);
+        }
         catch(...) {
+            LOG(ERROR) << "Exception during flashing";
+            setLastError("Unknown exception during flashing");
             setCurrentState(FlasherState::Error);
         }
     });
@@ -117,6 +131,12 @@ void FlasherBase::setMaximumProgress(size_t maximumProgress)
     _currentProgress = std::min(_currentProgress, _maximumProgress);
 }
 
+void FlasherBase::setLastError(const std::string& error)
+{
+    std::unique_lock<std::mutex> lock(_mutex);
+    _lastError = error;
+}
+
 void FlasherBase::runOnThread(std::function<void()> callable)
 {
     if(getCurrentState() != FlasherState::Initial) {
@@ -129,10 +149,12 @@ void FlasherBase::runOnThread(std::function<void()> callable)
         }
         catch(const std::exception& ex) {
             LOG(ERROR) << "Exception during flashing, what = " << ex.what();
+            setLastError(ex.what());
             setCurrentState(FlasherState::Error);
         }
         catch(...) {
             LOG(ERROR) << "Exception during flashing";
+            setLastError("Unknown exception during flashing");
             setCurrentState(FlasherState::Error);
         }
     });

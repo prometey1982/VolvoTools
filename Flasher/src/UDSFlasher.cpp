@@ -4,9 +4,10 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <common/CommonData.hpp>
-#include <common/protocols/UDSMessage.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
+
+#include <easylogging++.h>
 
 #define HFSM2_ENABLE_ALL
 #include <common/hfsm2/machine.hpp>
@@ -20,7 +21,8 @@ namespace flasher {
                        const UDSFlasherParameters& udsFlasherParameters,
                        uint32_t canId,
                        const std::function<void(FlasherState)>& stateUpdater,
-                       const std::function<void(size_t)>& progressUpdater)
+                       const std::function<void(size_t)>& progressUpdater,
+                       const std::function<void(const std::string&)>& errorUpdater)
             : _channels{ channels }
             , _flasherParameters{ flasherParameters }
             , _udsFlasherParameters{ udsFlasherParameters }
@@ -28,6 +30,7 @@ namespace flasher {
             , _isFailed{ false }
             , _stateUpdater{ stateUpdater }
             , _progressUpdater{ progressUpdater }
+            , _errorUpdater{ errorUpdater }
         {
         }
 
@@ -41,6 +44,13 @@ namespace flasher {
         void fallAsleep()
         {
             _stateUpdater(FlasherState::FallAsleep);
+            if (_udsFlasherParameters.skipFallAsleep) {
+                LOG(INFO) << "Fall asleep skipped, refreshing vehicle programming mode";
+                if (!common::UDSProtocolCommonSteps::broadcastProgrammingMode(_channels)) {
+                    setFailed("Program mode refresh failed");
+                }
+                return;
+            }
             if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
                 setFailed("Fall asleep failed");
             }
@@ -98,8 +108,16 @@ namespace flasher {
             }
             for(const auto& chunk: _flasherParameters.flash.chunks) {
                 _stateUpdater(FlasherState::WriteFlash);
-                if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
-                                                                  _progressUpdater)) {
+                bool chunkWritten = false;
+                for (size_t attempt = 1; attempt <= 2 && !chunkWritten; ++attempt) {
+                    if (attempt > 1) {
+                        LOG(WARNING) << "Retry transferChunk attempt=" << attempt
+                                     << " offset=0x" << std::hex << chunk.writeOffset;
+                    }
+                    chunkWritten = common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
+                                                                                 _progressUpdater);
+                }
+                if (!chunkWritten) {
                     setFailed("Flash writing failed");
                     return;
                 }
@@ -145,6 +163,8 @@ namespace flasher {
         {
             _isFailed = true;
             _errorMessage = message;
+            LOG(ERROR) << message;
+            _errorUpdater(message);
         }
 
     private:
@@ -156,6 +176,7 @@ namespace flasher {
         std::string _errorMessage;
         const std::function<void(FlasherState)> _stateUpdater;
         const std::function<void(size_t)> _progressUpdater;
+        const std::function<void(const std::string&)> _errorUpdater;
     };
 
 using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
@@ -323,6 +344,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         },
             [this](size_t progress) {
                 incCurrentProgress(progress);
+            },
+            [this](const std::string& error) {
+                setLastError(error);
             });
 
         setMaximumProgress(impl.getMaximumProgress());

@@ -9,7 +9,10 @@
 
 
 #include <functional>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <thread>
 #include <vector>
 
 namespace flasher {
@@ -36,6 +39,7 @@ public:
     FlasherState getCurrentState() const;
     size_t getCurrentProgress() const;
     size_t getMaximumProgress() const;
+    std::string getLastError() const;
 
     void registerCallback(FlasherCallback &callback);
     void unregisterCallback(FlasherCallback &callback);
@@ -51,6 +55,7 @@ protected:
     void setCurrentProgress(size_t currentProgress);
     void incCurrentProgress(size_t delta);
     void setMaximumProgress(size_t maximumProgress);
+    void setLastError(const std::string& error);
 
     void runOnThread(std::function<void()> callable);
 
@@ -64,6 +69,7 @@ private:
     size_t _currentProgress;
     size_t _maximumProgress;
     FlasherState _currentState;
+    std::string _lastError;
 
     std::thread _flasherThread;
 

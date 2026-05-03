@@ -69,11 +69,18 @@ namespace common {
                                                 eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
             unsigned long numMsgs;
             for(size_t i = 0; i < retryCount; ++i) {
-                if (channel.writeMsgs(eraseRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
+                const auto writeStatus = channel.writeMsgs(eraseRoutineMsg, numMsgs);
+                if (writeStatus != STATUS_NOERROR || numMsgs < 1) {
+                    LOG(ERROR) << "eraseRange failed to write message, addr=0x" << std::hex << startAddr
+                               << " length=0x" << eraseLength
+                               << " status=" << j2534StatusToString(writeStatus)
+                               << " written=" << std::dec << numMsgs;
                     continue;
                 }
                 const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
                 if(result.empty()) {
+                    LOG(WARNING) << "eraseRange got no positive response, addr=0x" << std::hex << startAddr
+                                 << " length=0x" << eraseLength;
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
                     continue;
                 }
@@ -141,6 +148,33 @@ namespace common {
 		return channel.startPeriodicMsgs(UDSMessage(0x7DF, { 0x3E, 0x80 }), 1900);
 	}
 
+	bool UDSProtocolCommonSteps::broadcastProgrammingMode(
+		const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, unsigned long durationMs)
+	{
+        LOG(INFO) << "broadcastProgrammingMode enter";
+        if (channels.empty()) {
+            LOG(ERROR) << "broadcastProgrammingMode failed: no open channels";
+            return false;
+        }
+        std::vector<std::vector<unsigned long>> msgIds(channels.size());
+        bool success = true;
+        for (size_t i = 0; i < channels.size(); ++i) {
+            msgIds[i] = channels[i]->startPeriodicMsgs(UDSMessage(0x7DF, { 0x10, 0x82 }), 20);
+            if (msgIds[i].empty()) {
+                LOG(ERROR) << "broadcastProgrammingMode failed to start periodic message on channel " << i;
+                success = false;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(durationMs));
+        for (size_t i = 0; i < channels.size(); ++i) {
+            if (!msgIds[i].empty()) {
+                channels[i]->stopPeriodicMsg(msgIds[i]);
+            }
+        }
+        LOG(INFO) << "broadcastProgrammingMode exit";
+        return success;
+	}
+
 	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
 	{
         LOG(INFO) << "wakeUp enter";
@@ -204,6 +238,25 @@ namespace common {
         return false;
 	}
 
+    bool finishTransfer(const j2534::J2534Channel& channel, uint32_t canId, uint16_t expectedCrc)
+    {
+        UDSRequest transferExitRequest{ canId, { 0x37 } };
+        const auto response = transferExitRequest.process(channel, 10000);
+        if (response.size() < 5 || response[4] != 0x77) {
+            LOG(ERROR) << "TransferExit got unexpected response: " << toHexString(response);
+            return false;
+        }
+        if (response.size() >= 7) {
+            const uint16_t returnedCrc = (static_cast<uint16_t>(response[5]) << 8) | response[6];
+            if (returnedCrc != expectedCrc) {
+                LOG(ERROR) << "TransferExit CRC mismatch, expected=0x" << std::hex << expectedCrc
+                           << " actual=0x" << returnedCrc;
+                return false;
+            }
+        }
+        return true;
+    }
+
     bool UDSProtocolCommonSteps::transferChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk,
                                               const std::function<void(size_t)>& progressCallback)
 	{
@@ -214,7 +267,6 @@ namespace common {
             UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
                 (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
                 (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
-            unsigned long numMsgs;
             const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
             if (downloadResponse.size() < 2) {
                 return false;
@@ -232,9 +284,9 @@ namespace common {
             }
             LOG(INFO) << "transferChunk finish transfer, crc: {" << std::hex
                       << ((chunk.crc >> 8) & 0xFF) << ", " << (chunk.crc & 0xFF) <<"}";
-            UDSRequest transferExitRequest{ canId, { 0x37 } };
-            transferExitRequest.process(
-                channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
+            if (!finishTransfer(channel, canId, chunk.crc)) {
+                return false;
+            }
 		}
         catch(const std::exception& ex) {
             LOG(ERROR) << "transferChunk error, ex = " << ex.what() << ", offset = " << std::hex << chunk.writeOffset;
@@ -259,7 +311,6 @@ namespace common {
                 UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
                                                           (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
                                                           (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
-                unsigned long numMsgs;
                 const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
                 if (downloadResponse.size() < 2) {
                     return false;
@@ -274,9 +325,9 @@ namespace common {
                     transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
                     progressCallback(chunkEnd - i);
                 }
-                UDSRequest transferExitRequest{ canId, { 0x37 } };
-                transferExitRequest.process(
-                    channel, { static_cast<uint8_t>(chunk.crc >> 8), static_cast<uint8_t>(chunk.crc) }, 3, 10000);
+                if (!finishTransfer(channel, canId, chunk.crc)) {
+                    return false;
+                }
             }
         }
         catch(const std::exception& ex) {
@@ -343,19 +394,22 @@ namespace common {
     {
         LOG(INFO) << "startRoutine enter, addr = " << std::hex << addr;
         const auto callAddr = common::toVector(addr);
-		common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
-		unsigned long numMsgs;
-        if (channel.writeMsgs(startRoutineMsg, numMsgs) != STATUS_NOERROR || numMsgs < 1) {
-            LOG(ERROR) << "startRoutine failed to write message, addr = " << std::hex << addr;
+        common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
+        unsigned long numMsgs;
+        const auto writeStatus = channel.writeMsgs(startRoutineMsg, numMsgs);
+        if (writeStatus != STATUS_NOERROR || numMsgs < 1) {
+            LOG(ERROR) << "startRoutine failed to write message, addr = " << std::hex << addr
+                       << " status=" << j2534StatusToString(writeStatus)
+                       << " written=" << std::dec << numMsgs;
             return false;
-		}
-		if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
+        }
+        if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
             LOG(ERROR) << "startRoutine failed to read message, addr = " << std::hex << addr;
             return false;
-		}
+        }
         LOG(INFO) << "startRoutine completed, addr = " << std::hex << addr;
         return true;
-	}
+    }
 
     bool UDSProtocolCommonSteps::checkValidApplication(const j2534::J2534Channel& channel, uint32_t canId)
     {

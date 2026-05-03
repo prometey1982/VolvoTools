@@ -18,7 +18,9 @@ public:
                                  size_t retryCount = 1, size_t timeout = 1000);
 
 private:
+    uint32_t _canId;
     uint8_t _requestId;
+    std::vector<uint8_t> _data;
     UDSMessage _message;
 };
 

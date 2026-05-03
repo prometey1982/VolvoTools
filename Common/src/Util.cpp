@@ -17,7 +17,9 @@
 
 #include <algorithm>
 #include <codecvt>
+#include <iomanip>
 #include <locale>
+#include <sstream>
 #include <unordered_map>
 #include <fstream>
 
@@ -81,6 +83,80 @@ namespace common {
         const uint8_t byte3 = (value & 0xFF00) >> 8;
         const uint8_t byte4 = (value & 0xFF);
         return { byte1, byte2, byte3, byte4 };
+    }
+
+    std::string toHexString(const std::vector<uint8_t>& data)
+    {
+        std::stringstream ss;
+        ss << std::uppercase << std::hex << std::setfill('0');
+        for (const auto byte: data) {
+            ss << std::setw(2) << static_cast<int>(byte) << ' ';
+        }
+        return ss.str();
+    }
+
+    std::string j2534StatusToString(unsigned long status)
+    {
+        switch (status) {
+        case 0x00:
+            return "STATUS_NOERROR";
+        case 0x01:
+            return "ERR_NOT_SUPPORTED";
+        case 0x02:
+            return "ERR_INVALID_CHANNEL_ID";
+        case 0x03:
+            return "ERR_INVALID_PROTOCOL_ID";
+        case 0x04:
+            return "ERR_NULL_PARAMETER";
+        case 0x05:
+            return "ERR_INVALID_IOCTL_VALUE";
+        case 0x06:
+            return "ERR_INVALID_FLAGS";
+        case 0x07:
+            return "ERR_FAILED";
+        case 0x08:
+            return "ERR_DEVICE_NOT_CONNECTED";
+        case 0x09:
+            return "ERR_TIMEOUT";
+        case 0x0A:
+            return "ERR_INVALID_MSG";
+        case 0x0B:
+            return "ERR_INVALID_TIME_INTERVAL";
+        case 0x0C:
+            return "ERR_EXCEEDED_LIMIT";
+        case 0x0D:
+            return "ERR_INVALID_MSG_ID";
+        case 0x0E:
+            return "ERR_DEVICE_IN_USE";
+        case 0x0F:
+            return "ERR_INVALID_IOCTL_ID";
+        case 0x10:
+            return "ERR_BUFFER_EMPTY";
+        case 0x11:
+            return "ERR_BUFFER_FULL";
+        case 0x12:
+            return "ERR_BUFFER_OVERFLOW";
+        case 0x13:
+            return "ERR_PIN_INVALID";
+        case 0x14:
+            return "ERR_CHANNEL_IN_USE";
+        case 0x15:
+            return "ERR_MSG_PROTOCOL_ID";
+        case 0x16:
+            return "ERR_INVALID_FILTER_ID";
+        case 0x17:
+            return "ERR_NO_FLOW_CONTROL";
+        case 0x18:
+            return "ERR_NOT_UNIQUE";
+        case 0x19:
+            return "ERR_INVALID_BAUDRATE";
+        case 0x1A:
+            return "ERR_INVALID_DEVICE_ID";
+        default:
+            std::stringstream ss;
+            ss << "J2534_STATUS_0x" << std::uppercase << std::hex << status;
+            return ss.str();
+        }
     }
 
     std::string toLower(std::string data) {
