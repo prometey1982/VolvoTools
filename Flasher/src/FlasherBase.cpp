@@ -79,8 +79,13 @@ void FlasherBase::start()
 {
     _flasherThread = std::thread([this]() {
         try {
-            auto channels{_j2534ChannelProvider.getAllChannels(_flasherParameters.ecuId)};
+            LOG(INFO) << "FlasherBase opening channels for ecu=0x" << std::hex
+                << _flasherParameters.ecuId;
+            auto channels{openChannels()};
+            LOG(INFO) << "FlasherBase opened channels count=" << std::dec << channels.size();
+            LOG(INFO) << "FlasherBase startImpl enter";
             startImpl(channels);
+            LOG(INFO) << "FlasherBase startImpl exit";
         }
         catch(const std::exception& ex) {
             LOG(ERROR) << "Exception during flashing, what = " << ex.what();
@@ -93,6 +98,16 @@ void FlasherBase::start()
             setCurrentState(FlasherState::Error);
         }
     });
+}
+
+std::vector<std::unique_ptr<j2534::J2534Channel>> FlasherBase::openChannels()
+{
+    return _j2534ChannelProvider.getAllChannels(_flasherParameters.ecuId);
+}
+
+std::unique_ptr<j2534::J2534Channel> FlasherBase::openChannelForEcu(uint32_t ecuId)
+{
+    return _j2534ChannelProvider.getChannelForEcu(ecuId);
 }
 
 const FlasherParameters& FlasherBase::getFlasherParameters() const

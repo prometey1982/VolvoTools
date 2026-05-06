@@ -42,6 +42,11 @@
 #include <unordered_map>
 #include <stdexcept>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 INITIALIZE_EASYLOGGINGPP
 
 bool stopRequested = false;
@@ -907,14 +912,17 @@ void UDSDiag(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534
 void UDSWakeup(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534)
 {
 	common::J2534ChannelProvider channelProvider{ j2534, carPlatform };
-	auto channels = channelProvider.getAllChannels(ecuId);
+	auto channels = channelProvider.getUdsChannels(ecuId);
+	if (channels.empty()) {
+		throw std::runtime_error("Failed to open J2534 UDS channels");
+	}
 	common::UDSProtocolCommonSteps::wakeUp(channels);
 	std::cout << "Wakeup frames sent" << std::endl;
 }
 
 bool startPeriodicOnAllChannels(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
 	const common::UDSMessage& message, std::vector<std::vector<unsigned long>>& msgIds,
-	const std::string& label)
+	const std::string& label, unsigned long intervalMs = 20)
 {
 	msgIds.resize(channels.size());
 	if (channels.empty()) {
@@ -923,7 +931,7 @@ bool startPeriodicOnAllChannels(const std::vector<std::unique_ptr<j2534::J2534Ch
 	}
 	bool success = true;
 	for (size_t i = 0; i < channels.size(); ++i) {
-		msgIds[i] = channels[i]->startPeriodicMsgs(message, 20);
+		msgIds[i] = channels[i]->startPeriodicMsgs(message, intervalMs);
 		if (msgIds[i].empty()) {
 			LOG(ERROR) << label << " failed to start periodic message on channel " << i;
 			success = false;
@@ -945,10 +953,13 @@ void stopPeriodicOnAllChannels(const std::vector<std::unique_ptr<j2534::J2534Cha
 void UDSFunctionalEmergencyReset(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534)
 {
 	common::J2534ChannelProvider channelProvider{ j2534, carPlatform };
-	auto channels = channelProvider.getAllChannels(ecuId);
+	auto channels = channelProvider.getUdsChannels(ecuId);
+	if (channels.empty()) {
+		throw std::runtime_error("Failed to open J2534 UDS channels");
+	}
 	std::vector<std::vector<unsigned long>> msgIds;
 	const bool started = startPeriodicOnAllChannels(channels, common::UDSMessage(0x7DF, { 0x11, 0x81 }),
-		msgIds, "Functional emergency reset");
+		msgIds, "Functional emergency reset", 20);
 	std::this_thread::sleep_for(std::chrono::milliseconds(200));
 	stopPeriodicOnAllChannels(channels, msgIds);
 	if (!started) {
@@ -1007,13 +1018,14 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J
 	const auto cemCanId = std::get<1>(cemInfo).canId;
 
 	common::J2534ChannelProvider channelProvider{ j2534, carPlatform };
-	const auto cemChannel = channelProvider.getChannelForEcu(cemEcuId);
-	if (!cemChannel) {
-		throw std::runtime_error("Failed to open J2534 channel for CEM");
+	auto channels = channelProvider.getUdsChannels(cemEcuId);
+	if (channels.empty()) {
+		throw std::runtime_error("Failed to open J2534 UDS channels");
 	}
+	auto& cemChannel = common::getChannelByEcuId(carPlatform, cemEcuId, channels);
 
 	uint8_t status = 0;
-	if (readCemProgramModeStatus(*cemChannel, cemCanId, status)) {
+	if (readCemProgramModeStatus(cemChannel, cemCanId, status)) {
 		std::cout << "CEM current programming status: 0x" << std::hex
 			<< static_cast<int>(status) << std::dec << std::endl;
 		if (status == kCemProgrammingActive) {
@@ -1022,16 +1034,18 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J
 	}
 
 	{
-		const auto ids = cemChannel->startPeriodicMsgs(common::UDSMessage(0x7DF, { 0x10, 0x82 }), 20);
-		if (ids.empty()) {
+		std::vector<std::vector<unsigned long>> msgIds;
+		const bool started = startPeriodicOnAllChannels(channels,
+			common::UDSMessage(0x7DF, { 0x10, 0x82 }), msgIds, "Program mode", 20);
+		if (!started) {
 			throw std::runtime_error("Program mode failed to start periodic messages");
 		}
 		std::this_thread::sleep_for(std::chrono::milliseconds(180));
-		cemChannel->stopPeriodicMsg(ids);
+		stopPeriodicOnAllChannels(channels, msgIds);
 	}
 
 	status = 0;
-	const bool verified = readCemProgramModeStatus(*cemChannel, cemCanId, status);
+	const bool verified = readCemProgramModeStatus(cemChannel, cemCanId, status);
 	if (verified) {
 		std::cout << "CEM programming status after request: 0x" << std::hex
 			<< static_cast<int>(status) << std::dec << std::endl;
@@ -1045,13 +1059,15 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J
 	}
 
 	if (holdSeconds > 0) {
-		const auto keepAliveIds = common::UDSProtocolCommonSteps::keepAlive(*cemChannel);
-		if (keepAliveIds.empty()) {
+		std::vector<std::vector<unsigned long>> msgIds;
+		const bool started = startPeriodicOnAllChannels(channels,
+			common::UDSMessage(0x7DF, { 0x3E, 0x80 }), msgIds, "TesterPresent hold", 1900);
+		if (!started) {
 			throw std::runtime_error("TesterPresent hold failed to start periodic messages");
 		}
 		std::cout << "Holding TesterPresent for " << holdSeconds << " seconds" << std::endl;
 		std::this_thread::sleep_for(std::chrono::seconds(holdSeconds));
-		cemChannel->stopPeriodicMsg(keepAliveIds);
+		stopPeriodicOnAllChannels(channels, msgIds);
 	}
 }
 
@@ -1214,10 +1230,31 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
 	return TRUE;
 }
 
+std::string getSehModuleName(void* address)
+{
+	MEMORY_BASIC_INFORMATION info{};
+	if (address == nullptr || VirtualQuery(address, &info, sizeof(info)) == 0 || info.AllocationBase == nullptr) {
+		return "<unknown>";
+	}
+	char modulePath[MAX_PATH]{};
+	if (GetModuleFileNameA(reinterpret_cast<HMODULE>(info.AllocationBase), modulePath, MAX_PATH) == 0) {
+		return "<unknown>";
+	}
+	return modulePath;
+}
+
 LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
-	LOG(ERROR) << "Unhandled SEH 0x" << std::hex
-		<< ep->ExceptionRecord->ExceptionCode
-		<< " at 0x" << reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress);
+	const auto* record = ep ? ep->ExceptionRecord : nullptr;
+	const auto code = record ? record->ExceptionCode : 0;
+	void* address = record ? record->ExceptionAddress : nullptr;
+	LOG(ERROR) << "Unhandled SEH 0x" << std::hex << code
+		<< " at 0x" << reinterpret_cast<uintptr_t>(address)
+		<< " module=" << getSehModuleName(address);
+	if (record && code == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2) {
+		LOG(ERROR) << "Access violation "
+			<< (record->ExceptionInformation[0] ? "write" : "read")
+			<< " address=0x" << std::hex << record->ExceptionInformation[1];
+	}
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 

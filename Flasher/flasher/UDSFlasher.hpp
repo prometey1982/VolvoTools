@@ -26,6 +26,7 @@ namespace flasher {
         ~UDSFlasher();
 
     private:
+        std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels() override;
         void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
 
     private:

@@ -9,6 +9,8 @@
 
 #include <easylogging++.h>
 
+#include <stdexcept>
+
 #define HFSM2_ENABLE_ALL
 #include <common/hfsm2/machine.hpp>
 
@@ -45,10 +47,7 @@ namespace flasher {
         {
             _stateUpdater(FlasherState::FallAsleep);
             if (_udsFlasherParameters.skipFallAsleep) {
-                LOG(INFO) << "Fall asleep skipped, refreshing vehicle programming mode";
-                if (!common::UDSProtocolCommonSteps::broadcastProgrammingMode(_channels)) {
-                    setFailed("Program mode refresh failed");
-                }
+                LOG(INFO) << "Fall asleep skipped, vehicle programming mode was prepared by CEM";
                 return;
             }
             if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
@@ -333,11 +332,27 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     {
     }
 
+    std::vector<std::unique_ptr<j2534::J2534Channel>> UDSFlasher::openChannels()
+    {
+        LOG(INFO) << "UDSFlasher opening target ECU channel only, ecu=0x" << std::hex
+            << getFlasherParameters().ecuId;
+        std::vector<std::unique_ptr<j2534::J2534Channel>> channels;
+        auto channel = openChannelForEcu(getFlasherParameters().ecuId);
+        if (!channel) {
+            throw std::runtime_error("Failed to open UDS target ECU channel");
+        }
+        channels.emplace_back(std::move(channel));
+        LOG(INFO) << "UDSFlasher target ECU channel opened";
+        return channels;
+    }
+
     void UDSFlasher::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
     {
+        LOG(INFO) << "UDSFlasher startImpl enter, channels=" << channels.size();
         const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };
 
+        LOG(INFO) << "UDSFlasher target CAN ID=0x" << std::hex << std::get<1>(ecuInfo).canId;
         UDSFlasherImpl impl(channels, getFlasherParameters(), _udsFlasherParameters,
             std::get<1>(ecuInfo).canId, [this](FlasherState state) {
             setCurrentState(state);
@@ -349,13 +364,17 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
                 setLastError(error);
             });
 
+        LOG(INFO) << "UDSFlasher calculating maximum progress";
         setMaximumProgress(impl.getMaximumProgress());
+        LOG(INFO) << "UDSFlasher maximum progress=" << std::dec << getMaximumProgress();
 
+        LOG(INFO) << "UDSFlasher FSM enter";
         FSM::Instance fsm{ impl };
 
         while(getCurrentState() != FlasherState::Done && getCurrentState() != FlasherState::Error) {
             fsm.update();
         }
+        LOG(INFO) << "UDSFlasher FSM exit, state=" << static_cast<int>(getCurrentState());
     }
 
 } // namespace flasher

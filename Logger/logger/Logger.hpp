@@ -31,6 +31,7 @@ namespace logger {
 
 		void start(unsigned long baudrate, const LogParameters& parameters);
 		void stop();
+		bool isStarted() const;
 
 	private:
 		void registerParameters();
@@ -51,14 +52,15 @@ namespace logger {
 		void callbackFunction();
 
 	private:
-        common::J2534ChannelProvider _j2534ChannelProvider;
+		common::J2534ChannelProvider _j2534ChannelProvider;
 		common::CarPlatform _carPlatform;
         uint32_t _ecuId;
 		std::string _cmInfo;
 		LogParameters _parameters;
+		std::unique_ptr<j2534::J2534Channel> _channel;
 		std::thread _loggingThread;
 		std::thread _callbackThread;
-		std::mutex _mutex;
+		mutable std::mutex _mutex;
 		std::mutex _callbackMutex;
 		std::condition_variable _cond;
 		std::condition_variable _callbackCond;

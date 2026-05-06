@@ -32,7 +32,7 @@ void LoggerApplication::stop() {
   }
 }
 
-bool LoggerApplication::isStarted() const { return _logger != nullptr; }
+bool LoggerApplication::isStarted() const { return _logger != nullptr && _logger->isStarted(); }
 
 LoggerApplication::LoggerApplication() {}
 

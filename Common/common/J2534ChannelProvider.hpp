@@ -24,6 +24,7 @@ public:
 
     j2534::J2534& getJ2534() const;
     std::vector<std::unique_ptr<j2534::J2534Channel>> getAllChannels(uint32_t ecuId) const;
+    std::vector<std::unique_ptr<j2534::J2534Channel>> getUdsChannels(uint32_t ecuId) const;
     std::unique_ptr<j2534::J2534Channel> getChannelForEcu(uint32_t ecuId) const;
 
 private:

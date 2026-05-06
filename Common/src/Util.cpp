@@ -20,6 +20,7 @@
 #include <iomanip>
 #include <locale>
 #include <sstream>
+#include <thread>
 #include <unordered_map>
 #include <fstream>
 
@@ -362,6 +363,7 @@ namespace common {
 
             if (canId) {
                 prepareUDSChannel(*channel, canId);
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
             }
 
             return std::move(channel);

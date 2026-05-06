@@ -17,6 +17,11 @@
 #include <memory>
 #include <thread>
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 INITIALIZE_EASYLOGGINGPP
 
 class ConsoleLogWriter final : public logger::LoggerCallback {
@@ -74,10 +79,31 @@ BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
   return TRUE;
 }
 
+std::string getSehModuleName(void* address)
+{
+  MEMORY_BASIC_INFORMATION info{};
+  if (address == nullptr || VirtualQuery(address, &info, sizeof(info)) == 0 || info.AllocationBase == nullptr) {
+    return "<unknown>";
+  }
+  char modulePath[MAX_PATH]{};
+  if (GetModuleFileNameA(reinterpret_cast<HMODULE>(info.AllocationBase), modulePath, MAX_PATH) == 0) {
+    return "<unknown>";
+  }
+  return modulePath;
+}
+
 LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
-  LOG(ERROR) << "Unhandled SEH 0x" << std::hex
-    << ep->ExceptionRecord->ExceptionCode
-    << " at 0x" << reinterpret_cast<uintptr_t>(ep->ExceptionRecord->ExceptionAddress);
+  const auto* record = ep ? ep->ExceptionRecord : nullptr;
+  const auto code = record ? record->ExceptionCode : 0;
+  void* address = record ? record->ExceptionAddress : nullptr;
+  LOG(ERROR) << "Unhandled SEH 0x" << std::hex << code
+    << " at 0x" << reinterpret_cast<uintptr_t>(address)
+    << " module=" << getSehModuleName(address);
+  if (record && code == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2) {
+    LOG(ERROR) << "Access violation "
+      << (record->ExceptionInformation[0] ? "write" : "read")
+      << " address=0x" << std::hex << record->ExceptionInformation[1];
+  }
   return EXCEPTION_EXECUTE_HANDLER;
 }
 

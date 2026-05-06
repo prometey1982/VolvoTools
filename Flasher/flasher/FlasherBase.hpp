@@ -47,6 +47,8 @@ public:
     void start();
 
 protected:
+    virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels();
+    std::unique_ptr<j2534::J2534Channel> openChannelForEcu(uint32_t ecuId);
     virtual void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels) = 0;
 
     const FlasherParameters& getFlasherParameters() const;
