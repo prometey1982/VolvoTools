@@ -25,6 +25,7 @@
 #include <flasher/SBLProviderVBF.hpp>
 #include <flasher/SBLProviderCommon.hpp>
 #include <flasher/UDSFlasher.hpp>
+#include <flasher/UDSReader.hpp>
 #include <flasher/KWPFlasher.hpp>
 
 #include <argparse/argparse.hpp>
@@ -70,6 +71,12 @@ enum class ProgramMode
 	Bench
 };
 
+enum class ReadFormat
+{
+	Hex,
+	Bin
+};
+
 ProgramMode parseProgramMode(const std::string& input)
 {
 	const auto normalized = common::toLower(input);
@@ -93,6 +100,29 @@ const char* programModeToString(ProgramMode mode)
 	return "unknown";
 }
 
+ReadFormat parseReadFormat(const std::string& input)
+{
+	const auto normalized = common::toLower(input);
+	if (normalized == "hex") {
+		return ReadFormat::Hex;
+	}
+	if (normalized == "bin") {
+		return ReadFormat::Bin;
+	}
+	throw std::runtime_error("Invalid --format, required values: hex or bin");
+}
+
+const char* readFormatToString(ReadFormat format)
+{
+	switch (format) {
+	case ReadFormat::Hex:
+		return "hex";
+	case ReadFormat::Bin:
+		return "bin";
+	}
+	return "unknown";
+}
+
 void UDSProgramMode(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534,
 	unsigned long holdSeconds);
 
@@ -101,7 +131,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
 	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform,
 	bool& pinUpward, bool& resetFunctional, unsigned long& programHoldSeconds,
-	ProgramMode& flashProgramMode) {
+	ProgramMode& flashProgramMode, ReadFormat& readFormat) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
@@ -117,10 +147,14 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		.help("Programming mode handling, required: vehicle or bench");
 
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
-	read_command.add_description("Read BIN from ECU");
+	read_command.add_description("Read ECU memory range");
 	read_command.add_argument("-o", "--output").help("File to write");
 	read_command.add_argument("-s", "--start").scan<'x', unsigned long>().help("Begin address to read");
 	read_command.add_argument("-sz", "--size").scan<'x', unsigned long>().help("Datasize to read");
+	read_command.add_argument("--sbl").default_value(std::string()).help("File with SBL, required for UDS reading");
+	read_command.add_argument("--format").default_value(std::string{ "hex" }).help("Output format: hex or bin");
+	read_command.add_argument("--program-mode").default_value(std::string{ "bench" })
+		.help("Programming mode handling for UDS reading: vehicle or bench");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
 	test_command.add_description("Test purposes");
@@ -165,6 +199,9 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			flashPath = read_command.get("-o");
 			start = read_command.get<unsigned long>("-s");
 			datasize = read_command.get<unsigned long>("-sz");
+			sblPath = read_command.get<std::string>("--sbl");
+			readFormat = parseReadFormat(read_command.get<std::string>("--format"));
+			flashProgramMode = parseProgramMode(read_command.get<std::string>("--program-mode"));
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
@@ -1133,8 +1170,155 @@ void fill_crc_map()
 	}
 }
 
-void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId, const std::string& flashPath, unsigned long start, unsigned long datasize)
+uint8_t intelHexChecksum(const std::vector<uint8_t>& record)
 {
+	uint32_t sum = 0;
+	for (const auto byte : record) {
+		sum += byte;
+	}
+	return static_cast<uint8_t>((~sum + 1) & 0xFF);
+}
+
+void writeIntelHexRecord(std::ostream& output, uint8_t type, uint16_t address, const std::vector<uint8_t>& data)
+{
+	std::vector<uint8_t> record;
+	record.reserve(data.size() + 5);
+	record.push_back(static_cast<uint8_t>(data.size()));
+	record.push_back(static_cast<uint8_t>((address >> 8) & 0xFF));
+	record.push_back(static_cast<uint8_t>(address & 0xFF));
+	record.push_back(type);
+	record.insert(record.end(), data.cbegin(), data.cend());
+	record.push_back(intelHexChecksum(record));
+
+	output << ':';
+	output << std::uppercase << std::hex << std::setfill('0');
+	for (const auto byte : record) {
+		output << std::setw(2) << static_cast<int>(byte);
+	}
+	output << '\n';
+}
+
+void saveIntelHex(const std::string& path, uint32_t start, const std::vector<uint8_t>& data)
+{
+	std::ofstream output(path);
+	if (!output) {
+		throw std::runtime_error("Failed to open output file: " + path);
+	}
+	uint32_t currentUpper = 0xFFFFFFFF;
+	for (size_t offset = 0; offset < data.size();) {
+		const uint32_t absoluteAddress = start + static_cast<uint32_t>(offset);
+		const uint32_t upper = absoluteAddress >> 16;
+		if (upper != currentUpper) {
+			writeIntelHexRecord(output, 0x04, 0x0000, {
+				static_cast<uint8_t>((upper >> 8) & 0xFF),
+				static_cast<uint8_t>(upper & 0xFF)
+			});
+			currentUpper = upper;
+		}
+
+		const uint16_t lowAddress = static_cast<uint16_t>(absoluteAddress & 0xFFFF);
+		const size_t bytesToSegmentEnd = 0x10000u - lowAddress;
+		const size_t lineSize = std::min({ static_cast<size_t>(16), data.size() - offset, bytesToSegmentEnd });
+		std::vector<uint8_t> line(data.cbegin() + offset, data.cbegin() + offset + lineSize);
+		writeIntelHexRecord(output, 0x00, lowAddress, line);
+		offset += lineSize;
+	}
+	writeIntelHexRecord(output, 0x01, 0x0000, {});
+}
+
+void saveRawBin(const std::string& path, const std::vector<uint8_t>& data)
+{
+	std::ofstream output(path, std::ios_base::binary | std::ios_base::out);
+	if (!output) {
+		throw std::runtime_error("Failed to open output file: " + path);
+	}
+	output.write(reinterpret_cast<const char*>(data.data()), data.size());
+}
+
+void saveReadResult(const std::string& path, uint32_t start, const std::vector<uint8_t>& data, ReadFormat format)
+{
+	if (format == ReadFormat::Hex) {
+		saveIntelHex(path, start, data);
+	}
+	else {
+		saveRawBin(path, data);
+	}
+}
+
+void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId,
+	const std::string& flashPath, unsigned long start, unsigned long datasize, uint64_t pin,
+	const std::string& sblPath, ProgramMode programMode, ReadFormat readFormat)
+{
+	const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
+	if (std::get<0>(ecuInfo).protocolId == ISO15765) {
+		if (sblPath.empty()) {
+			throw std::runtime_error("SBL VBF is required for UDS reading; pass --sbl");
+		}
+		LOG(INFO) << "UDS read start platform=" << static_cast<int>(carPlatform)
+			<< " ecu=0x" << std::hex << static_cast<int>(ecuId)
+			<< " can=0x" << std::get<1>(ecuInfo).canId
+			<< " start=0x" << start
+			<< " size=0x" << datasize
+			<< " output=" << flashPath
+			<< " format=" << readFormatToString(readFormat)
+			<< " sblPath=" << sblPath
+			<< " programMode=" << programModeToString(programMode);
+		common::VBFParser vbfParser;
+		std::ifstream sblVbf(sblPath, std::ios_base::binary);
+		if (!sblVbf) {
+			throw std::runtime_error("Failed to open SBL VBF: " + sblPath);
+		}
+		const common::VBF bootloader{ vbfParser.parse(sblVbf) };
+		std::vector<uint8_t> bin;
+
+		bool skipFallAsleep = false;
+		if (programMode == ProgramMode::Vehicle) {
+			UDSProgramMode(carPlatform, ecuId, *j2534, 0);
+			skipFallAsleep = true;
+		}
+		else {
+			LOG(INFO) << "Bench program mode selected, skipping CEM programming mode";
+		}
+
+		flasher::FlasherParameters flasherParameters{
+			carPlatform,
+			ecuId,
+			"",
+			std::make_unique<flasher::SBLProviderVBF>(bootloader),
+			{{}, {}}
+		};
+		flasher::UDSReaderParameters udsReaderParameters{
+			common::getPinArray(pin),
+			skipFallAsleep,
+			static_cast<uint32_t>(start),
+			static_cast<uint32_t>(datasize)
+		};
+		flasher::UDSReader flasher(*j2534, std::move(flasherParameters), std::move(udsReaderParameters), bin);
+		FlasherCallback callback;
+		flasher.registerCallback(callback);
+		flasher.start();
+		while (flasher.getCurrentState() !=
+			flasher::FlasherState::Done && flasher.getCurrentState() !=
+			flasher::FlasherState::Error) {
+			std::this_thread::sleep_for(std::chrono::seconds(1));
+			std::cout << ".";
+		}
+		const bool success = flasher.getCurrentState() ==
+			flasher::FlasherState::Done;
+		std::cout << std::endl
+			<< ((success)
+				? "Reading done"
+				: "Reading error. Try again.")
+			<< std::endl;
+		if (!success && !flasher.getLastError().empty()) {
+			std::cout << "Last error: " << flasher.getLastError() << std::endl;
+		}
+		if (success) {
+			saveReadResult(flashPath, static_cast<uint32_t>(start), bin, readFormat);
+		}
+		return;
+	}
+
 	flasher::FlasherParameters flasherParameters{
 		carPlatform,
 		ecuId,
@@ -1302,9 +1486,11 @@ int main(int argc, const char* argv[]) {
 	bool resetFunctional = false;
 	unsigned long programHoldSeconds = 0;
 	ProgramMode flashProgramMode = ProgramMode::Bench;
+	ReadFormat readFormat = ReadFormat::Hex;
 	const auto devices = common::getAvailableDevices();
 	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize,
-		runMode, sblPath, carPlatform, scanPinsUpward, resetFunctional, programHoldSeconds, flashProgramMode)) {
+		runMode, sblPath, carPlatform, scanPinsUpward, resetFunctional, programHoldSeconds, flashProgramMode,
+		readFormat)) {
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
 				device.deviceName.find(deviceName) != std::string::npos) {
@@ -1330,7 +1516,8 @@ int main(int argc, const char* argv[]) {
 						findPin2(*j2534, carPlatform, ecuId, pin, scanPinsUpward);
 					}
 					else if (runMode == RunMode::Read) {
-						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize);
+						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize,
+							pin, sblPath, flashProgramMode, readFormat);
 					}
 					else if (runMode == RunMode::Flash) {
 						const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };

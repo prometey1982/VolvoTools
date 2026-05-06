@@ -5,7 +5,10 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <array>
+#include <functional>
 #include <memory>
+#include <vector>
 
 namespace common {
 
@@ -23,6 +26,9 @@ namespace common {
                                  const std::function<void(size_t)>& progressCallback);
         static bool transferChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk,
                                  const std::function<void(size_t)>& progressCallback);
+        static bool readDataByUpload(const j2534::J2534Channel& channel, uint32_t canId, uint32_t startAddr,
+                                     uint32_t dataSize, std::vector<uint8_t>& output,
+                                     const std::function<void(size_t)>& progressCallback);
         static bool eraseFlash(const j2534::J2534Channel& channel, uint32_t canId, const VBF& data);
         static bool eraseChunk(const j2534::J2534Channel& channel, uint32_t canId, const VBFChunk& chunk);
         static bool startRoutine(const j2534::J2534Channel& channel, uint32_t canId, uint32_t addr);

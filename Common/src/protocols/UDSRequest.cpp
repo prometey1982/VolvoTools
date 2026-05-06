@@ -125,7 +125,7 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
             throw;
         }
         size_t dataOffset = 4;
-        if(dataSize < dataOffset + checkData.size()) {
+        if(dataSize < dataOffset + 1 + checkData.size()) {
             return true;
         }
         if(data[dataOffset] != _requestId + 0x40) {
