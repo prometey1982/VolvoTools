@@ -41,6 +41,11 @@ namespace common {
 			return result;
 		}
 
+        std::string pinToHexString(const std::array<uint8_t, 5>& pin)
+        {
+            return toHexString({pin[0], pin[1], pin[2], pin[3], pin[4]});
+        }
+
         bool rangesOverlap(uint32_t firstAddr, uint32_t firstSize, uint32_t secondAddr, uint32_t secondSize)
         {
             if (firstSize == 0 || secondSize == 0) {
@@ -202,7 +207,7 @@ namespace common {
 	bool UDSProtocolCommonSteps::authorize(const j2534::J2534Channel& channel, uint32_t canId,
 		const std::array<uint8_t, 5>& pin)
 	{
-        LOG(INFO) << "authorize enter pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+        LOG(INFO) << "authorize enter pin=" << pinToHexString(pin);
         UDSRequest seedRequest(canId, { 0x27, 0x01 });
         for(size_t i = 0; i < 5; ++i) {
             try {
@@ -218,10 +223,10 @@ namespace common {
                     const auto keyResponse(keyRequest.process(channel));
                     const bool result = keyResponse.size() >= 6 && keyResponse[5] == 0x02;
                     if(!result) {
-                        LOG(ERROR) << "authorize wrong pin, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                        LOG(ERROR) << "authorize wrong pin, pin=" << pinToHexString(pin);
                     }
                     else {
-                        LOG(INFO) << "authorize success, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                        LOG(INFO) << "authorize success, pin=" << pinToHexString(pin);
                     }
                     return result;
                 }
@@ -229,14 +234,14 @@ namespace common {
                     if(error.getErrorCode() == UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
                     }
                     LOG(ERROR) << "authorize error: " << error.what() << ", pin = "
-                               << std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                               << pinToHexString(pin);
                 }
             }
             catch (...) {
                 std::this_thread::sleep_for(std::chrono::seconds(5));
             }
         }
-        LOG(INFO) << "authorization failed, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+        LOG(INFO) << "authorization failed, pin=" << pinToHexString(pin);
         return false;
 	}
 

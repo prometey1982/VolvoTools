@@ -34,7 +34,7 @@ namespace logger {
 		bool isStarted() const;
 
 	private:
-		void registerParameters();
+		void registerParameters(j2534::J2534Channel& channel);
 
 		void logFunction();
 
@@ -57,11 +57,10 @@ namespace logger {
         uint32_t _ecuId;
 		std::string _cmInfo;
 		LogParameters _parameters;
-		std::unique_ptr<j2534::J2534Channel> _channel;
 		std::thread _loggingThread;
 		std::thread _callbackThread;
 		mutable std::mutex _mutex;
-		std::mutex _callbackMutex;
+		mutable std::mutex _callbackMutex;
 		std::condition_variable _cond;
 		std::condition_variable _callbackCond;
 		bool _stopped;

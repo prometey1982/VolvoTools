@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdint>
 #include <numeric>
 #include <ios>
 #include <sstream>
@@ -399,20 +400,24 @@ namespace logger {
 		, _carPlatform{ carPlatform }
 		, _ecuId{ ecuId }
 		, _cmInfo{ cmInfo }
-        , _channel{}
 		, _loggingThread{}
 		, _stopped{ true }
         , _loggerImpl(createLoggerImpl(_carPlatform, _ecuId, _cmInfo)) {
+        LOG(DEBUG) << "Logger ctor done";
 	}
 
 	Logger::~Logger() { stop(); }
 
 	void Logger::registerCallback(LoggerCallback& callback) {
+        LOG(DEBUG) << "Logger registerCallback enter callback=0x"
+            << std::hex << reinterpret_cast<uintptr_t>(&callback);
 		std::unique_lock<std::mutex> lock{ _callbackMutex };
 		if (std::find(_callbacks.cbegin(), _callbacks.cend(), &callback) ==
 			_callbacks.cend()) {
 			_callbacks.push_back(&callback);
 		}
+        LOG(DEBUG) << "Logger registerCallback exit count=" << std::dec
+            << _callbacks.size();
 	}
 
 	void Logger::unregisterCallback(LoggerCallback& callback) {
@@ -428,20 +433,9 @@ namespace logger {
 		}
 
 		_parameters = parameters;
-
-        LOG(INFO) << "Logger opening ECU channel, ecu=0x" << std::hex << _ecuId;
-        _channel = _j2534ChannelProvider.getChannelForEcu(_ecuId);
-        if (!_channel) {
-            throw std::runtime_error("Failed to open logger ECU channel");
-        }
-        LOG(INFO) << "Logger ECU channel opened";
-
-		registerParameters();
-
 		_stopped = false;
 
 		_callbackThread = std::thread([this]() { callbackFunction(); });
-
 		_loggingThread = std::thread([this]() { logFunction(); });
 	}
 
@@ -461,10 +455,6 @@ namespace logger {
 		if (_callbackThread.joinable())
 			_callbackThread.join();
 
-        if (_channel) {
-            LOG(INFO) << "Logger closing ECU channel";
-            _channel.reset();
-        }
 	}
 
 	bool Logger::isStarted() const {
@@ -472,12 +462,9 @@ namespace logger {
 		return !_stopped;
 	}
 
-	void Logger::registerParameters() {
-        if (!_channel) {
-            throw std::runtime_error("Logger ECU channel is not open");
-        }
+	void Logger::registerParameters(j2534::J2534Channel& channel) {
         LOG(INFO) << "Logger register parameters enter";
-        _loggerImpl->registerParameters(*_channel, _parameters);
+        _loggerImpl->registerParameters(channel, _parameters);
         LOG(INFO) << "Logger register parameters exit";
 	}
 
@@ -487,51 +474,79 @@ namespace logger {
 			for (const auto callback : _callbacks) {
 				callback->onStatusChanged(true);
 			}
-        }
-        const size_t maxErrorCount = 10;
-        size_t errorCount = 0;
-        if (!_channel) {
-            LOG(ERROR) << "Logger ECU channel is not open";
+		}
+		const size_t maxErrorCount = 10;
+		size_t errorCount = 0;
+		try {
+			LOG(INFO) << "Logger opening ECU channel in logging thread, ecu=0x" << std::hex << _ecuId;
+			auto channel = _j2534ChannelProvider.getChannelForEcu(_ecuId);
+			if (!channel) {
+				throw std::runtime_error("Failed to open logger ECU channel");
+			}
+			LOG(INFO) << "Logger ECU channel opened";
+			registerParameters(*channel);
+			LOG(INFO) << "Logger loop enter";
+			const auto startTimepoint{ std::chrono::steady_clock::now() };
+			for (size_t timeoffset = 0; errorCount < maxErrorCount; timeoffset += 50) {
+				{
+					std::unique_lock<std::mutex> lock{ _mutex };
+					if (_stopped)
+						break;
+				}
+				try {
+					channel->clearRx();
+					channel->clearTx();
+					auto logRecord = _loggerImpl->requestMemory(*channel, _parameters);
+					const auto now{ std::chrono::steady_clock::now() };
+					pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
+						now - startTimepoint),
+						std::move(logRecord)));
+					errorCount = 0;
+				}
+				catch(const std::exception& ex) {
+					LOG(ERROR) << "Logger request failed: " << ex.what();
+					++errorCount;
+				}
+				catch(...) {
+					LOG(ERROR) << "Logger request failed with unknown exception";
+					++errorCount;
+				}
+				std::unique_lock<std::mutex> lock{ _mutex };
+				_cond.wait_until(lock,
+					startTimepoint + std::chrono::milliseconds(timeoffset));
+			}
+			LOG(INFO) << "Logger loop exit, errorCount=" << errorCount;
+		}
+		catch(const std::exception& ex) {
+            LOG(ERROR) << "Logger initialization failed: " << ex.what();
             {
                 std::unique_lock<std::mutex> lock{ _mutex };
                 _stopped = true;
             }
-            std::unique_lock<std::mutex> lock{ _callbackMutex };
-            _callbackCond.notify_all();
+            {
+                std::unique_lock<std::mutex> lock{ _callbackMutex };
+                _callbackCond.notify_all();
+                for (const auto callback : _callbacks) {
+                    callback->onStatusChanged(false);
+                }
+            }
             return;
         }
-        auto& channel{*_channel};
-        LOG(INFO) << "Logger loop enter";
-        const auto startTimepoint{ std::chrono::steady_clock::now() };
-        for (size_t timeoffset = 0; errorCount < maxErrorCount; timeoffset += 50) {
-			{
-				std::unique_lock<std::mutex> lock{ _mutex };
-				if (_stopped)
-					break;
+        catch(...) {
+            LOG(ERROR) << "Logger initialization failed with unknown exception";
+            {
+                std::unique_lock<std::mutex> lock{ _mutex };
+                _stopped = true;
             }
-            try {
-                channel.clearRx();
-                channel.clearTx();
-                auto logRecord = _loggerImpl->requestMemory(channel, _parameters);
-                const auto now{ std::chrono::steady_clock::now() };
-                pushRecord(LogRecord(std::chrono::duration_cast<std::chrono::milliseconds>(
-                    now - startTimepoint),
-                    std::move(logRecord)));
-                errorCount = 0;
+            {
+                std::unique_lock<std::mutex> lock{ _callbackMutex };
+                _callbackCond.notify_all();
+                for (const auto callback : _callbacks) {
+                    callback->onStatusChanged(false);
+                }
             }
-            catch(const std::exception& ex) {
-                LOG(ERROR) << "Logger request failed: " << ex.what();
-                ++errorCount;
-            }
-            catch(...) {
-                LOG(ERROR) << "Logger request failed with unknown exception";
-                ++errorCount;
-            }
-            std::unique_lock<std::mutex> lock{ _mutex };
-            _cond.wait_until(lock,
-                startTimepoint + std::chrono::milliseconds(timeoffset));
+            return;
         }
-        LOG(INFO) << "Logger loop exit, errorCount=" << errorCount;
         {
             std::unique_lock<std::mutex> lock{ _mutex };
             _stopped = true;
@@ -557,9 +572,10 @@ namespace logger {
 			{
 				std::unique_lock<std::mutex> lock{ _callbackMutex };
 				_callbackCond.wait(
-					lock, [this] { return _stopped || !_loggedRecords.empty(); });
-				if (_stopped)
+					lock, [this] { return !isStarted() || !_loggedRecords.empty(); });
+				if (!isStarted() && _loggedRecords.empty()) {
 					break;
+				}
 				logRecord = _loggedRecords.front();
 				_loggedRecords.pop_front();
 			}

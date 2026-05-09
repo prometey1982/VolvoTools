@@ -856,12 +856,14 @@ namespace common {
         return { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
     }
 
-    void initLogger(const std::string& logFilename)
+    void initLogger(const std::string& logFilename, bool debugLogging)
     {
         el::Configurations defaultConf;
         defaultConf.setToDefault();
         defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level %msg");
         defaultConf.setGlobally(el::ConfigurationType::Filename, logFilename);
+        defaultConf.set(el::Level::Debug, el::ConfigurationType::Enabled, debugLogging ? "true" : "false");
+        defaultConf.set(el::Level::Trace, el::ConfigurationType::Enabled, debugLogging ? "true" : "false");
         el::Loggers::reconfigureAllLoggers(defaultConf);
         el::Loggers::setDefaultConfigurations(defaultConf, true);
     }

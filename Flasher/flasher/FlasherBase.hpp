@@ -7,7 +7,6 @@
 #include <common/encryption/EncryptorBase.hpp>
 #include <common/J2534ChannelProvider.hpp>
 
-
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -45,6 +44,8 @@ public:
     void unregisterCallback(FlasherCallback &callback);
 
     void start();
+    void startSync();
+    void run();
 
 protected:
     virtual std::vector<std::unique_ptr<j2534::J2534Channel>> openChannels();

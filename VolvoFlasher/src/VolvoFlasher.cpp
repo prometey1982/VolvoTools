@@ -12,6 +12,7 @@
 #include <common/protocols/UDSRequest.hpp>
 #include <common/CommonData.hpp>
 #include <common/J2534ChannelProvider.hpp>
+#include <common/RuntimeDiagnostics.hpp>
 #include <common/VBFParser.hpp>
 #include <common/VBFUtil.hpp>
 #include <common/SBL.hpp>
@@ -51,6 +52,13 @@
 INITIALIZE_EASYLOGGINGPP
 
 bool stopRequested = false;
+
+bool isDebugLoggingRequested(int argc, const char* argv[])
+{
+    return std::any_of(argv + 1, argv + argc, [](const char* arg) {
+        return std::string(arg) == "--debug";
+    });
+}
 
 enum class RunMode
 {
@@ -133,6 +141,11 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	bool& pinUpward, bool& resetFunctional, unsigned long& programHoldSeconds,
 	ProgramMode& flashProgramMode, ReadFormat& readFormat) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
+    const auto addDebugArgument = [](argparse::ArgumentParser& parser) {
+        parser.add_argument("--debug").default_value(false).implicit_value(true).nargs(0)
+            .help("Enable verbose debug logging");
+    };
+    addDebugArgument(program);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
 	program.add_argument("-f", "--platform").default_value(std::string{ "P2" }).help("Car's platform, supported values: P80, P1, P1_UDS, P2, P2_250, P2_UDS, P3, SPA");
@@ -140,6 +153,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	program.add_argument("-p", "--pin").scan<'x', uint64_t>().default_value(static_cast<uint64_t>(0)).help("PIN to unlock ECU");
 
 	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
+    addDebugArgument(flash_command);
 	flash_command.add_description("Flash BIN to ECU");
 	flash_command.add_argument("-i", "--input").help("File to flash");
 	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL, required for UDS flashing");
@@ -147,6 +161,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		.help("Programming mode handling, required: vehicle or bench");
 
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
+    addDebugArgument(read_command);
 	read_command.add_description("Read ECU memory range");
 	read_command.add_argument("-o", "--output").help("File to write");
 	read_command.add_argument("-s", "--start").scan<'x', unsigned long>().help("Begin address to read");
@@ -157,25 +172,31 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		.help("Programming mode handling for UDS reading: vehicle or bench");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
+    addDebugArgument(test_command);
 	test_command.add_description("Test purposes");
 
 	argparse::ArgumentParser pin_command("pin", "1.0", argparse::default_arguments::help);
+    addDebugArgument(pin_command);
 	pin_command.add_description("Bruteforce ECM PIN code. If you provide -p argument then program starts from providen PIN");
 	pin_command.add_argument("-d", "--down").default_value(false).implicit_value(true).nargs(0).help("Scan pins downward");
 
 	argparse::ArgumentParser wakeup_command("wakeup", "1.0", argparse::default_arguments::help);
+    addDebugArgument(wakeup_command);
 	wakeup_command.add_description("Wake up CAN network");
 
 	argparse::ArgumentParser diag_command("diag", "1.0", argparse::default_arguments::help);
+    addDebugArgument(diag_command);
 	diag_command.add_description("Probe UDS ECU connectivity without writing anything");
 
 	argparse::ArgumentParser reset_command("reset", "1.0", argparse::default_arguments::help);
+    addDebugArgument(reset_command);
 	reset_command.add_description("Send UDS ECU reset");
 	reset_command.add_argument("--functional").default_value(false).implicit_value(true).nargs(0)
-		.help("Broadcast emergency reset 0x7DF:11 81, PxTool-style");
+		.help("Broadcast emergency reset 0x7DF:11 81");
 
 	argparse::ArgumentParser program_command("program", "1.0", argparse::default_arguments::help);
-	program_command.add_description("Enter P3 functional programming mode, PxTool-style");
+    addDebugArgument(program_command);
+	program_command.add_description("Enter P3 functional programming mode");
 	program_command.add_argument("--hold").scan<'u', unsigned long>().default_value(0u)
 		.help("Keep TesterPresent running for N seconds after entering programming mode");
 
@@ -312,11 +333,25 @@ class FlasherCallback final : public flasher::FlasherCallback {
 public:
     FlasherCallback() = default;
 
-	void OnProgress(std::chrono::milliseconds timePoint, size_t currentValue,
+	void OnProgress(std::chrono::milliseconds /*timePoint*/, size_t currentValue,
 		size_t maxValue) override {
+        if (maxValue == 0) {
+            return;
+        }
+
+        const size_t percent = std::min<size_t>(100, currentValue * 100 / maxValue);
+        if (percent == _lastPercent) {
+            return;
+        }
+
+        if (percent == 100 || percent / 5 != _lastPercent / 5) {
+            std::cout << " " << percent << "%" << std::flush;
+        }
+        _lastPercent = percent;
 	}
 
     void OnState(flasher::FlasherState state) override {
+        _lastPercent = std::numeric_limits<size_t>::max();
         std::cout << std::endl;
         using flasher::FlasherState;
         switch(state) {
@@ -367,6 +402,9 @@ public:
             break;
         }
     }
+
+private:
+    size_t _lastPercent{std::numeric_limits<size_t>::max()};
 };
 
 void writeBinToFile(const std::vector<uint8_t>& bin, const std::string& path) {
@@ -855,13 +893,7 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	flasher::UDSFlasher flasher{ *j2534, std::move(flasherParameters), std::move(udsFlasherParameters) };
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
-	flasher.start();
-	while (flasher.getCurrentState() !=
-		flasher::FlasherState::Done && flasher.getCurrentState() !=
-		flasher::FlasherState::Error) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
-		std::cout << ".";
-	}
+	flasher.run();
 	const bool success = flasher.getCurrentState() ==
 		flasher::FlasherState::Done;
 	std::cout << std::endl
@@ -1296,13 +1328,7 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
 		flasher::UDSReader flasher(*j2534, std::move(flasherParameters), std::move(udsReaderParameters), bin);
 		FlasherCallback callback;
 		flasher.registerCallback(callback);
-		flasher.start();
-		while (flasher.getCurrentState() !=
-			flasher::FlasherState::Done && flasher.getCurrentState() !=
-			flasher::FlasherState::Error) {
-			std::this_thread::sleep_for(std::chrono::seconds(1));
-			std::cout << ".";
-		}
+		flasher.run();
 		const bool success = flasher.getCurrentState() ==
 			flasher::FlasherState::Done;
 		std::cout << std::endl
@@ -1443,7 +1469,8 @@ LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
 }
 
 int main(int argc, const char* argv[]) {
-    common::initLogger("VolvoFlasher.log");
+    common::initLogger("VolvoFlasher.log", isDebugLoggingRequested(argc, argv));
+    common::printRuntimeDiagnostics("VolvoFlasher");
     SetUnhandledExceptionFilter(SehLoggingFilter);
     if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
 		throw std::runtime_error("Can't set console control hander");
@@ -1491,9 +1518,11 @@ int main(int argc, const char* argv[]) {
 	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize,
 		runMode, sblPath, carPlatform, scanPinsUpward, resetFunctional, programHoldSeconds, flashProgramMode,
 		readFormat)) {
+        bool matchedDevice = false;
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
 				device.deviceName.find(deviceName) != std::string::npos) {
+                matchedDevice = true;
 				try {
 					std::string name =
 						device.deviceName.find("DiCE-") != std::string::npos
@@ -1542,11 +1571,11 @@ int main(int argc, const char* argv[]) {
 					}
 				}
 				catch (const std::exception& ex) {
-					LOG(ERROR) << "Command failed, what = " << ex.what();
+					LOG(ERROR) << "Command failed: " << ex.what();
 					std::cout << ex.what() << std::endl;
 				}
 				catch (const char* ex) {
-					LOG(ERROR) << "Command failed, what = " << ex;
+					LOG(ERROR) << "Command failed: " << ex;
 					std::cout << ex << std::endl;
 				}
 				catch (...) {
@@ -1555,12 +1584,24 @@ int main(int argc, const char* argv[]) {
 				}
 			}
 		}
+        if (!matchedDevice) {
+            const auto message = deviceName.empty()
+                ? "No J2534 devices found."
+                : "No J2534 devices matched --device \"" + deviceName + "\".";
+            LOG(WARNING) << message;
+            std::cout << message << std::endl;
+            common::printJ2534ArchitectureHint(std::cout);
+        }
 	}
 	else {
-		std::cout << "Available J2534 devices:" << std::endl;
+		std::cout << "Available J2534 devices (" << common::getProcessArchitecture()
+			<< " only):" << std::endl;
 		for (const auto& device : devices) {
 			std::cout << "    " << device.deviceName << std::endl;
 		}
+        if (devices.empty()) {
+            common::printJ2534ArchitectureHint(std::cout);
+        }
 	}
 	return 0;
 }

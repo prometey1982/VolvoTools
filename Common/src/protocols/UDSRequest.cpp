@@ -111,7 +111,8 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
         throw std::runtime_error("Failed to send CAN message: " + j2534StatusToString(writeStatus));
     }
     std::vector<uint8_t> result;
-    channel.readMsgs([&result, &checkData, &retryCount, this](const uint8_t* data, size_t dataSize) {
+    bool acceptedResponse = false;
+    channel.readMsgs([&result, &checkData, &retryCount, &acceptedResponse, this](const uint8_t* data, size_t dataSize) {
         LOG(DEBUG) << "UDS RX raw=" << toHexString(frameToVector(data, dataSize));
         try {
             checkUDSError(_requestId, data, dataSize);
@@ -140,12 +141,17 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
             return true;
         }
         dataOffset += checkData.size();
+        acceptedResponse = true;
         result.reserve(result.size() + dataSize);
         std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
         LOG(DEBUG) << "UDS RX accepted payload=" << toHexString(payloadFromFrame(data, dataSize));
         return false;
     }, timeout);
-    if(result.empty()) {
+    if (result.empty() && acceptedResponse) {
+        LOG(DEBUG) << "UDS RX accepted response without payload can=0x" << std::hex << _canId
+                   << " request=0x" << static_cast<int>(_requestId);
+    }
+    else if(result.empty()) {
         LOG(WARNING) << "UDS RX completed without payload/no matching response can=0x" << std::hex << _canId
                      << " request=0x" << static_cast<int>(_requestId);
     }

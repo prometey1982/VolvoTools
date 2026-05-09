@@ -5,6 +5,7 @@
 #include <logger/Logger.hpp>
 #include <logger/LoggerCallback.hpp>
 #include <common/J2534ChannelProvider.hpp>
+#include <common/RuntimeDiagnostics.hpp>
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 
@@ -12,9 +13,11 @@
 
 #include <easylogging++.h>
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <thread>
 
 #ifndef NOMINMAX
@@ -23,6 +26,13 @@
 #include <windows.h>
 
 INITIALIZE_EASYLOGGINGPP
+
+bool isDebugLoggingRequested(int argc, const char* argv[])
+{
+  return std::any_of(argv + 1, argv + argc, [](const char* arg) {
+    return std::string(arg) == "--debug";
+  });
+}
 
 class ConsoleLogWriter final : public logger::LoggerCallback {
 public:
@@ -48,6 +58,8 @@ static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
                    unsigned long &baudrate, std::string &paramsFilePath,
                    std::string &outputPath, unsigned &printCount, common::CarPlatform& carPlatform, uint8_t& cmId) {
   argparse::ArgumentParser program("VolvoLogger");
+  program.add_argument("--debug").default_value(false).implicit_value(true).nargs(0)
+      .help("Enable verbose debug logging");
   program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
   program.add_argument("-b", "--baudrate").scan<'u', unsigned>().default_value(500000u).help("CAN bus speed");
   program.add_argument("-v", "--variables").help("Path to memory variables");
@@ -108,7 +120,8 @@ LONG WINAPI SehLoggingFilter(EXCEPTION_POINTERS* ep) {
 }
 
 int main(int argc, const char *argv[]) {
-  common::initLogger("VolvoLogger.log");
+  common::initLogger("VolvoLogger.log", isDebugLoggingRequested(argc, argv));
+  common::printRuntimeDiagnostics("VolvoLogger");
   SetUnhandledExceptionFilter(SehLoggingFilter);
   if (!SetConsoleCtrlHandler(HandlerRoutine, TRUE)) {
     throw std::runtime_error("Can't set console control hander");
@@ -123,9 +136,11 @@ int main(int argc, const char *argv[]) {
   const auto devices = common::getAvailableDevices();
   if (getRunOptions(argc, argv, deviceName, baudrate, paramsFilePath,
                     outputPath, printCount, carPlatform, cmId)) {
+    bool matchedDevice = false;
     for (const auto &device : devices) {
       if (deviceName.empty() ||
           device.deviceName.find(deviceName) != std::string::npos) {
+        matchedDevice = true;
         try {
           std::unique_ptr<j2534::J2534> j2534{
               std::make_unique<j2534::J2534>(device.libraryName)};
@@ -153,10 +168,22 @@ int main(int argc, const char *argv[]) {
         }
       }
     }
+    if (!matchedDevice) {
+      const auto message = deviceName.empty()
+          ? "No J2534 devices found."
+          : "No J2534 devices matched --device \"" + deviceName + "\".";
+      LOG(WARNING) << message;
+      std::cout << message << std::endl;
+      common::printJ2534ArchitectureHint(std::cout);
+    }
   } else {
-    std::cout << "Available J2534 devices:" << std::endl;
+    std::cout << "Available J2534 devices (" << common::getProcessArchitecture()
+              << " only):" << std::endl;
     for (const auto &device : devices) {
       std::cout << "    " << device.deviceName << std::endl;
+    }
+    if (devices.empty()) {
+      common::printJ2534ArchitectureHint(std::cout);
     }
   }
   return 0;

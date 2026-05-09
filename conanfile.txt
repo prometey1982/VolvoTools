@@ -3,6 +3,9 @@ boost/1.86.0
 yaml-cpp/0.6.3
 easyloggingpp/9.97.1
 
+[options]
+easyloggingpp/*:enable_default_logfile=False
+
 [generators]
 CMakeDeps
 CMakeToolchain
