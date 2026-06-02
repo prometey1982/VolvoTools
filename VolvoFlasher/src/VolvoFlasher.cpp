@@ -34,6 +34,8 @@
 #include <easylogging++.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -41,6 +43,7 @@
 #include <thread>
 #include <chrono>
 #include <iomanip>
+#include <sstream>
 #include <unordered_map>
 #include <stdexcept>
 
@@ -51,7 +54,7 @@
 
 INITIALIZE_EASYLOGGINGPP
 
-bool stopRequested = false;
+std::atomic_bool stopRequested{ false };
 
 bool isDebugLoggingRequested(int argc, const char* argv[])
 {
@@ -70,7 +73,8 @@ enum class RunMode
 	Test,
 	Diag,
 	Reset,
-	Program
+	Program,
+	UdsRaw
 };
 
 enum class ProgramMode
@@ -84,6 +88,22 @@ enum class ReadFormat
 	Hex,
 	Bin
 };
+
+bool waitForStopOrTimeout(std::chrono::milliseconds duration)
+{
+	const auto deadline = std::chrono::steady_clock::now() + duration;
+	while (std::chrono::steady_clock::now() < deadline) {
+		if (stopRequested.load()) {
+			return true;
+		}
+		const auto remaining = deadline - std::chrono::steady_clock::now();
+		const auto sleepTime = std::max(std::chrono::milliseconds(1),
+			std::min(std::chrono::milliseconds(100),
+				std::chrono::duration_cast<std::chrono::milliseconds>(remaining)));
+		std::this_thread::sleep_for(sleepTime);
+	}
+	return stopRequested.load();
+}
 
 ProgramMode parseProgramMode(const std::string& input)
 {
@@ -139,7 +159,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
 	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform,
 	bool& pinUpward, bool& resetFunctional, unsigned long& programHoldSeconds,
-	ProgramMode& flashProgramMode, ReadFormat& readFormat) {
+	ProgramMode& flashProgramMode, ReadFormat& readFormat,
+	std::vector<std::string>& rawData, bool& noWakeup, bool& attachRunningSbl) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
     const auto addDebugArgument = [](argparse::ArgumentParser& parser) {
         parser.add_argument("--debug").default_value(false).implicit_value(true).nargs(0)
@@ -159,6 +180,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	flash_command.add_argument("-s", "--sbl").default_value(std::string()).help("File with SBL, required for UDS flashing");
 	flash_command.add_argument("--program-mode").required()
 		.help("Programming mode handling, required: vehicle or bench");
+	flash_command.add_argument("--attach-running-sbl").default_value(false).implicit_value(true).nargs(0)
+		.help("Flash through an already running RAM SBL; skips fallAsleep/authorize/load/start");
 
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
     addDebugArgument(read_command);
@@ -170,6 +193,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	read_command.add_argument("--format").default_value(std::string{ "hex" }).help("Output format: hex or bin");
 	read_command.add_argument("--program-mode").default_value(std::string{ "bench" })
 		.help("Programming mode handling for UDS reading: vehicle or bench");
+	read_command.add_argument("--attach-running-sbl").default_value(false).implicit_value(true).nargs(0)
+		.help("Read through an already running RAM SBL; skips fallAsleep/authorize/load/start");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
     addDebugArgument(test_command);
@@ -200,6 +225,16 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	program_command.add_argument("--hold").scan<'u', unsigned long>().default_value(0u)
 		.help("Keep TesterPresent running for N seconds after entering programming mode");
 
+	argparse::ArgumentParser uds_raw_command("uds-raw", "1.0", argparse::default_arguments::help);
+    addDebugArgument(uds_raw_command);
+	uds_raw_command.add_description("Send raw UDS request(s) to ECU and print response. Optional --sbl keeps the same RAM SBL session for probes.");
+	uds_raw_command.add_argument("--data").required().append().help("Hex bytes, repeatable, e.g. \"10 03\" or \"31 01 03 01 00 7F 80 80\"");
+	uds_raw_command.add_argument("--sbl").default_value(std::string()).help("Optional SBL VBF to load/start before raw request(s)");
+	uds_raw_command.add_argument("--program-mode").default_value(std::string{ "bench" })
+		.help("Programming mode handling when --sbl is used: vehicle or bench");
+	uds_raw_command.add_argument("--no-wakeup").default_value(false).implicit_value(true).nargs(0)
+		.help("Do not send wakeUp/reset cleanup after --sbl raw session");
+
 	program.add_subparser(flash_command);
 	program.add_subparser(read_command);
 	program.add_subparser(test_command);
@@ -208,12 +243,14 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	program.add_subparser(diag_command);
 	program.add_subparser(reset_command);
 	program.add_subparser(program_command);
+	program.add_subparser(uds_raw_command);
 	try {
 		program.parse_args(argc, argv);
 		if (program.is_subcommand_used(flash_command)) {
 			flashPath = flash_command.get("-i");
 			sblPath = flash_command.get("-s");
 			flashProgramMode = parseProgramMode(flash_command.get<std::string>("--program-mode"));
+			attachRunningSbl = flash_command.get<bool>("--attach-running-sbl");
 			runMode = RunMode::Flash;
 		}
 		else if (program.is_subcommand_used(read_command)) {
@@ -223,6 +260,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			sblPath = read_command.get<std::string>("--sbl");
 			readFormat = parseReadFormat(read_command.get<std::string>("--format"));
 			flashProgramMode = parseProgramMode(read_command.get<std::string>("--program-mode"));
+			attachRunningSbl = read_command.get<bool>("--attach-running-sbl");
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
@@ -245,6 +283,13 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		else if (program.is_subcommand_used(program_command)) {
 			programHoldSeconds = program_command.get<unsigned long>("--hold");
 			runMode = RunMode::Program;
+		}
+		else if (program.is_subcommand_used(uds_raw_command)) {
+			rawData = uds_raw_command.get<std::vector<std::string>>("--data");
+			sblPath = uds_raw_command.get<std::string>("--sbl");
+			flashProgramMode = parseProgramMode(uds_raw_command.get<std::string>("--program-mode"));
+			noWakeup = uds_raw_command.get<bool>("--no-wakeup");
+			runMode = RunMode::UdsRaw;
 		}
 		else {
 			std::cout << program;
@@ -703,9 +748,9 @@ void findPin2(j2534::J2534& j2534, common::CarPlatform carPlatform, uint8_t ecuI
 	}
 	else {
 		while (pinFinder.getCurrentState() != common::UDSPinFinder::State::Done && pinFinder.getCurrentState() != common::UDSPinFinder::State::Error) {
-			if (stopRequested) {
+			if (stopRequested.load()) {
 				pinFinder.stop();
-				stopRequested = false;
+				stopRequested.store(false);
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
@@ -822,7 +867,9 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 	while (flasher.getCurrentState() !=
 		flasher::FlasherState::Done && flasher.getCurrentState() !=
 		flasher::FlasherState::Error) {
-		std::this_thread::sleep_for(std::chrono::seconds(1));
+		if (waitForStopOrTimeout(std::chrono::seconds(1))) {
+			break;
+		}
 		std::cout << ".";
 	}
 	const bool success = flasher.getCurrentState() ==
@@ -845,14 +892,15 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 
 void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	std::unique_ptr<j2534::J2534> j2534, unsigned long baudrate, uint64_t pin, const std::string& flashPath,
-	const std::string& sblPath, ProgramMode programMode)
+	const std::string& sblPath, ProgramMode programMode, bool attachRunningSbl)
 {
 	LOG(INFO) << "UDS flash start platform=" << static_cast<int>(carPlatform)
 		<< " ecu=0x" << std::hex << static_cast<int>(ecuId)
 		<< " baudrate=" << std::dec << baudrate
 		<< " flashPath=" << flashPath
 		<< " sblPath=" << (sblPath.empty() ? "<missing>" : sblPath)
-		<< " programMode=" << programModeToString(programMode);
+		<< " programMode=" << programModeToString(programMode)
+		<< " attachRunningSbl=" << attachRunningSbl;
 	common::VBFParser vbfParser;
 	std::ifstream flashVbf(flashPath, std::ios_base::binary);
 	const common::VBF flash{ vbfParser.parse(flashVbf) };
@@ -862,10 +910,10 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 		<< " eraseBlocks=" << flash.header.eraseBlocks.size();
 	std::string additionalData;
 	std::unique_ptr<flasher::SBLProviderBase> sblProvider;
-	if (sblPath.empty()) {
+	if (sblPath.empty() && !attachRunningSbl) {
 		throw std::runtime_error("SBL VBF is required for UDS flashing; pass -s/--sbl");
 	}
-	else {
+	else if (!attachRunningSbl) {
 		std::ifstream sblVbf(sblPath, std::ios_base::binary);
 		const common::VBF bootloader{ vbfParser.parse(sblVbf) };
 		sblProvider = std::make_unique<flasher::SBLProviderVBF>(bootloader);
@@ -889,7 +937,8 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	};
 	flasher::UDSFlasherParameters udsFlasherParameters{
 		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF },
-		skipFallAsleep };
+		skipFallAsleep,
+		attachRunningSbl };
 	flasher::UDSFlasher flasher{ *j2534, std::move(flasherParameters), std::move(udsFlasherParameters) };
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
@@ -954,6 +1003,187 @@ bool runUdsProbe(const j2534::J2534Channel& channel, uint32_t canId,
 	return false;
 }
 
+std::vector<uint8_t> parseHexBytes(const std::string& input)
+{
+	std::string normalized;
+	normalized.reserve(input.size());
+	for (char ch : input) {
+		if (std::isxdigit(static_cast<unsigned char>(ch))) {
+			normalized.push_back(ch);
+		}
+		else if (ch == 'x' || ch == 'X') {
+			if (!normalized.empty() && normalized.back() == '0') {
+				normalized.pop_back();
+			}
+		}
+	}
+	if (normalized.empty() || (normalized.size() % 2) != 0) {
+		throw std::runtime_error("Invalid hex byte string: " + input);
+	}
+	std::vector<uint8_t> result;
+	result.reserve(normalized.size() / 2);
+	for (size_t i = 0; i < normalized.size(); i += 2) {
+		const auto byteString = normalized.substr(i, 2);
+		result.push_back(static_cast<uint8_t>(std::stoul(byteString, nullptr, 16)));
+	}
+	return result;
+}
+
+bool isRetryablePostStartTxFailure(const common::UDSRequestTxError& ex)
+{
+	return ex.status() == ERR_TIMEOUT && ex.written() == 0;
+}
+
+void reopenRawUdsChannel(common::J2534ChannelProvider& channelProvider,
+	std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint8_t ecuId)
+{
+	channels.front().reset();
+	channels.front() = channelProvider.getChannelForEcu(ecuId);
+	if (!channels.front()) {
+		throw std::runtime_error("Failed to reopen J2534 channel for ECU");
+	}
+	channels.front()->clearRx();
+	channels.front()->clearTx();
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+std::vector<uint8_t> processRawUdsRequest(j2534::J2534Channel& channel, uint32_t canId,
+	const std::vector<uint8_t>& request)
+{
+	common::UDSRequest udsRequest(canId, request);
+	return udsRequest.process(channel, 5000);
+}
+
+std::vector<uint8_t> processRawUdsRequestWithOptionalRetry(
+	common::J2534ChannelProvider& channelProvider,
+	std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+	uint8_t ecuId, uint32_t canId, const std::vector<uint8_t>& request, bool allowRetry)
+{
+	try {
+		return processRawUdsRequest(*channels.front(), canId, request);
+	}
+	catch (const common::UDSRequestTxError& ex) {
+		if (!allowRetry || !isRetryablePostStartTxFailure(ex)) {
+			throw;
+		}
+		LOG(WARNING) << "first post-start TX failed written=0, reopening channel and retrying once";
+		reopenRawUdsChannel(channelProvider, channels, ecuId);
+		return processRawUdsRequest(*channels.front(), canId, request);
+	}
+}
+
+std::vector<uint8_t> processPostStartWarmupRequest(
+	common::J2534ChannelProvider& channelProvider,
+	std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+	uint8_t ecuId, uint32_t canId, const std::vector<uint8_t>& request)
+{
+	try {
+		return processRawUdsRequestWithOptionalRetry(channelProvider, channels, ecuId, canId, request, true);
+	}
+	catch (const common::UDSRequestRxTimeout&) {
+		LOG(WARNING) << "post-start warmup read timeout, reopening channel and retrying once";
+		reopenRawUdsChannel(channelProvider, channels, ecuId);
+		return processRawUdsRequest(*channels.front(), canId, request);
+	}
+}
+
+void warmupPostStartRawChannel(common::J2534ChannelProvider& channelProvider,
+	std::vector<std::unique_ptr<j2534::J2534Channel>>& channels, uint8_t ecuId, uint32_t canId)
+{
+	LOG(INFO) << "post-start channel warmup enter";
+	channels.front()->clearRx();
+	channels.front()->clearTx();
+	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+	const std::vector<uint8_t> warmupRequest{ 0x22, 0xF1, 0x8C };
+	(void)processPostStartWarmupRequest(channelProvider, channels, ecuId, canId, warmupRequest);
+
+	LOG(INFO) << "post-start warmup TX/RX ok";
+	LOG(INFO) << "post-start warmup done";
+}
+
+void UDSRaw(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534,
+	uint64_t pin, const std::vector<std::string>& rawData, const std::string& sblPath,
+	ProgramMode programMode, bool noWakeup)
+{
+	const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
+	if (std::get<0>(ecuInfo).protocolId != ISO15765) {
+		throw std::runtime_error("uds-raw supports UDS/ISO15765 ECUs only");
+	}
+	const auto canId = std::get<1>(ecuInfo).canId;
+	if (rawData.empty()) {
+		throw std::runtime_error("uds-raw requires at least one --data");
+	}
+
+	if (!sblPath.empty() && programMode == ProgramMode::Vehicle) {
+		UDSProgramMode(carPlatform, ecuId, j2534, 0);
+	}
+	else if (!sblPath.empty()) {
+		LOG(INFO) << "Bench program mode selected, skipping CEM programming mode";
+	}
+
+	common::J2534ChannelProvider channelProvider{ j2534, carPlatform };
+	std::vector<std::unique_ptr<j2534::J2534Channel>> channels;
+	channels.emplace_back(channelProvider.getChannelForEcu(ecuId));
+	if (!channels.front()) {
+		throw std::runtime_error("Failed to open J2534 channel for ECU");
+	}
+	auto& channel = *channels.front();
+
+	if (!sblPath.empty()) {
+		LOG(INFO) << "UDS raw SBL session start sblPath=" << sblPath
+			<< " programMode=" << programModeToString(programMode)
+			<< " noWakeup=" << noWakeup;
+		if (!common::UDSProtocolCommonSteps::fallAsleep(channels)) {
+			throw std::runtime_error("SBL fall asleep failed");
+		}
+		common::UDSProtocolCommonSteps::keepAlive(channel);
+		if (!common::UDSProtocolCommonSteps::authorize(channel, canId, common::getPinArray(pin))) {
+			throw std::runtime_error("SBL security access failed");
+		}
+		common::VBFParser vbfParser;
+		std::ifstream sblVbf(sblPath, std::ios_base::binary);
+		if (!sblVbf) {
+			throw std::runtime_error("Failed to open SBL VBF: " + sblPath);
+		}
+		const common::VBF bootloader{ vbfParser.parse(sblVbf) };
+		if (!common::UDSProtocolCommonSteps::transferData(channel, canId, bootloader, [](size_t) {})) {
+			throw std::runtime_error("SBL transfer failed");
+		}
+		if (!common::UDSProtocolCommonSteps::startRoutine(channel, canId, bootloader.header.call)) {
+			throw std::runtime_error("SBL start failed");
+		}
+		warmupPostStartRawChannel(channelProvider, channels, ecuId, canId);
+	}
+
+	try {
+		for (size_t index = 0; index < rawData.size(); ++index) {
+			const auto request = parseHexBytes(rawData[index]);
+			if (request.empty()) {
+				throw std::runtime_error("uds-raw request is empty");
+			}
+			std::cout << "UDS raw TX[" << (index + 1) << "]: ";
+			printBytes(request);
+			std::cout << std::endl;
+			const bool allowFirstPostStartRetry = !sblPath.empty() && index == 0;
+			const auto response = processRawUdsRequestWithOptionalRetry(
+				channelProvider, channels, ecuId, canId, request, allowFirstPostStartRetry);
+			std::cout << "UDS raw RX[" << (index + 1) << "]: ";
+			printBytes(response);
+			std::cout << std::endl;
+		}
+	}
+	catch (...) {
+		if (!sblPath.empty() && !noWakeup) {
+			common::UDSProtocolCommonSteps::wakeUp(channels);
+		}
+		throw;
+	}
+	if (!sblPath.empty() && !noWakeup) {
+		common::UDSProtocolCommonSteps::wakeUp(channels);
+	}
+}
+
 void UDSDiag(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534)
 {
 	const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
@@ -970,7 +1200,12 @@ void UDSDiag(common::CarPlatform carPlatform, uint8_t ecuId, j2534::J2534& j2534
 		throw std::runtime_error("Failed to open J2534 channel for ECU");
 	}
 
-	runUdsProbe(*channel, canId, "Extended session", { 0x10, 0x03 }, { 0x03 }, 3000);
+	const bool extendedSessionOk = runUdsProbe(*channel, canId, "Extended session",
+		{ 0x10, 0x03 }, { 0x03 }, 3000);
+	if (!extendedSessionOk) {
+		std::cout << "Extended session failed, skipping DID probes" << std::endl;
+		return;
+	}
 	const auto keepAliveIds = common::UDSProtocolCommonSteps::keepAlive(*channel);
 	runUdsProbe(*channel, canId, "Serial number F18C", { 0x22, 0xF1, 0x8C }, { 0xF1, 0x8C }, 3000);
 	runUdsProbe(*channel, canId, "Boot SW ID F180", { 0x22, 0xF1, 0x80 }, { 0xF1, 0x80 }, 3000);
@@ -1029,7 +1264,7 @@ void UDSFunctionalEmergencyReset(common::CarPlatform carPlatform, uint8_t ecuId,
 	std::vector<std::vector<unsigned long>> msgIds;
 	const bool started = startPeriodicOnAllChannels(channels, common::UDSMessage(0x7DF, { 0x11, 0x81 }),
 		msgIds, "Functional emergency reset", 20);
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
+	waitForStopOrTimeout(std::chrono::milliseconds(200));
 	stopPeriodicOnAllChannels(channels, msgIds);
 	if (!started) {
 		throw std::runtime_error("Functional emergency reset failed to start periodic messages");
@@ -1109,7 +1344,7 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J
 		if (!started) {
 			throw std::runtime_error("Program mode failed to start periodic messages");
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(180));
+		waitForStopOrTimeout(std::chrono::milliseconds(180));
 		stopPeriodicOnAllChannels(channels, msgIds);
 	}
 
@@ -1135,7 +1370,7 @@ void UDSProgramMode(common::CarPlatform carPlatform, uint8_t /*ecuId*/, j2534::J
 			throw std::runtime_error("TesterPresent hold failed to start periodic messages");
 		}
 		std::cout << "Holding TesterPresent for " << holdSeconds << " seconds" << std::endl;
-		std::this_thread::sleep_for(std::chrono::seconds(holdSeconds));
+		waitForStopOrTimeout(std::chrono::seconds(holdSeconds));
 		stopPeriodicOnAllChannels(channels, msgIds);
 	}
 }
@@ -1167,7 +1402,9 @@ void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, 
     while (flasher.getCurrentState() !=
                flasher::FlasherState::Done && flasher.getCurrentState() !=
                   flasher::FlasherState::Error) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+		if (waitForStopOrTimeout(std::chrono::seconds(1))) {
+			break;
+		}
         std::cout << ".";
     }
     std::cout << std::endl
@@ -1279,11 +1516,11 @@ void saveReadResult(const std::string& path, uint32_t start, const std::vector<u
 
 void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId,
 	const std::string& flashPath, unsigned long start, unsigned long datasize, uint64_t pin,
-	const std::string& sblPath, ProgramMode programMode, ReadFormat readFormat)
+	const std::string& sblPath, ProgramMode programMode, ReadFormat readFormat, bool attachRunningSbl)
 {
 	const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
 	if (std::get<0>(ecuInfo).protocolId == ISO15765) {
-		if (sblPath.empty()) {
+		if (sblPath.empty() && !attachRunningSbl) {
 			throw std::runtime_error("SBL VBF is required for UDS reading; pass --sbl");
 		}
 		LOG(INFO) << "UDS read start platform=" << static_cast<int>(carPlatform)
@@ -1293,14 +1530,18 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
 			<< " size=0x" << datasize
 			<< " output=" << flashPath
 			<< " format=" << readFormatToString(readFormat)
-			<< " sblPath=" << sblPath
-			<< " programMode=" << programModeToString(programMode);
+			<< " sblPath=" << (sblPath.empty() ? "<none>" : sblPath)
+			<< " programMode=" << programModeToString(programMode)
+			<< " attachRunningSbl=" << attachRunningSbl;
 		common::VBFParser vbfParser;
-		std::ifstream sblVbf(sblPath, std::ios_base::binary);
-		if (!sblVbf) {
-			throw std::runtime_error("Failed to open SBL VBF: " + sblPath);
+		std::unique_ptr<common::VBF> bootloader;
+		if (!attachRunningSbl) {
+			std::ifstream sblVbf(sblPath, std::ios_base::binary);
+			if (!sblVbf) {
+				throw std::runtime_error("Failed to open SBL VBF: " + sblPath);
+			}
+			bootloader = std::make_unique<common::VBF>(vbfParser.parse(sblVbf));
 		}
-		const common::VBF bootloader{ vbfParser.parse(sblVbf) };
 		std::vector<uint8_t> bin;
 
 		bool skipFallAsleep = false;
@@ -1316,12 +1557,13 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
 			carPlatform,
 			ecuId,
 			"",
-			std::make_unique<flasher::SBLProviderVBF>(bootloader),
+			attachRunningSbl ? nullptr : std::make_unique<flasher::SBLProviderVBF>(*bootloader),
 			{{}, {}}
 		};
 		flasher::UDSReaderParameters udsReaderParameters{
 			common::getPinArray(pin),
 			skipFallAsleep,
+			attachRunningSbl,
 			static_cast<uint32_t>(start),
 			static_cast<uint32_t>(datasize)
 		};
@@ -1360,7 +1602,9 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
     while (flasher.getCurrentState() !=
                flasher::FlasherState::Done && flasher.getCurrentState() !=
                   flasher::FlasherState::Error) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+		if (waitForStopOrTimeout(std::chrono::seconds(1))) {
+			break;
+		}
         std::cout << ".";
     }
     const bool success = flasher.getCurrentState() ==
@@ -1436,8 +1680,11 @@ void findMultiplePins()
 }
 
 BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
-	stopRequested = true;
-	return TRUE;
+	if (dwCtrlType == CTRL_C_EVENT || dwCtrlType == CTRL_BREAK_EVENT || dwCtrlType == CTRL_CLOSE_EVENT) {
+		const bool alreadyRequested = stopRequested.exchange(true);
+		return alreadyRequested ? FALSE : TRUE;
+	}
+	return FALSE;
 }
 
 std::string getSehModuleName(void* address)
@@ -1514,10 +1761,13 @@ int main(int argc, const char* argv[]) {
 	unsigned long programHoldSeconds = 0;
 	ProgramMode flashProgramMode = ProgramMode::Bench;
 	ReadFormat readFormat = ReadFormat::Hex;
+	std::vector<std::string> rawData;
+	bool noWakeup = false;
+	bool attachRunningSbl = false;
 	const auto devices = common::getAvailableDevices();
 	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize,
 		runMode, sblPath, carPlatform, scanPinsUpward, resetFunctional, programHoldSeconds, flashProgramMode,
-		readFormat)) {
+		readFormat, rawData, noWakeup, attachRunningSbl)) {
         bool matchedDevice = false;
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
@@ -1546,12 +1796,13 @@ int main(int argc, const char* argv[]) {
 					}
 					else if (runMode == RunMode::Read) {
 						readFlash(std::move(j2534), carPlatform, ecuId, flashPath, start, datasize,
-							pin, sblPath, flashProgramMode, readFormat);
+							pin, sblPath, flashProgramMode, readFormat, attachRunningSbl);
 					}
 					else if (runMode == RunMode::Flash) {
 						const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
 						if (std::get<0>(ecuInfo).protocolId == ISO15765) {
-							UDSFlash(carPlatform, ecuId, std::move(j2534), baudrate, pin, flashPath, sblPath, flashProgramMode);
+							UDSFlash(carPlatform, ecuId, std::move(j2534), baudrate, pin, flashPath, sblPath, flashProgramMode,
+								attachRunningSbl);
 						}
 						else {
 							D2Flash(flashPath, std::move(j2534), baudrate);
@@ -1568,6 +1819,9 @@ int main(int argc, const char* argv[]) {
 					}
 					else if (runMode == RunMode::Program) {
 						UDSProgramMode(carPlatform, ecuId, *j2534, programHoldSeconds);
+					}
+					else if (runMode == RunMode::UdsRaw) {
+						UDSRaw(carPlatform, ecuId, *j2534, pin, rawData, sblPath, flashProgramMode, noWakeup);
 					}
 				}
 				catch (const std::exception& ex) {

@@ -5,6 +5,7 @@
 
 #include <common/CommonData.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/UDSRequest.hpp>
 #include <common/Util.hpp>
 
 #include <easylogging++.h>
@@ -38,14 +39,22 @@ namespace flasher {
 
         size_t getMaximumProgress()
         {
-            const auto bootloader{ _flasherParameters.sblProvider->getSBL(
-                _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData)};
-            return FlasherBase::getProgressFromVBF(bootloader) + FlasherBase::getProgressFromVBF(_flasherParameters.flash);
+            size_t progress = FlasherBase::getProgressFromVBF(_flasherParameters.flash);
+            if (!_udsFlasherParameters.attachRunningSbl && _flasherParameters.sblProvider) {
+                const auto bootloader{ _flasherParameters.sblProvider->getSBL(
+                    _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData)};
+                progress += FlasherBase::getProgressFromVBF(bootloader);
+            }
+            return progress;
         }
 
         void fallAsleep()
         {
             _stateUpdater(FlasherState::FallAsleep);
+            if (_udsFlasherParameters.attachRunningSbl) {
+                LOG(INFO) << "Attaching to already running UDS SBL, skipping fallAsleep";
+                return;
+            }
             if (_udsFlasherParameters.skipFallAsleep) {
                 LOG(INFO) << "Fall asleep skipped, vehicle programming mode was prepared by CEM";
                 return;
@@ -57,6 +66,9 @@ namespace flasher {
 
         void keepAlive()
         {
+            if (_udsFlasherParameters.attachRunningSbl) {
+                return;
+            }
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
             common::UDSProtocolCommonSteps::keepAlive(channel);
         }
@@ -64,7 +76,17 @@ namespace flasher {
         void authorize()
         {
             _stateUpdater(FlasherState::Authorize);
+            if (_udsFlasherParameters.attachRunningSbl) {
+                return;
+            }
             auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+            try {
+                common::UDSRequest programmingSession{ _canId, { 0x10, 0x02 } };
+                programmingSession.process(channel, { 0x02 }, 1, 1000);
+            }
+            catch (const std::exception& ex) {
+                LOG(WARNING) << "Programming session request before authorize failed: " << ex.what();
+            }
             if (!common::UDSProtocolCommonSteps::authorize(channel, _canId, _udsFlasherParameters.pin)) {
                 setFailed("Authorization failed");
             }
@@ -73,6 +95,9 @@ namespace flasher {
         void loadBootloader()
         {
             _stateUpdater(FlasherState::LoadBootloader);
+            if (_udsFlasherParameters.attachRunningSbl) {
+                return;
+            }
             if (_flasherParameters.sblProvider) {
                 const auto bootloader{ _flasherParameters.sblProvider->getSBL(
                     _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData)};
@@ -87,12 +112,22 @@ namespace flasher {
         void startBootloader()
         {
             _stateUpdater(FlasherState::StartBootloader);
-            if (_flasherParameters.sblProvider) {
+            if (_udsFlasherParameters.attachRunningSbl) {
+                auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
+                if (!authorizeRunningSbl(channel)) {
+                    setFailed("SBL attach authorization failed");
+                }
+            }
+            else if (_flasherParameters.sblProvider) {
                 const auto bootloader{ _flasherParameters.sblProvider->getSBL(
                     _flasherParameters.carPlatform, _flasherParameters.ecuId, _flasherParameters.additionalData) };
                 auto& channel{ common::getChannelByEcuId(_flasherParameters.carPlatform, _flasherParameters.ecuId, _channels) };
                 if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canId, bootloader.header.call)) {
                     setFailed("Bootloader starting failed");
+                    return;
+                }
+                if (!authorizeRunningSbl(channel)) {
+                    setFailed("SBL post-start authorization failed");
                 }
             }
         }
@@ -158,6 +193,11 @@ namespace flasher {
         }
 
     private:
+        bool authorizeRunningSbl(const j2534::J2534Channel& channel)
+        {
+            return common::UDSProtocolCommonSteps::authorize(channel, _canId, _udsFlasherParameters.pin);
+        }
+
         void setFailed(const std::string& message)
         {
             _isFailed = true;

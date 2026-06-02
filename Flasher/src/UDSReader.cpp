@@ -3,10 +3,12 @@
 #include <common/CommonData.hpp>
 #include <common/Util.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
+#include <common/protocols/UDSRequest.hpp>
 
 #include <easylogging++.h>
 
 #include <functional>
+#include <memory>
 #include <stdexcept>
 #include <tuple>
 #include <utility>
@@ -63,11 +65,19 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& cha
     };
 
     try {
-        const auto bootloader{ getFlasherParameters().sblProvider->getSBL(
-            getFlasherParameters().carPlatform, getFlasherParameters().ecuId, getFlasherParameters().additionalData) };
-        setMaximumProgress(FlasherBase::getProgressFromVBF(bootloader) + _udsReaderParameters.dataSize);
+        std::unique_ptr<common::VBF> bootloader;
+        if (!_udsReaderParameters.attachRunningSbl) {
+            bootloader = std::make_unique<common::VBF>(getFlasherParameters().sblProvider->getSBL(
+                getFlasherParameters().carPlatform, getFlasherParameters().ecuId, getFlasherParameters().additionalData));
+        }
+        setMaximumProgress((_udsReaderParameters.attachRunningSbl ? 0u : FlasherBase::getProgressFromVBF(*bootloader))
+            + _udsReaderParameters.dataSize);
 
-        if (_udsReaderParameters.skipFallAsleep) {
+        if (_udsReaderParameters.attachRunningSbl) {
+            setCurrentState(FlasherState::FallAsleep);
+            LOG(INFO) << "Attaching to already running UDS SBL, skipping fallAsleep/authorize/load/start";
+        }
+        else if (_udsReaderParameters.skipFallAsleep) {
             setCurrentState(FlasherState::FallAsleep);
             LOG(INFO) << "Fall asleep skipped, vehicle programming mode was prepared by CEM";
         }
@@ -81,24 +91,39 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& cha
         auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId, channels) };
 
-        common::UDSProtocolCommonSteps::keepAlive(channel);
-
-        setCurrentState(FlasherState::Authorize);
-        if (!common::UDSProtocolCommonSteps::authorize(channel, canId, _udsReaderParameters.pin)) {
-            setFailure("Authorization failed", errorUpdater);
+        if (_udsReaderParameters.attachRunningSbl) {
+            setCurrentState(FlasherState::Authorize);
+            if (!common::UDSProtocolCommonSteps::authorize(channel, canId, _udsReaderParameters.pin)) {
+                setFailure("Running SBL authorization failed", errorUpdater);
+            }
         }
+        else {
+            common::UDSProtocolCommonSteps::keepAlive(channel);
 
-        setCurrentState(FlasherState::LoadBootloader);
-        if (bootloader.chunks.empty() || !common::UDSProtocolCommonSteps::transferData(channel, canId, bootloader,
-                                                                                       [this](size_t progress) {
-                                                                                           incCurrentProgress(progress);
-                                                                                       })) {
-            setFailure("Bootloader loading failed", errorUpdater);
-        }
+            setCurrentState(FlasherState::Authorize);
+            try {
+                common::UDSRequest programmingSession{ canId, { 0x10, 0x02 } };
+                programmingSession.process(channel, { 0x02 }, 1, 1000);
+            }
+            catch (const std::exception& ex) {
+                LOG(WARNING) << "Programming session request before authorize failed: " << ex.what();
+            }
+            if (!common::UDSProtocolCommonSteps::authorize(channel, canId, _udsReaderParameters.pin)) {
+                setFailure("Authorization failed", errorUpdater);
+            }
 
-        setCurrentState(FlasherState::StartBootloader);
-        if (!common::UDSProtocolCommonSteps::startRoutine(channel, canId, bootloader.header.call)) {
-            setFailure("Bootloader starting failed", errorUpdater);
+            setCurrentState(FlasherState::LoadBootloader);
+            if (bootloader->chunks.empty() || !common::UDSProtocolCommonSteps::transferData(channel, canId, *bootloader,
+                                                                                           [this](size_t progress) {
+                                                                                               incCurrentProgress(progress);
+                                                                                           })) {
+                setFailure("Bootloader loading failed", errorUpdater);
+            }
+
+            setCurrentState(FlasherState::StartBootloader);
+            if (!common::UDSProtocolCommonSteps::startRoutine(channel, canId, bootloader->header.call)) {
+                setFailure("Bootloader starting failed", errorUpdater);
+            }
         }
 
         setCurrentState(FlasherState::ReadFlash);
@@ -120,6 +145,7 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& cha
         if (getLastError().empty()) {
             setLastError(ex.what());
         }
+        LOG(WARNING) << "UDSReader failed after SBL workflow";
         if (getCurrentState() != FlasherState::WakeUp) {
             setCurrentState(FlasherState::WakeUp);
             common::UDSProtocolCommonSteps::wakeUp(channels);
@@ -131,6 +157,7 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& cha
         if (getLastError().empty()) {
             setLastError("Unknown UDS reading error");
         }
+        LOG(WARNING) << "UDSReader failed after SBL workflow";
         if (getCurrentState() != FlasherState::WakeUp) {
             setCurrentState(FlasherState::WakeUp);
             common::UDSProtocolCommonSteps::wakeUp(channels);

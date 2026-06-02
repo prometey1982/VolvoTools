@@ -71,27 +71,20 @@ namespace common {
         {
             const auto eraseAddr = toVector(startAddr);
             const auto eraseSize = toVector(eraseLength);
-            UDSMessage eraseRoutineMsg(canId, { 0x31, 0x01, 0xff, 0x00,
-                                                eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
-                                                eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] });
-            unsigned long numMsgs;
+            UDSRequest eraseRoutineRequest{ canId, { 0x31, 0x01, 0xff, 0x00,
+                                                     eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
+                                                     eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3] } };
             for(size_t i = 0; i < retryCount; ++i) {
-                const auto writeStatus = channel.writeMsgs(eraseRoutineMsg, numMsgs);
-                if (writeStatus != STATUS_NOERROR || numMsgs < 1) {
-                    LOG(ERROR) << "eraseRange failed to write message, addr=0x" << std::hex << startAddr
-                               << " length=0x" << eraseLength
-                               << " status=" << j2534StatusToString(writeStatus)
-                               << " written=" << std::dec << numMsgs;
-                    continue;
+                try {
+                    (void)eraseRoutineRequest.process(channel, { 0x01, 0xff, 0x00, 0x00 }, 1, 60000);
+                    return true;
                 }
-                const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
-                if(result.empty()) {
-                    LOG(WARNING) << "eraseRange got no positive response, addr=0x" << std::hex << startAddr
-                                 << " length=0x" << eraseLength;
+                catch (const std::exception& ex) {
+                    LOG(WARNING) << "eraseRange attempt " << std::dec << (i + 1) << " failed, addr=0x"
+                                 << std::hex << startAddr << " length=0x" << eraseLength
+                                 << " ex=" << ex.what();
                     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    continue;
                 }
-                return true;
             }
             return false;
         }
@@ -278,7 +271,12 @@ namespace common {
             if (downloadResponse.size() < 2) {
                 return false;
             }
-            const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
+            const uint32_t maxNumberOfBlockLength = encodeBigEndian(downloadResponse[1], downloadResponse[0]);
+            if (maxNumberOfBlockLength <= 2) {
+                LOG(ERROR) << "RequestDownload invalid max block size: 0x" << std::hex << maxNumberOfBlockLength;
+                return false;
+            }
+            const size_t maxSizeToTransfer = maxNumberOfBlockLength - 2;
             uint8_t chunkIndex = 1;
             for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
                 const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
@@ -313,26 +311,7 @@ namespace common {
         LOG(INFO) << "transferData enter";
         try {
             for (const auto& chunk : data.chunks) {
-                const auto startAddr = chunk.writeOffset;
-                const auto dataSize = chunk.data.size();
-                UDSRequest requestDownloadRequest{ canId, { 0x34, 0x00, 0x44,
-                                                          (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-                                                          (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
-                const auto downloadResponse{ requestDownloadRequest.process(channel, { 0x20 }, 10) };
-                if (downloadResponse.size() < 2) {
-                    return false;
-                }
-                const size_t maxSizeToTransfer = encodeBigEndian(downloadResponse[1], downloadResponse[0]) - 2;
-                uint8_t chunkIndex = 1;
-                for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer, ++chunkIndex) {
-                    const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
-                    std::vector<uint8_t> data{ 0x36, chunkIndex };
-                    data.insert(data.end(), chunk.data.cbegin() + i, chunk.data.cbegin() + chunkEnd);
-                    UDSRequest transferDataRequest{ canId, std::move(data) };
-                    transferDataRequest.process(channel, { chunkIndex }, 10, 60000);
-                    progressCallback(chunkEnd - i);
-                }
-                if (!finishTransfer(channel, canId, chunk.crc)) {
+                if (!transferChunk(channel, canId, chunk, progressCallback)) {
                     return false;
                 }
             }
@@ -392,9 +371,18 @@ namespace common {
             output.clear();
             output.reserve(dataSize);
 
-            UDSRequest requestUploadRequest{ canId, { 0x35, 0x00, 0x44,
-                (startAddr >> 24) & 0xFF, (startAddr >> 16) & 0xFF, (startAddr >> 8) & 0xFF, startAddr & 0xFF,
-                (dataSize >> 24) & 0xFF, (dataSize >> 16) & 0xFF, (dataSize >> 8) & 0xFF, dataSize & 0xFF } };
+            const std::vector<uint8_t> requestUploadPayload = {
+                0x35, 0x00, 0x44,
+                static_cast<uint8_t>((startAddr >> 24) & 0xFF),
+                static_cast<uint8_t>((startAddr >> 16) & 0xFF),
+                static_cast<uint8_t>((startAddr >> 8) & 0xFF),
+                static_cast<uint8_t>(startAddr & 0xFF),
+                static_cast<uint8_t>((dataSize >> 24) & 0xFF),
+                static_cast<uint8_t>((dataSize >> 16) & 0xFF),
+                static_cast<uint8_t>((dataSize >> 8) & 0xFF),
+                static_cast<uint8_t>(dataSize & 0xFF),
+            };
+            UDSRequest requestUploadRequest{ canId, requestUploadPayload };
             const auto uploadResponse = requestUploadRequest.process(channel, 10000);
             if (uploadResponse.size() < 8 || uploadResponse[4] != 0x75) {
                 LOG(ERROR) << "RequestUpload got unexpected response: " << toHexString(uploadResponse);
@@ -409,14 +397,11 @@ namespace common {
                 return false;
             }
 
-            size_t maxBlockSize = (static_cast<size_t>(uploadResponse[6]) << 8) | uploadResponse[7];
+            const size_t maxBlockSize = (static_cast<size_t>(uploadResponse[6]) << 8) | uploadResponse[7];
             if (maxBlockSize <= 2) {
                 LOG(ERROR) << "RequestUpload invalid max block size: 0x" << std::hex << maxBlockSize;
                 finishUploadBestEffort(channel, canId);
                 return false;
-            }
-            if (dataSize < maxBlockSize) {
-                maxBlockSize = static_cast<size_t>(dataSize) + 2;
             }
             const size_t maxPayloadSize = maxBlockSize - 2;
             LOG(INFO) << "readDataByUpload maxBlockSize=0x" << std::hex << maxBlockSize
@@ -425,45 +410,47 @@ namespace common {
             std::this_thread::sleep_for(std::chrono::milliseconds(30));
             uint8_t blockIndex = 1;
             while (output.size() < dataSize) {
-                bool blockRead = false;
-                for (size_t attempt = 1; attempt <= 3 && !blockRead; ++attempt) {
-                    UDSRequest transferDataRequest{ canId, { 0x36, blockIndex } };
-                    const auto transferResponse = transferDataRequest.process(channel, { blockIndex }, 10, 60000);
-                    if (transferResponse.empty()) {
-                        LOG(WARNING) << "TransferData upload returned empty payload, block=0x"
-                                     << std::hex << static_cast<int>(blockIndex)
-                                     << " attempt=" << std::dec << attempt;
-                        std::this_thread::sleep_for(std::chrono::milliseconds(30));
-                        continue;
-                    }
-                    const size_t remaining = dataSize - output.size();
-                    if (transferResponse.size() > maxPayloadSize) {
-                        LOG(ERROR) << "TransferData upload block too large, block=0x"
-                                   << std::hex << static_cast<int>(blockIndex)
-                                   << " size=0x" << transferResponse.size()
-                                   << " max=0x" << maxPayloadSize;
-                        finishUploadBestEffort(channel, canId);
-                        return false;
-                    }
-                    if (transferResponse.size() > remaining) {
-                        LOG(ERROR) << "TransferData upload returned more data than requested, block=0x"
-                                   << std::hex << static_cast<int>(blockIndex)
-                                   << " size=0x" << transferResponse.size()
-                                   << " remaining=0x" << remaining;
-                        finishUploadBestEffort(channel, canId);
-                        return false;
-                    }
-                    const size_t bytesToCopy = transferResponse.size();
-                    output.insert(output.end(), transferResponse.cbegin(), transferResponse.cbegin() + bytesToCopy);
-                    progressCallback(bytesToCopy);
-                    blockRead = true;
-                }
-                if (!blockRead) {
-                    LOG(ERROR) << "TransferData upload failed, block=0x"
-                               << std::hex << static_cast<int>(blockIndex);
+                UDSRequest transferDataRequest{ canId, { 0x36, blockIndex } };
+                LOG(DEBUG) << "TransferData upload request block=0x" << std::hex
+                          << static_cast<int>(blockIndex)
+                          << " outputOffset=0x" << output.size()
+                          << " remaining=0x" << (dataSize - output.size());
+                const auto transferResponse = transferDataRequest.process(channel, { blockIndex }, 10, 60000);
+                const size_t remaining = dataSize - output.size();
+                LOG(DEBUG) << "TransferData upload accepted block=0x" << std::hex
+                          << static_cast<int>(blockIndex)
+                          << " payloadAfterStrip=" << toHexString(transferResponse)
+                          << " payloadSize=0x" << transferResponse.size()
+                          << " outputOffset=0x" << output.size();
+                if (transferResponse.empty()) {
+                    LOG(ERROR) << "TransferData upload returned empty payload after positive 0x76 block=0x"
+                               << std::hex << static_cast<int>(blockIndex)
+                               << "; empty transferResponseParameterRecord is not treated as flash zeros";
                     finishUploadBestEffort(channel, canId);
                     return false;
                 }
+                if (transferResponse.size() > maxPayloadSize) {
+                    LOG(ERROR) << "TransferData upload block too large, block=0x"
+                               << std::hex << static_cast<int>(blockIndex)
+                               << " size=0x" << transferResponse.size()
+                               << " max=0x" << maxPayloadSize;
+                    finishUploadBestEffort(channel, canId);
+                    return false;
+                }
+                if (transferResponse.size() > remaining) {
+                    LOG(ERROR) << "TransferData upload returned more data than requested, block=0x"
+                               << std::hex << static_cast<int>(blockIndex)
+                               << " size=0x" << transferResponse.size()
+                               << " remaining=0x" << remaining;
+                    finishUploadBestEffort(channel, canId);
+                    return false;
+                }
+                LOG(DEBUG) << "TransferData upload copy block=0x" << std::hex
+                          << static_cast<int>(blockIndex)
+                          << " bytes=0x" << transferResponse.size()
+                          << " outputOffset=0x" << output.size();
+                output.insert(output.end(), transferResponse.cbegin(), transferResponse.cend());
+                progressCallback(transferResponse.size());
                 ++blockIndex;
             }
 
@@ -473,8 +460,8 @@ namespace common {
                 finishUploadBestEffort(channel, canId);
                 return false;
             }
-            if (!finishUpload(channel, canId)) {
-                return false;
+            if (!finishUploadBestEffort(channel, canId)) {
+                LOG(WARNING) << "Upload TransferExit did not complete cleanly after full read payload; keeping data";
             }
             uploadStarted = false;
         }
@@ -549,17 +536,13 @@ namespace common {
     {
         LOG(INFO) << "startRoutine enter, addr = " << std::hex << addr;
         const auto callAddr = common::toVector(addr);
-        common::UDSMessage startRoutineMsg(canId, { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] });
-        unsigned long numMsgs;
-        const auto writeStatus = channel.writeMsgs(startRoutineMsg, numMsgs);
-        if (writeStatus != STATUS_NOERROR || numMsgs < 1) {
-            LOG(ERROR) << "startRoutine failed to write message, addr = " << std::hex << addr
-                       << " status=" << j2534StatusToString(writeStatus)
-                       << " written=" << std::dec << numMsgs;
-            return false;
+        try {
+            UDSRequest startRoutineRequest{ canId,
+                { 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] } };
+            startRoutineRequest.process(channel, { 0x01, 0x03, 0x01 }, 10, 10000);
         }
-        if (!common::readMessageAndCheck(channel, { 0x71, 0x01, 0x03, 0x01 }, {}, 10)) {
-            LOG(ERROR) << "startRoutine failed to read message, addr = " << std::hex << addr;
+        catch (const std::exception& ex) {
+            LOG(ERROR) << "startRoutine failed, addr = " << std::hex << addr << " ex=" << ex.what();
             return false;
         }
         LOG(INFO) << "startRoutine completed, addr = " << std::hex << addr;

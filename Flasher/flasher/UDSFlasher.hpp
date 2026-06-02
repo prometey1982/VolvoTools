@@ -18,6 +18,7 @@ namespace flasher {
     struct UDSFlasherParameters {
         const std::array<uint8_t, 5> pin;
         bool skipFallAsleep = false;
+        bool attachRunningSbl = false;
     };
 
     class UDSFlasher: public FlasherBase {

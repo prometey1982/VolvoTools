@@ -11,7 +11,45 @@
 
 namespace common {
 
+UDSRequestTxError::UDSRequestTxError(unsigned long status, unsigned long written, const std::string& message)
+    : std::runtime_error{ message }
+    , _status{ status }
+    , _written{ written }
+{
+}
+
+unsigned long UDSRequestTxError::status() const
+{
+    return _status;
+}
+
+unsigned long UDSRequestTxError::written() const
+{
+    return _written;
+}
+
+UDSRequestRxTimeout::UDSRequestRxTimeout(const std::string& message)
+    : std::runtime_error{ message }
+{
+}
+
 namespace {
+
+constexpr char kChannelReadTimeoutText[] = "Failed to read data from CAN channel";
+
+template <typename Reader>
+void readMsgsTranslatingTimeout(Reader&& reader)
+{
+    try {
+        reader();
+    }
+    catch (const std::runtime_error& ex) {
+        if (std::string(ex.what()) == kChannelReadTimeoutText) {
+            throw UDSRequestRxTimeout(ex.what());
+        }
+        throw;
+    }
+}
 
 uint8_t getRequestId(const std::vector<uint8_t>& data)
 {
@@ -61,9 +99,10 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel, siz
     if(writeStatus != STATUS_NOERROR || numMsgs < 1) {
         LOG(ERROR) << "UDS TX failed can=0x" << std::hex << _canId
                    << " status=" << j2534StatusToString(writeStatus) << " written=" << std::dec << numMsgs;
-        throw std::runtime_error("Failed to send CAN message: " + j2534StatusToString(writeStatus));
+        throw UDSRequestTxError(writeStatus, numMsgs, "Failed to send CAN message: " + j2534StatusToString(writeStatus));
     }
     std::vector<uint8_t> result;
+    readMsgsTranslatingTimeout([&]() {
     channel.readMsgs([&result, this](const uint8_t* data, size_t dataSize) {
         LOG(DEBUG) << "UDS RX raw=" << toHexString(frameToVector(data, dataSize));
         try {
@@ -88,6 +127,7 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel, siz
         LOG(DEBUG) << "UDS RX accepted payload=" << toHexString(payloadFromFrame(data, dataSize));
         return false;
     }, timeout);
+    });
     if(result.empty()) {
         LOG(WARNING) << "UDS RX completed without payload/no matching response can=0x" << std::hex << _canId
                      << " request=0x" << static_cast<int>(_requestId);
@@ -108,10 +148,11 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
     if(writeStatus != STATUS_NOERROR || numMsgs < 1) {
         LOG(ERROR) << "UDS TX failed can=0x" << std::hex << _canId
                    << " status=" << j2534StatusToString(writeStatus) << " written=" << std::dec << numMsgs;
-        throw std::runtime_error("Failed to send CAN message: " + j2534StatusToString(writeStatus));
+        throw UDSRequestTxError(writeStatus, numMsgs, "Failed to send CAN message: " + j2534StatusToString(writeStatus));
     }
     std::vector<uint8_t> result;
     bool acceptedResponse = false;
+    readMsgsTranslatingTimeout([&]() {
     channel.readMsgs([&result, &checkData, &retryCount, &acceptedResponse, this](const uint8_t* data, size_t dataSize) {
         LOG(DEBUG) << "UDS RX raw=" << toHexString(frameToVector(data, dataSize));
         try {
@@ -135,6 +176,12 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
         ++dataOffset;
         const auto areResultEqual{std::equal(checkData.cbegin(), checkData.cend(), data + dataOffset)};
         if (!areResultEqual) {
+            const std::vector<uint8_t> actualCheck{ data + dataOffset, data + dataOffset + checkData.size() };
+            LOG(WARNING) << "UDS RX positive response check mismatch can=0x" << std::hex << _canId
+                         << " request=0x" << static_cast<int>(_requestId)
+                         << " expected=" << toHexString(checkData)
+                         << " actual=" << toHexString(actualCheck)
+                         << " raw=" << toHexString(frameToVector(data, dataSize));
             if(--retryCount == 0) {
                 throw std::runtime_error("Failed to receive correct answer");
             }
@@ -144,9 +191,15 @@ std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
         acceptedResponse = true;
         result.reserve(result.size() + dataSize);
         std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
-        LOG(DEBUG) << "UDS RX accepted payload=" << toHexString(payloadFromFrame(data, dataSize));
+        LOG(DEBUG) << "UDS RX accepted positive response can=0x" << std::hex << _canId
+                   << " request=0x" << static_cast<int>(_requestId)
+                   << " strippedSid=0x" << static_cast<int>(_requestId + 0x40)
+                   << " strippedCheck=" << toHexString(checkData)
+                   << " payloadAfterStrip=" << toHexString(result)
+                   << " rawPayload=" << toHexString(payloadFromFrame(data, dataSize));
         return false;
     }, timeout);
+    });
     if (result.empty() && acceptedResponse) {
         LOG(DEBUG) << "UDS RX accepted response without payload can=0x" << std::hex << _canId
                    << " request=0x" << static_cast<int>(_requestId);

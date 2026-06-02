@@ -4,9 +4,28 @@
 
 #include "j2534/J2534Channel.hpp"
 
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace common {
+
+class UDSRequestTxError : public std::runtime_error {
+public:
+    UDSRequestTxError(unsigned long status, unsigned long written, const std::string& message);
+
+    unsigned long status() const;
+    unsigned long written() const;
+
+private:
+    unsigned long _status;
+    unsigned long _written;
+};
+
+class UDSRequestRxTimeout : public std::runtime_error {
+public:
+    explicit UDSRequestRxTimeout(const std::string& message);
+};
 
 class UDSRequest {
 public:

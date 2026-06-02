@@ -14,6 +14,7 @@
 #include <easylogging++.h>
 
 #include <algorithm>
+#include <atomic>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -26,6 +27,8 @@
 #include <windows.h>
 
 INITIALIZE_EASYLOGGINGPP
+
+std::atomic_bool stopRequested{ false };
 
 bool isDebugLoggingRequested(int argc, const char* argv[])
 {
@@ -87,8 +90,12 @@ static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
 }
 
 BOOL WINAPI HandlerRoutine(_In_ DWORD dwCtrlType) {
-  logger::LoggerApplication::instance().stop();
-  return TRUE;
+  if (dwCtrlType == CTRL_C_EVENT || dwCtrlType == CTRL_BREAK_EVENT || dwCtrlType == CTRL_CLOSE_EVENT) {
+    const bool alreadyRequested = stopRequested.exchange(true);
+    logger::LoggerApplication::instance().stop();
+    return alreadyRequested ? FALSE : TRUE;
+  }
+  return FALSE;
 }
 
 std::string getSehModuleName(void* address)
@@ -155,7 +162,7 @@ int main(int argc, const char *argv[]) {
           logger::LoggerApplication::instance().start(
               baudrate, *j2534, params, carPlatform, cmId,
               {&fileLogWriter, &consoleLogWriter});
-          while (logger::LoggerApplication::instance().isStarted()) {
+          while (!stopRequested.load() && logger::LoggerApplication::instance().isStarted()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));
           }
           logger::LoggerApplication::instance().stop();
