@@ -1,0 +1,48 @@
+@startuml RxStateMachine
+skinparam backgroundColor #FEFEFE
+skinparam state {
+  FontSize 12
+  FontName Consolas
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+}
+
+title ISOTP Receiver FSM (HFSM2)
+\n\n
+state RxIdle : Waiting for first frame
+state ReceiveSF : Single frame received
+state ReceiveFF : First frame received, sending FC
+state SendFC : Re-sending Flow Control
+state ReceiveCF : Consecutive frame(s) expected
+state RxCompleted : Message received complete
+state RxError : Error state
+\n\n
+[*] --> RxIdle : Initial entry
+\n\n
+RxIdle --> ReceiveSF : RxFrame(SF) – store data immediately
+RxIdle --> ReceiveFF : RxFrame(FF) – start reception
+RxIdle --> RxError : RxFrame(other)
+\n\n
+ReceiveSF --> RxCompleted : Call onReceived, then auto
+\n\n
+ReceiveFF --> ReceiveCF : Send FC(CTS, BS, STmin), start N_Ar timer
+ReceiveFF --> RxError : BufferOverflow (message too large)
+\n\n
+ReceiveCF --> RxCompleted : All CF received (len >= expectedLength), call onReceived
+ReceiveCF --> ReceiveCF : More CF expected (re-enter to restart N_Cr timer)
+ReceiveCF --> RxError : Invalid Sequence Number
+ReceiveCF --> RxError : Timeout(N_Cr)
+ReceiveCF --> RxError : RxFrame(other)
+\n\n
+SendFC --> ReceiveCF : Resend FC and go back to waiting CF
+\n\n
+RxCompleted --> RxIdle : auto
+\n\n
+RxIdle --> RxIdle : Reset
+ReceiveFF --> RxIdle : Reset
+ReceiveCF --> RxIdle : Reset
+RxError --> RxIdle : Reset
+\n\n
+RxError --> RxError : any other event
+\n\n
+@enduml

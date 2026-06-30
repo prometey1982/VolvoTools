@@ -1,0 +1,41 @@
+@startuml TxStateMachine
+skinparam backgroundColor #FEFEFE
+skinparam state {
+  FontSize 12
+  FontName Consolas
+  BackgroundColor #EEF2FF
+  BorderColor #445566
+}
+
+title ISOTP Transmitter FSM (HFSM2)
+\n\n
+state Idle : Waiting for send request
+state SendSingleFrame : Sending SF frame (data <= 7 bytes)
+state SendFirstFrame : Sending FF frame (data > 7 bytes)
+state WaitFlowControl : Waiting for FC after FF or after block
+state SendConsecutiveFrame : Sending CF frame(s)
+state TxCompleted : Send completed
+state TxError : Error state\n\n
+[*] --> Idle : Initial entry\n\n
+Idle --> SendSingleFrame : SendRequest && size <= 7
+Idle --> SendFirstFrame : SendRequest && size > 7\n\n
+SendSingleFrame --> TxCompleted : Frame sent
+
+SendFirstFrame --> WaitFlowControl : FF sent\n\n
+WaitFlowControl --> SendConsecutiveFrame : RxFrame(FC, CTS)
+WaitFlowControl --> WaitFlowControl : RxFrame(FC, WAIT) - restart timer
+WaitFlowControl --> TxError : RxFrame(FC, OVERFLOW)
+WaitFlowControl --> TxError : Timeout(N_Bs)\n\n
+SendConsecutiveFrame --> SendConsecutiveFrame : TxConfirmation OK && more data && (no block limit)
+SendConsecutiveFrame --> WaitFlowControl : TxConfirmation OK && blockSize > 0 && blockCounter >= blockSize
+SendConsecutiveFrame --> TxCompleted : TxConfirmation OK && all data sent
+SendConsecutiveFrame --> TxError : TxConfirmation FAIL
+SendConsecutiveFrame --> TxError : Timeout(N_Cs)\n\n
+SendConsecutiveFrame --> WaitFlowControl : ReadyToSend after STmin (auto transition)\n\n
+TxCompleted --> Idle : auto\n\n
+Idle --> Idle : Reset
+WaitFlowControl --> Idle : Reset
+SendConsecutiveFrame --> Idle : Reset
+TxError --> Idle : Reset\n\n
+TxError --> TxError : any other event\n\n
+@enduml
