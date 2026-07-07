@@ -25,3 +25,9 @@ endif()
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(${PROJECT_NAME} Common j2534)
+
+option(BUILD_FLASHER_TESTS "Build Flasher unit tests" OFF)
+if(BUILD_FLASHER_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()

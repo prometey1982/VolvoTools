@@ -1,7 +1,5 @@
 #pragma once
 
-#include "FlasherCallback.hpp"
-
 #include "FlasherBase.hpp"
 
 #include <common/GenericProcess.hpp>
@@ -17,8 +15,6 @@ public:
     explicit D2FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters);
     ~D2FlasherBase();
 
-    void canWakeUp(unsigned long baudrate);
-
 protected:
     void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override final;
 
@@ -26,9 +22,6 @@ protected:
     virtual bool isBootloaderRequired() const = 0;
     virtual void eraseStep(ICanChannel &channel, uint8_t ecuId) = 0;
     virtual void writeStep(ICanChannel &channel, uint8_t ecuId) = 0;
-
-  void canWakeUp();
-  void cleanErrors();
 };
 
 } // namespace flasher

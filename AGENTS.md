@@ -40,7 +40,7 @@ Must be init'd after clone. All are read-only dependencies:
 
 ## Architecture
 
-- **Public headers** live under e.g. `Flasher/flasher/*.hpp` — implementations in `Flasher/src/*`
+- **Public headers** live under `{Module}/{module}/*.hpp` — implementations and private headers in `{Module}/src/*`
 - **Namespaces**: `common::`, `flasher::`, `logger::`, `j2534::`
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root

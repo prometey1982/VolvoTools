@@ -24,6 +24,7 @@ CMakeUserPresets.json
 CPackConfig.cmake
 CPackSourceConfig.cmake
 cmake_install.cmake
+myeasylog.log
 *.vcxproj
 *.vcxproj.filters
 *.user
