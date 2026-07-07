@@ -44,7 +44,10 @@ Must be init'd after clone. All are read-only dependencies:
 - **Namespaces**: `common::`, `flasher::`, `logger::`, `j2534::`
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root
+- **Transport abstraction spec**: `docs/tech_specs/transport_abstraction.md`
+- **New transport types** (`Common/common/`): `CanFrame.hpp` — CAN message struct, `ICanChannel.hpp` — abstract channel interface, `J2534ChannelAdapter.hpp` — J2534 bridge
 - **Channel safety**: J2534 channels opened in one thread crash when used from another — use `J2534ChannelProvider` (see README note)
+- **Transport abstraction**: `*ProtocolCommonSteps`, flashers, and loggers use `ICanChannel` (send/receive `CanFrame`). J2534 is one adapter (`J2534ChannelAdapter`). Alternative transports (ELM327, ESP32, STM32) just implement `ICanChannel`.
 
 ## CLI
 
