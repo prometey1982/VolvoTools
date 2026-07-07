@@ -9,6 +9,8 @@
 
 #include <array>
 
+class ICanChannel;
+
 namespace j2534 {
     class J2534;
 } // namespace j2534
@@ -25,7 +27,7 @@ namespace flasher {
         ~UDSFlasher();
 
     private:
-        void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels);
+        void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
 
     private:
         UDSFlasherParameters _udsFlasherParameters;

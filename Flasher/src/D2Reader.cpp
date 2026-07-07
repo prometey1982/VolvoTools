@@ -1,5 +1,6 @@
 #include "flasher/D2Reader.hpp"
 
+#include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
 #include <common/SBL.hpp>
@@ -9,20 +10,19 @@
 
 namespace {
 
-    PASSTHRU_MSG writeMessagesAndReadMessage(j2534::J2534Channel& channel,
-        const j2534::BaseMessage& msgs) {
+    constexpr uint32_t D2_CAN_ID = 0xFFFFE;
+
+    CanFrame writeMessagesAndReadMessage(ICanChannel& channel,
+                                          const CanFrame& msg) {
         channel.clearRx();
-        unsigned long msgsNum = 1;
-        const auto error = channel.writeMsgs(msgs, msgsNum, 5000);
-        if (error != STATUS_NOERROR) {
+        if (!channel.send(msg)) {
             throw std::runtime_error("write msgs error");
         }
-        std::vector<PASSTHRU_MSG> received_msgs(1);
-        channel.readMsgs(received_msgs, 3000);
-        if (received_msgs.empty()) {
+        CanFrame response;
+        if (!channel.receive(response, 3000)) {
             throw std::runtime_error("Failed to receive message");
         }
-        return received_msgs[0];
+        return response;
     }
 
 } // namespace
@@ -48,21 +48,31 @@ bool D2Reader::isBootloaderRequired() const
     return false;
 }
 
-void D2Reader::eraseStep(j2534::J2534Channel&, uint8_t)
+void D2Reader::eraseStep(ICanChannel&, uint8_t)
 {
 }
 
-void D2Reader::writeStep(j2534::J2534Channel &channel, uint8_t ecuId)
+void D2Reader::writeStep(ICanChannel &channel, uint8_t ecuId)
 {
     for (uint32_t i = 0; i < _size; ++i)
     {
         const auto currentPos = _startPos + i;
         common::D2ProtocolCommonSteps::jumpTo(channel, ecuId, currentPos);
-        const auto checksumAnswer = writeMessagesAndReadMessage(channel, common::D2Messages::createCalculateChecksumMsg(
-                                                                             ecuId, currentPos + 1));
-        if (checksumAnswer.Data[5] == 0xB1)
+        auto calcMsg = common::toVector(currentPos + 1);
+        std::vector<uint8_t> payload(8, 0);
+        payload[0] = ecuId;
+        payload[1] = 0xB4;
+        payload[2] = 0x15;
+        payload[3] = 0x22;
+        payload[4] = calcMsg[0];
+        payload[5] = calcMsg[1];
+        payload[6] = calcMsg[2];
+        payload[7] = calcMsg[3];
+        const auto checksumAnswer = writeMessagesAndReadMessage(channel,
+            {D2_CAN_ID, std::move(payload), true});
+        if (checksumAnswer.data.size() >= 2 && checksumAnswer.data[1] == 0xB1)
         {
-            _bin.push_back(checksumAnswer.Data[6]);
+            _bin.push_back(checksumAnswer.data[2]);
             incCurrentProgress(1);
         }
     }

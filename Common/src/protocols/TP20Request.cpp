@@ -1,6 +1,8 @@
 #include "common/protocols/TP20Request.hpp"
 
 #include "common/protocols/TP20Error.hpp"
+#include "common/CanFrame.hpp"
+#include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
 #include <algorithm>
@@ -22,40 +24,42 @@ namespace common {
     }
 
     TP20Request::TP20Request(uint32_t canId, uint32_t responseCanId, const std::vector<uint8_t>& data)
-        : _requestId{ getRequestId(data) }
+        : _canId{ canId }
+        , _requestId{ getRequestId(data) }
         , _responseCanId{ responseCanId }
-        , _message{ canId, data }
+        , _data{ data }
     {
     }
 
     TP20Request::TP20Request(uint32_t canId, uint32_t responseCanId, std::vector<uint8_t>&& data)
-        : _requestId{ getRequestId(data) }
+        : _canId{ canId }
+        , _requestId{ getRequestId(data) }
         , _responseCanId{ responseCanId }
-        , _message{ canId, std::move(data) }
+        , _data{ std::move(data) }
     {
     }
 
-    std::vector<uint8_t> TP20Request::process(const j2534::J2534Channel& channel, size_t timeout) const
+    std::vector<uint8_t> TP20Request::process(ICanChannel& channel, size_t timeout) const
     {
-        unsigned long numMsgs = 0;
-        if (channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
+        if (!channel.send({_canId, _data})) {
             throw std::runtime_error("Failed to send CAN message");
         }
         std::vector<uint8_t> result;
-        channel.readMsgs([&result, this](const uint8_t* data, size_t dataSize) {
-            checkTP20Error(_requestId, data, dataSize);
-            if (dataSize < 4) {
-                return true;
+        while (true) {
+            CanFrame response;
+            if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
+                throw std::runtime_error("Failed to receive response");
             }
-            const auto receivedCanId{ encodeBigEndian(data[3], data[2], data[1], data[0]) };
-            if (receivedCanId != _responseCanId) {
-                return true;
+            checkTP20Error(_requestId, response.data.data(), response.data.size());
+            if (response.id != _responseCanId) {
+                continue;
             }
-            size_t dataOffset = 4;
-            result.reserve(result.size() + dataSize - dataOffset);
-            std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
-            return false;
-            }, timeout);
+            if (response.data.empty()) {
+                continue;
+            }
+            result = response.data;
+            break;
+        }
         return result;
     }
 

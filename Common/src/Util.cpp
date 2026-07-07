@@ -1,4 +1,5 @@
 #include "common/Util.hpp"
+#include "common/ICanChannel.hpp"
 
 #include "common/CommonData.hpp"
 #include "common/BusConfiguration.hpp"
@@ -293,7 +294,7 @@ namespace common {
         return {};
     }
 
-    bool prepareUDSChannel(const j2534::J2534Channel& channel, uint32_t canId) {
+    bool prepareUDSChannel(j2534::J2534Channel& channel, uint32_t canId) {
         const uint32_t responseCanId = canId + 0x8;
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
@@ -305,7 +306,7 @@ namespace common {
         return channel.startMsgFilter(FLOW_CONTROL_FILTER, &maskMsg, &patternMsg, &flowMsg, msgId) == STATUS_NOERROR;
     }
 
-    bool prepareTP20Channel(const j2534::J2534Channel& channel, uint32_t canId) {
+    bool prepareTP20Channel(j2534::J2534Channel& channel, uint32_t canId) {
         unsigned long msgId;
         PASSTHRU_MSG maskMsg =
             makePassThruMsg(channel.getProtocolId(), channel.getTxFlags(), { 0xFF, 0xFF, 0xFF, 0xFF });
@@ -411,35 +412,32 @@ namespace common {
     }
 
     static bool readCheckAndGetImpl(
-        const j2534::J2534Channel& channel,
+        ICanChannel& channel,
         const std::vector<uint8_t> msgId,
         const std::vector<uint8_t>& toCheck,
         std::vector<uint8_t>& result,
         size_t retryCount) {
         for (size_t i = 0; i < retryCount; ++i) {
-            std::vector<PASSTHRU_MSG> read_msgs;
-            read_msgs.resize(1);
-            if (channel.readMsgs(read_msgs, 10000) != STATUS_NOERROR || read_msgs.empty())
-            {
+            CanFrame frame;
+            if (!channel.receive(frame, 10000)) {
                 continue;
             }
-            const auto& msg = read_msgs[0];
-            if (msg.DataSize < msgId.size() + 4) {
+            if (frame.data.size() < msgId.size()) {
                 continue;
             }
-            uint32_t checkOffset = 4;
-            const auto areMessagesEqual = std::equal(msgId.cbegin(), msgId.cend(), msg.Data + checkOffset);
+            size_t checkOffset = 0;
+            const auto areMessagesEqual = std::equal(msgId.cbegin(), msgId.cend(), frame.data.cbegin() + checkOffset);
             if (!areMessagesEqual) {
                 continue;
             }
             checkOffset += msgId.size();
-            const auto areResultEqual = std::equal(toCheck.cbegin(), toCheck.cend(), msg.Data + checkOffset);
+            const auto areResultEqual = std::equal(toCheck.cbegin(), toCheck.cend(), frame.data.cbegin() + checkOffset);
             if (!areResultEqual) {
                 return false;
             }
             else {
                 checkOffset += toCheck.size();
-                result.insert(result.end(), msg.Data + checkOffset, msg.Data + msg.DataSize);
+                result.insert(result.end(), frame.data.cbegin() + checkOffset, frame.data.cend());
                 return true;
             }
         }
@@ -447,7 +445,7 @@ namespace common {
     }
 
     std::vector<uint8_t> readMessageCheckAndGet(
-        const j2534::J2534Channel& channel,
+        ICanChannel& channel,
         const std::vector<uint8_t> msgId,
         const std::vector<uint8_t>& toCheck,
         size_t retryCount) {
@@ -457,7 +455,7 @@ namespace common {
     }
 
     bool readMessageAndCheck(
-        const j2534::J2534Channel& channel,
+        ICanChannel& channel,
         const std::vector<uint8_t> msgId,
         const std::vector<uint8_t>& toCheck,
         size_t retryCount)
@@ -606,7 +604,7 @@ namespace common {
     }
 
     size_t getChannelIndexByEcuId(CarPlatform carPlatform, uint32_t ecuId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+        const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         const auto [busInfo, ecuInfo] = getEcuInfoByEcuId(carPlatform, ecuId);
         for(size_t i = 0; i < channels.size(); ++i) {
@@ -617,8 +615,8 @@ namespace common {
         throw std::runtime_error((std::stringstream() << "Can'f find opened channel with baudrate = " << busInfo.baudrate).str());
     }
 
-    j2534::J2534Channel& getChannelByEcuId(CarPlatform carPlatform, uint32_t ecuId,
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    ICanChannel& getChannelByEcuId(CarPlatform carPlatform, uint32_t ecuId,
+        const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         return *channels[getChannelIndexByEcuId(carPlatform, ecuId, channels)];
     }

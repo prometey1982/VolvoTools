@@ -6,6 +6,8 @@
 #include <memory>
 #include <vector>
 
+class ICanChannel;
+
 namespace j2534 {
 class J2534;
 class J2534Channel;
@@ -23,8 +25,8 @@ public:
     J2534ChannelProvider& operator=(const J2534ChannelProvider&) = delete;
 
     j2534::J2534& getJ2534() const;
-    std::vector<std::unique_ptr<j2534::J2534Channel>> getAllChannels(uint32_t ecuId) const;
-    std::unique_ptr<j2534::J2534Channel> getChannelForEcu(uint32_t ecuId) const;
+    std::vector<std::unique_ptr<ICanChannel>> getAllChannels(uint32_t ecuId) const;
+    std::unique_ptr<ICanChannel> getChannelForEcu(uint32_t ecuId) const;
 
 private:
     j2534::J2534& _j2534;

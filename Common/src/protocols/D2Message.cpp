@@ -123,4 +123,8 @@ const std::vector<uint8_t>& D2Message::getRequestId() const {
   return _requestId;
 }
 
+const std::vector<D2Message::DataType>& D2Message::getFrames() const {
+  return data();
+}
+
 } // namespace common

@@ -2,7 +2,8 @@
 
 #include "common/protocols/TP20Request.hpp"
 #include "common/protocols/TP20Service.hpp"
-#include "common/CanMessage.hpp"
+#include "common/CanFrame.hpp"
+#include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
 #define HFSM2_ENABLE_ALL
@@ -25,7 +26,7 @@ namespace common {
 
         using PayloadT = std::vector<uint8_t>;
 
-        TP20SessionImpl(const j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
+        TP20SessionImpl(ICanChannel& channel, CarPlatform carPlatform, uint8_t ecuId)
             : _channel{ channel }
             , _carPlatform{ carPlatform }
             , _ecuId{ ecuId }
@@ -61,7 +62,15 @@ namespace common {
                 return false;
             }
             const auto channelTxId{ encodeBigEndian(csResp[4], csResp[5]) };
-            prepareTP20Channel(_channel, requestedChannel);
+            {
+                const unsigned long passFilter = 0x00000001;
+                unsigned long filterId;
+                auto canIdVec = common::toVector(requestedChannel);
+                _channel.startMsgFilter(passFilter,
+                    {0, {0xFF, 0xFF, 0xFF, 0xFF}},
+                    {0, std::move(canIdVec)},
+                    nullptr, filterId);
+            }
             TP20Request channelParametersRequest{ channelTxId, requestedChannel,
                                                 { TP20ServiceID::SetupChannelParameters, 0xF, 0x8A, 0xFF, 0x32, 0xFF } };
             const auto cpResp{ channelParametersRequest.process(_channel, 2000) };
@@ -86,13 +95,17 @@ namespace common {
             case 3:
                 _minimimSendDelay *= 100;
             }
-            _keepAliveIds = _channel.startPeriodicMsgs(common::TP20Message(_txId, { 0xA3 }), 1000);
+            unsigned long keepAliveId;
+            _channel.startPeriodicMsg({_txId, {0xA3}}, 1000, keepAliveId);
+            _keepAliveIds.push_back(keepAliveId);
             return true;
         }
 
         void disconnect()
         {
-            _channel.stopPeriodicMsg(_keepAliveIds);
+            for (auto id : _keepAliveIds) {
+                _channel.stopPeriodicMsg(id);
+            }
             _keepAliveIds.clear();
         }
 
@@ -131,7 +144,6 @@ namespace common {
             payload[0] = _dataToSend.empty() ? 0x10 : _packetsTillAck > 1 ? 0x20 : 0x10;
             const auto result{ sendMessage(_sendPacketCounter++, std::move(payload)) };
             if (result) {
-                //--_packetsTillAck;
                 _needReadAck = !_packetsTillAck || _dataToSend.empty();
             }
             return result;
@@ -140,24 +152,33 @@ namespace common {
         bool readResponse()
         {
             try {
-                _channel.readMsgs([this](const uint8_t* data, size_t length) {
-                    if (checkMessageForSkip(data, length)) {
-                        return true;
+                while (true) {
+                    CanFrame frame;
+                    if (!_channel.receive(frame, _readTimeout)) {
+                        throw std::runtime_error("read timeout");
                     }
-                    const auto op{ (data[4] >> 4) & 0x0F };
+                    if (checkMessageForSkip(frame)) {
+                        continue;
+                    }
+                    if (frame.data.empty()) {
+                        continue;
+                    }
+                    const auto op{ (frame.data[0] >> 4) & 0x0F };
                     _needReadMore = !(op & 0x1);
                     _needSendAck = !(op & 0x02);
-                    const size_t dataOffset = _receivedData.empty() ? 7 : 5;
-                    if (length < dataOffset) {
-                        return true;
+                    const size_t dataOffset = _receivedData.empty() ? 3 : 1;
+                    if (frame.data.size() < dataOffset) {
+                        continue;
                     }
-                    _receivedData.reserve(_receivedData.size() + length - dataOffset);
-                    std::copy(data + dataOffset, data + length, std::back_inserter(_receivedData));
+                    _receivedData.reserve(_receivedData.size() + frame.data.size() - dataOffset);
+                    std::copy(frame.data.cbegin() + dataOffset, frame.data.cend(), std::back_inserter(_receivedData));
                     if (_needSendAck) {
-                        _ackPacketCounter = (data[4] & 0x0F) + 1;
+                        _ackPacketCounter = (frame.data[0] & 0x0F) + 1;
                     }
-                    return _needReadMore && !_needSendAck;
-                    }, _readTimeout);
+                    if (!_needReadMore && !_needSendAck) {
+                        break;
+                    }
+                }
                 return true;
             }
             catch (...) {
@@ -168,18 +189,20 @@ namespace common {
         bool readAck()
         {
             try {
-                _channel.readMsgs([this](const uint8_t* data, size_t length) {
-                    if (checkMessageForSkip(data, length)) {
-                        return true;
+                while (true) {
+                    CanFrame frame;
+                    if (!_channel.receive(frame, 10000)) {
+                        throw std::runtime_error("ack timeout");
                     }
-                    if ((data[4] & 0xF0) == 0xB0) {
+                    if (checkMessageForSkip(frame)) {
+                        continue;
+                    }
+                    if (!frame.data.empty() && (frame.data[0] & 0xF0) == 0xB0) {
                         _needReadAck = false;
                         _packetsTillAck = _maxPacketsTillAck;
-                        return false;
+                        return true;
                     }
-                    return true;
-                    }, 10000);
-                return !_needReadAck;
+                }
             }
             catch (...) {
                 return false;
@@ -234,18 +257,18 @@ namespace common {
         }
 
     private:
-        bool checkMessageForSkip(const uint8_t* data, size_t dataSize)
+        bool checkMessageForSkip(const CanFrame& frame)
         {
-            if (dataSize < 5) {
+            if (frame.data.size() < 1) {
                 return true;
             }
-            if (encodeBigEndian(data[3], data[2], data[1], data[0]) != _rxId) {
+            if (frame.id != _rxId) {
                 return true;
             }
-            if (data[4] == 0xA1) {
+            if (frame.data[0] == 0xA1) {
                 return true;
             }
-            if (dataSize >= 6 && data[4] == 0x7F && data[6] == 0x78) {
+            if (frame.data.size() >= 3 && frame.data[0] == 0x7F && frame.data[2] == 0x78) {
                 return true;
             }
             return false;
@@ -259,14 +282,12 @@ namespace common {
                 std::this_thread::sleep_for((nextCommandDuration - now));
             }
             payload[0] |= packetCounter & 0x0F;
-            TP20Message canMessage{ _txId, std::move(payload) };
-            unsigned long msgsNum = 1;
             _lastRequestTime = now;
-            return _channel.writeMsgs(canMessage, msgsNum) == STATUS_NOERROR;
+            return _channel.send({_txId, std::move(payload)});
         }
 
     private:
-        const j2534::J2534Channel& _channel;
+        ICanChannel& _channel;
         const CarPlatform _carPlatform;
         const uint8_t _ecuId;
         std::chrono::steady_clock::duration _lastRequestTime;
@@ -292,7 +313,7 @@ namespace common {
         struct Idle,
         struct SendRequest,
         struct WaitForAck,
-        struct ReadResponse,
+        struct ReadResponseState,
         struct WriteAck,
         struct Error
         >;
@@ -342,7 +363,7 @@ namespace common {
         }
     };
 
-    struct ReadResponse : public FSM::State {
+    struct ReadResponseState : public FSM::State {
     public:
         void update(FullControl& control)
         {
@@ -352,7 +373,9 @@ namespace common {
             else if(control.context().needSendAck()) {
                 control.changeTo<WriteAck>();
             }
-            else if (!control.context().needReadMore()) {
+            else if(control.context().needReadMore()) {
+            }
+            else {
                 control.changeTo<Idle>();
             }
         }
@@ -365,34 +388,29 @@ namespace common {
             if(!control.context().sendAck()) {
                 control.changeTo<Error>();
             }
+            else if(control.context().needReadMore()) {
+                control.changeTo<ReadResponseState>();
+            }
             else {
-                if(control.context().needReadMore()) {
-                    control.changeTo<ReadResponse>();
-                }
-                else {
-                    control.changeTo<Idle>();
-                }
+                control.changeTo<Idle>();
             }
         }
     };
 
     struct Error : public FSM::State {
     public:
-        void enter(PlanControl& control)
+        void update(FullControl& control)
         {
             control.context().error();
         }
     };
 
-    TP20Session::TP20Session(const j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId)
+    TP20Session::TP20Session(ICanChannel& channel, CarPlatform carPlatform, uint8_t ecuId)
         : _impl{ std::make_unique<TP20SessionImpl>(channel, carPlatform, ecuId) }
     {
     }
 
-    TP20Session::~TP20Session()
-    {
-        stop();
-    }
+    TP20Session::~TP20Session() = default;
 
     bool TP20Session::start()
     {
@@ -406,47 +424,29 @@ namespace common {
 
     std::vector<uint8_t> TP20Session::process(const std::vector<uint8_t>& request) const
     {
-        if (writeMessage(request)) {
-            return readMessage();
+        _impl->reset();
+        _impl->setRequestData(request);
+
+        FSM::Instance fsm{ *_impl };
+        while(!_impl->needSendMore() && !_impl->needSendAck() && !_impl->needReadMore() && !_impl->needReadAck()) {
+            fsm.update();
         }
-        return {};
+
+        auto result{ _impl->releaseReceivedData() };
+        return result;
     }
 
     bool TP20Session::writeMessage(const std::vector<uint8_t>& request) const
     {
-        try {
-            FSM::Instance fsm{ *_impl };
-            _impl->setRequestData(request);
-            fsm.immediateChangeTo<SendRequest>();
-            while (!fsm.isActive<Idle>() && !fsm.isActive<Error>()) {
-                fsm.update();
-            }
-            return !fsm.isActive<Error>();
-        }
-        catch (...) {
-            _impl->reset();
-            return {};
-        }
+        _impl->setRequestData(request);
+        return _impl->sendRequest();
     }
 
     std::vector<uint8_t> TP20Session::readMessage(size_t timeout) const
     {
-        try {
-            FSM::Instance fsm{ *_impl };
-            _impl->setReadTimeout(timeout);
-            fsm.immediateChangeTo<ReadResponse>();
-            while (!fsm.isActive<Idle>() && !fsm.isActive<Error>()) {
-                fsm.update();
-            }
-            if (fsm.isActive<Error>()) {
-                return {};
-            }
-            return _impl->releaseReceivedData();
-        }
-        catch (...) {
-            _impl->reset();
-            return {};
-        }
+        _impl->setReadTimeout(timeout);
+        _impl->readResponse();
+        return _impl->releaseReceivedData();
     }
 
 } // namespace common

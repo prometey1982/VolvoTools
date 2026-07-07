@@ -1,10 +1,11 @@
 #include "common/protocols/UDSRequestProcessor.hpp"
 
 #include "common/protocols/UDSRequest.hpp"
+#include "common/ICanChannel.hpp"
 
 namespace common {
 
-    UDSRequestProcessor::UDSRequestProcessor(const j2534::J2534Channel& channel, uint32_t canId)
+    UDSRequestProcessor::UDSRequestProcessor(ICanChannel& channel, uint32_t canId)
         : _channel{ channel }
         , _canId{ canId }
     {

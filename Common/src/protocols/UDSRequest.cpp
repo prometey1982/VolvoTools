@@ -1,6 +1,8 @@
 #include "common/protocols/UDSRequest.hpp"
 
 #include "common/protocols/UDSError.hpp"
+#include "common/CanFrame.hpp"
+#include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
 #include <algorithm>
@@ -22,80 +24,91 @@ uint8_t getRequestId(const std::vector<uint8_t>& data)
 }
 
 UDSRequest::UDSRequest(uint32_t canId, const std::vector<uint8_t>& data)
-    : _requestId{ getRequestId(data) }
-    , _message{ canId, data }
+    : _canId{ canId }
+    , _requestId{ getRequestId(data) }
+    , _data{ data }
 {
 }
 
 UDSRequest::UDSRequest(uint32_t canId, std::vector<uint8_t>&& data)
-    : _requestId{ getRequestId(data) }
-    , _message{ canId, std::move(data) }
+    : _canId{ canId }
+    , _requestId{ getRequestId(data) }
+    , _data{ std::move(data) }
 {
 }
 
-std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel, size_t timeout)
+std::vector<uint8_t> UDSRequest::process(ICanChannel& channel, size_t timeout)
 {
-    unsigned long numMsgs = 0;
-    if(channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
+    CanFrame request{ _canId, _data };
+    if (!channel.send(request)) {
         throw std::runtime_error("Failed to send CAN message");
     }
     std::vector<uint8_t> result;
-    channel.readMsgs([&result, this](const uint8_t* data, size_t dataSize) {
-        checkUDSError(_requestId, data, dataSize);
-        if(dataSize < 5) {
-            return true;
+    while (true) {
+        CanFrame response;
+        if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
+            throw std::runtime_error("Failed to receive response");
         }
-        if(data[4] != _requestId + 0x40) {
-            return true;
+        checkUDSError(_requestId, response.data.data(), response.data.size());
+        if (response.data.size() < 1) {
+            continue;
         }
-        result.reserve(result.size() + dataSize);
-        std::copy(data, data + dataSize, std::back_inserter(result));
-        return false;
-    }, timeout);
+        if (response.data[0] != _requestId + 0x40) {
+            continue;
+        }
+        result = std::move(response.data);
+        break;
+    }
     return result;
 }
 
-std::vector<uint8_t> UDSRequest::process(const j2534::J2534Channel& channel,
+std::vector<uint8_t> UDSRequest::process(ICanChannel& channel,
                                          const std::vector<uint8_t>& checkData,
                                          size_t retryCount, size_t timeout)
 {
     channel.clearRx();
-    unsigned long numMsgs = 0;
-    if(channel.writeMsgs(_message, numMsgs, timeout) != STATUS_NOERROR || numMsgs < 1) {
+    CanFrame request{ _canId, _data };
+    if (!channel.send(request)) {
         throw std::runtime_error("Failed to send CAN message");
     }
     std::vector<uint8_t> result;
-    channel.readMsgs([&result, &checkData, &retryCount, this](const uint8_t* data, size_t dataSize) {
+    size_t remainingRetries = retryCount;
+    while (remainingRetries > 0) {
+        CanFrame response;
+        if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
+            if (--remainingRetries == 0) {
+                throw std::runtime_error("Failed to receive correct answer");
+            }
+            continue;
+        }
         try {
-            checkUDSError(_requestId, data, dataSize);
+            checkUDSError(_requestId, response.data.data(), response.data.size());
         }
         catch (const UDSError& ex) {
-            if (UDSError::ErrorCode::RequestReceivedResponsePending) {
-                return true;
+            if (ex.getErrorCode() == UDSError::ErrorCode::RequestReceivedResponsePending) {
+                continue;
             }
             throw;
         }
-        size_t dataOffset = 4;
-        if(dataSize < dataOffset + checkData.size()) {
-            return true;
+        if (response.data.size() < 1 + checkData.size()) {
+            continue;
         }
-        if(data[dataOffset] != _requestId + 0x40) {
-            return true;
+        if (response.data[0] != _requestId + 0x40) {
+            continue;
         }
-        ++dataOffset;
-        const auto areResultEqual{std::equal(checkData.cbegin(), checkData.cend(), data + dataOffset)};
-        if (!areResultEqual) {
-            if(--retryCount == 0) {
+        const bool match = std::equal(checkData.cbegin(), checkData.cend(),
+                                       response.data.cbegin() + 1);
+        if (!match) {
+            if (--remainingRetries == 0) {
                 throw std::runtime_error("Failed to receive correct answer");
             }
-            return (--retryCount != 0);
+            continue;
         }
-        dataOffset += checkData.size();
-        result.reserve(result.size() + dataSize);
-        std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
-        return false;
-    }, timeout);
-    return result;
+        result.assign(response.data.cbegin() + 1 + checkData.size(),
+                      response.data.cend());
+        return result;
+    }
+    throw std::runtime_error("Failed to receive correct answer");
 }
 
 } // namespace common

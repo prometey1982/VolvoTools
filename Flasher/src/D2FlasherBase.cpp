@@ -1,7 +1,7 @@
 #include "flasher/D2FlasherBase.hpp"
 
+#include "common/ICanChannel.hpp"
 #include <common/Util.hpp>
-#include <common/protocols/D2Message.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
 #include <common/SBL.hpp>
 #include <common/VBFParser.hpp>
@@ -28,7 +28,7 @@ void D2FlasherBase::canWakeUp(unsigned long baudrate)
     cleanErrors();
 }
 
-void D2FlasherBase::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+void D2FlasherBase::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 {
     try {
         const size_t simpleStepSize = 100;
@@ -77,34 +77,9 @@ void D2FlasherBase::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>&
 
 void D2FlasherBase::canWakeUp() {
   setCurrentState(FlasherState::WakeUp);
-  // unsigned long numMsgs = 1;
-  // const auto& channels{ getChannels() };
-  // for (size_t i = 0; i < channels.size(); ++i) {
-  //     if (channels[i]->getProtocolId() != ISO9141) {
-  //         channels[i]->writeMsgs(common::D2Messages::wakeUpCanRequest, numMsgs, 5000);
-  //     }
-  // }
-
-  // std::this_thread::sleep_for(std::chrono::seconds(2));
-
-  // const auto now{std::chrono::system_clock::now()};
-  // const auto time_t = std::chrono::system_clock::to_time_t(now);
-  // struct tm lt;
-  // localtime_s(&lt, &time_t);
-
-  // auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform, getFlasherParameters().ecuId, getChannels()) };
-  // channel.writeMsgs(
-  //       common::D2Messages::setCurrentTime(lt.tm_hour, lt.tm_min), numMsgs,
-  //       5000);
 }
 
 void D2FlasherBase::cleanErrors() {
-  // for (const auto ecuId :
-  //      {static_cast<uint8_t>(common::ECUType::ECM_ME), static_cast<uint8_t>(common::ECUType::TCM), static_cast<uint8_t>(common::ECUType::SRS)}) {
-  //   unsigned long numMsgs = 1;
-  //   auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform, ecuId, getChannels()) };
-  //   channel.writeMsgs(common::D2Messages::clearDTCMsgs(ecuId), numMsgs);
-  // }
 }
 
 } // namespace flasher

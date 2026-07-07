@@ -1,10 +1,13 @@
 #include "common/protocols/D2Request.hpp"
 
+#include "common/CanFrame.hpp"
+#include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
 #include <algorithm>
 #include <stdexcept>
 #include <iterator>
+#include <thread>
 
 namespace common {
 
@@ -28,58 +31,68 @@ D2Request::D2Request(const D2Message& message)
 {
 }
 
-std::vector<uint8_t> D2Request::process(const j2534::J2534Channel& channel, size_t timeout, size_t sendMessagesDelay)
+std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, size_t sendMessagesDelay)
 {
-    unsigned long numMsgs = 0;
-    if(channel.writeMsgs(_message, numMsgs, timeout, sendMessagesDelay) != STATUS_NOERROR || numMsgs < 1) {
-        throw std::runtime_error("Failed to send CAN message");
-    }
     const uint8_t ecuId = _message.getEcuId();
     const auto requestId = _message.getRequestId();
+
+    const uint32_t canId = 0xFFFFE;
+    for (const auto& frameData : _message.getFrames()) {
+        if (!channel.send({canId, {frameData.begin(), frameData.end()}, true})) {
+            throw std::runtime_error("Failed to send CAN message");
+        }
+        if (sendMessagesDelay > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(sendMessagesDelay));
+        }
+    }
+
     bool firstMessage = true;
     bool inSeries = false;
     uint8_t seriesId = 0x09;
     const auto restRequestSize{requestId.size() - 1};
     std::vector<uint8_t> result;
-    channel.readMsgs([&result, ecuId, requestId, &firstMessage, &inSeries, &seriesId, restRequestSize, this](const uint8_t* data, size_t dataSize) {
+    while (true) {
+        CanFrame response;
+        if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
+            throw std::runtime_error("Failed to receive response");
+        }
+        if (response.data.empty()) {
+            continue;
+        }
         size_t dataOffset = 0;
-        if(firstMessage) {
-            checkD2Error(ecuId, requestId, data, dataSize);
-            dataOffset = 7;
-            if(dataSize < dataOffset + restRequestSize + 1) {
-                return true;
+        if (firstMessage) {
+            checkD2Error(ecuId, requestId, response.data.data(), response.data.size());
+            dataOffset = 3;
+            if (response.data.size() < dataOffset + restRequestSize + 1) {
+                continue;
             }
-            const auto acceptMessage{(data[5] == ecuId) && (data[6] == requestId[0] + 0x40)};
-            if(!acceptMessage || !std::equal(requestId.begin() + 1, requestId.end(), data + dataOffset)) {
-                return true;
+            const auto acceptMessage{(response.data[1] == ecuId) && (response.data[2] == requestId[0] + 0x40)};
+            if (!acceptMessage || !std::equal(requestId.begin() + 1, requestId.end(), response.data.begin() + dataOffset)) {
+                continue;
             }
-            inSeries = !(data[4] & 0x40);
+            inSeries = !(response.data[0] & 0x40);
             firstMessage = false;
             dataOffset += restRequestSize;
         }
-        else if(inSeries) {
-            if(dataSize < 5) {
-                return true;
+        else if (inSeries) {
+            if (response.data.size() < 1) {
+                continue;
             }
-            dataOffset = 5;
-            const uint8_t header{data[4]};
-            if(header & 0x40) {
-                if(header < 0x48) {
+            dataOffset = 1;
+            const uint8_t header{response.data[0]};
+            if (header & 0x40) {
+                if (header < 0x48) {
                     throw std::runtime_error("Wrong data length in series");
                 }
                 inSeries = false;
-                dataSize = dataOffset + header - 0x48;
             }
-//            else if(seriesId == header) {
-//                seriesId = ((seriesId - 8) + 1) % 8 + 8;
-//            } else {
-//                throw std::runtime_error("Wrong series index");
-//            }
         }
-        result.reserve(result.size() + dataSize - dataOffset);
-        std::copy(data + dataOffset, data + dataSize, std::back_inserter(result));
-        return inSeries;
-    }, timeout);
+        result.reserve(result.size() + response.data.size() - dataOffset);
+        std::copy(response.data.cbegin() + dataOffset, response.data.cend(), std::back_inserter(result));
+        if (!inSeries) {
+            break;
+        }
+    }
     return result;
 }
 

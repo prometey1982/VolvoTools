@@ -1,15 +1,13 @@
 #include "flasher/D2Flasher.hpp"
 
-#include <common/Util.hpp>
-//#include <common/protocols/D2Message.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
+
 #include <common/SBL.hpp>
 #include <common/VBFParser.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
 #include <numeric>
-#include <time.h>
 
 namespace flasher {
 
@@ -32,12 +30,12 @@ bool D2Flasher::isBootloaderRequired() const
     return true;
 }
 
-void D2Flasher::eraseStep(j2534::J2534Channel &channel, uint8_t ecuId)
+void D2Flasher::eraseStep(ICanChannel &channel, uint8_t ecuId)
 {
     common::D2ProtocolCommonSteps::eraseFlash(channel, ecuId, getFlasherParameters().flash);
 }
 
-void D2Flasher::writeStep(j2534::J2534Channel &channel, uint8_t ecuId)
+void D2Flasher::writeStep(ICanChannel &channel, uint8_t ecuId)
 {
     common::D2ProtocolCommonSteps::transferData(
         channel, ecuId, getFlasherParameters().flash,

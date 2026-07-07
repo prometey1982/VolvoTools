@@ -4,6 +4,7 @@
 #include "common/protocols/UDSError.hpp"
 #include "common/Util.hpp"
 
+#include <array>
 #include <thread>
 #include <variant>
 

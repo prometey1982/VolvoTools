@@ -1,6 +1,7 @@
 #include "common/protocols/UDSPinFinder.hpp"
 
 #include "common/protocols/UDSProtocolCommonSteps.hpp"
+#include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
 #define HFSM2_ENABLE_ALL
@@ -38,7 +39,7 @@ namespace common {
         }
 
     public:
-        UDSPinFinderImpl(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+        UDSPinFinderImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
             const FinderData& finderData)
             : _channels{ channels }
             , _finderData{ finderData }
@@ -161,7 +162,7 @@ namespace common {
         }
 
     private:
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+        const std::vector<std::unique_ptr<ICanChannel>>& _channels;
         const FinderData& _finderData;
         uint32_t _canId;
         UDSPinFinder::State _currentState;

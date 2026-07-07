@@ -12,6 +12,12 @@
 #include <mutex>
 #include <vector>
 
+class ICanChannel;
+
+namespace j2534 {
+class J2534;
+}
+
 namespace flasher {
 
 class FlasherCallback;
@@ -43,7 +49,7 @@ public:
     void start();
 
 protected:
-    virtual void startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels) = 0;
+    virtual void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) = 0;
 
     const FlasherParameters& getFlasherParameters() const;
 

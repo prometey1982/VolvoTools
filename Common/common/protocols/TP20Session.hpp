@@ -2,10 +2,10 @@
 
 #include "common/CarPlatform.hpp"
 
-#include <j2534/J2534Channel.hpp>
-
 #include <chrono>
 #include <memory>
+
+class ICanChannel;
 
 namespace common {
 
@@ -13,7 +13,7 @@ namespace common {
 
     class TP20Session {
     public:
-        TP20Session(const j2534::J2534Channel& channel, CarPlatform carPlatform, uint8_t ecuId);
+        TP20Session(ICanChannel& channel, CarPlatform carPlatform, uint8_t ecuId);
         ~TP20Session();
 
         bool start();

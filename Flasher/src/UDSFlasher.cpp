@@ -6,6 +6,7 @@
 #include <common/CommonData.hpp>
 #include <common/protocols/UDSMessage.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
+#include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
 
 #define HFSM2_ENABLE_ALL
@@ -15,7 +16,7 @@ namespace flasher {
 
     class UDSFlasherImpl {
     public:
-        UDSFlasherImpl(const std::vector<std::unique_ptr<j2534::J2534Channel>>& channels,
+        UDSFlasherImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
                        const FlasherParameters& flasherParameters,
                        const UDSFlasherParameters& udsFlasherParameters,
                        uint32_t canId,
@@ -98,7 +99,7 @@ namespace flasher {
                 }
                 _stateUpdater(FlasherState::WriteFlash);
                 if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
-                                                                  _progressUpdater)) {
+                                                                   _progressUpdater)) {
                     setFailed("Flash writing failed");
                 }
             }
@@ -144,7 +145,7 @@ namespace flasher {
         }
 
     private:
-        const std::vector<std::unique_ptr<j2534::J2534Channel>>& _channels;
+        const std::vector<std::unique_ptr<ICanChannel>>& _channels;
         const FlasherParameters& _flasherParameters;
         const UDSFlasherParameters& _udsFlasherParameters;
         const uint32_t _canId;
@@ -308,7 +309,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     {
     }
 
-    void UDSFlasher::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    void UDSFlasher::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };

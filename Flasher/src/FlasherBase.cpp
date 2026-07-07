@@ -2,6 +2,7 @@
 
 #include "flasher/FlasherCallback.hpp"
 
+#include <common/ICanChannel.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 

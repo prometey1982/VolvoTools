@@ -6,6 +6,7 @@
 #include <common/protocols/KWPProtocolCommonSteps.hpp>
 #include <common/protocols/TP20RequestProcessor.hpp>
 #include <common/protocols/UDSRequestProcessor.hpp>
+#include <common/ICanChannel.hpp>
 #include <common/CommonData.hpp>
 #include <common/Util.hpp>
 
@@ -217,12 +218,12 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
     {
     }
 
-    void KWPFlasher::startImpl(std::vector<std::unique_ptr<j2534::J2534Channel>>& channels)
+    void KWPFlasher::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(getFlasherParameters().carPlatform,
             getFlasherParameters().ecuId) };
 
-        const auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform, getFlasherParameters().ecuId, channels) };
+        auto& channel{ common::getChannelByEcuId(getFlasherParameters().carPlatform, getFlasherParameters().ecuId, channels) };
 
         std::unique_ptr<common::TP20Session> tp20Session;
         std::unique_ptr<common::RequestProcessorBase> requestProcessor;

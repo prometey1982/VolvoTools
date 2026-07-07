@@ -8,6 +8,8 @@
 
 #include <vector>
 
+class ICanChannel;
+
 namespace j2534 {
 class J2534;
 } // namespace j2534
@@ -23,8 +25,8 @@ public:
 private:
   virtual size_t getMaximumFlashProgress() const override;
   virtual bool isBootloaderRequired() const override;
-  virtual void eraseStep(j2534::J2534Channel &channel, uint8_t ecuId) override;
-  virtual void writeStep(j2534::J2534Channel &channel, uint8_t ecuId) override;
+  virtual void eraseStep(ICanChannel &channel, uint8_t ecuId) override;
+  virtual void writeStep(ICanChannel &channel, uint8_t ecuId) override;
 };
 
 } // namespace flasher

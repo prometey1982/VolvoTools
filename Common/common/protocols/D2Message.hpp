@@ -63,6 +63,7 @@ public:
 
   uint8_t getEcuId() const;
   const std::vector<uint8_t>& getRequestId() const;
+  const std::vector<DataType>& getFrames() const;
 
 private:
   const uint8_t _ecuId;
