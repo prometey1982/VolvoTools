@@ -2,7 +2,8 @@
 
 #include "common/encryption/XOREncryptor.hpp"
 
-#include <easylogging++.h>
+#define LOG_MODULE_NAME "common"
+#include "common/LogHelper.hpp"
 
 namespace common {
 
@@ -10,7 +11,7 @@ std::unique_ptr<EncryptorBase> EncryptorFactory::create(EncryptionType encryptio
 {
     switch(encryptionType) {
     case EncryptionType::AES:
-        LOG(WARNING) << "AES encryption non implemented";
+        LOG_MODULE(WARNING) << "AES encryption non implemented";
         return {};
     case EncryptionType::XOR:
         return std::make_unique<XOREncryptor>(std::move(params));

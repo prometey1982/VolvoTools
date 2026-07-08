@@ -6,6 +6,9 @@
 #include <common/CommonData.hpp>
 #include <common/protocols/UDSMessage.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
+
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
 #include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
 
@@ -140,6 +143,7 @@ namespace flasher {
     private:
         void setFailed(const std::string& message)
         {
+            LOG_MODULE(ERROR) << message;
             _isFailed = true;
             _errorMessage = message;
         }

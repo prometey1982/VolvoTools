@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <codecvt>
+#include <cstdlib>
 #include <locale>
 #include <unordered_map>
 #include <fstream>
@@ -776,13 +777,60 @@ namespace common {
         return { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
     }
 
-    void initLogger(const std::string& logFilename)
+    void initLogger(const std::string& logFilename, bool enableConsole, bool debugMode)
     {
         el::Configurations defaultConf;
         defaultConf.setToDefault();
-        defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level %msg");
+        defaultConf.setGlobally(el::ConfigurationType::Format, "%datetime %level %fbase:%line %msg");
         defaultConf.setGlobally(el::ConfigurationType::Filename, logFilename);
+        defaultConf.setGlobally(el::ConfigurationType::MaxLogFileSize, "10485760");
+        defaultConf.setGlobally(el::ConfigurationType::LogFlushThreshold, "1");
+
+#ifdef _DEBUG
+        enableConsole = true;
+        debugMode = true;
+#endif
+
+        if (enableConsole) {
+            defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "true");
+        }
+
+        if (!debugMode) {
+            defaultConf.setGlobally(el::ConfigurationType::Enabled, "false");
+            defaultConf.set(el::Level::Global, el::ConfigurationType::Enabled, "true");
+            defaultConf.set(el::Level::Info, el::ConfigurationType::Enabled, "true");
+            defaultConf.set(el::Level::Warning, el::ConfigurationType::Enabled, "true");
+            defaultConf.set(el::Level::Error, el::ConfigurationType::Enabled, "true");
+            defaultConf.set(el::Level::Fatal, el::ConfigurationType::Enabled, "true");
+        }
+
         el::Loggers::reconfigureAllLoggers(defaultConf);
+
+        for (const auto& name : {"common", "flasher", "logger"}) {
+            el::Loggers::getLogger(name);
+            el::Loggers::reconfigureLogger(name, defaultConf);
+        }
+
+        const char* debugEnv = std::getenv("VOLVOLOG_DEBUG");
+        if (debugEnv != nullptr && debugEnv[0] != '\0') {
+            std::string env(debugEnv);
+            size_t start = 0;
+            while (start < env.size()) {
+                auto end = env.find(',', start);
+                if (end == std::string::npos)
+                    end = env.size();
+                auto module = env.substr(start, end - start);
+                module.erase(0, module.find_first_not_of(" \t"));
+                module.erase(module.find_last_not_of(" \t") + 1);
+                if (!module.empty()) {
+                    el::Configurations modConf;
+                    modConf.set(el::Level::Debug, el::ConfigurationType::Enabled, "true");
+                    modConf.set(el::Level::Trace, el::ConfigurationType::Enabled, "true");
+                    el::Loggers::reconfigureLogger(module, modConf);
+                }
+                start = end + 1;
+            }
+        }
     }
 
     uint16_t crc16(const uint8_t* data_p, size_t length)

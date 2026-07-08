@@ -41,13 +41,14 @@ private:
 
 static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
                    unsigned long &baudrate, std::string &paramsFilePath,
-                   std::string &outputPath, unsigned &printCount, common::CarPlatform& carPlatform, uint8_t& cmId) {
+                   std::string &outputPath, unsigned &printCount, common::CarPlatform& carPlatform, uint8_t& cmId, bool& verbose) {
   argparse::ArgumentParser program("VolvoLogger");
   program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
   program.add_argument("-b", "--baudrate").scan<'u', unsigned>().default_value(500000u).help("CAN bus speed");
-  program.add_argument("-v", "--variables").help("Path to memory variables");
+  program.add_argument("--variables").help("Path to memory variables");
   program.add_argument("-o", "--output").help("Path to save logs");
   program.add_argument("-p", "--print").scan<'u', unsigned>().default_value(5u).help("Number of variables which prints to console");
+  program.add_argument("--verbose").default_value(false).implicit_value(true).nargs(0).help("Enable verbose (debug) logging");
   program.add_argument("-f", "--platform").default_value(std::string{"P2"}).help("Car's platform, supported values: P80, P1, P1_UDS, P2, P2_250, P2_UDS, P3, SPA");
   program.add_argument("-e", "--ecu").scan<'x', uint8_t>().default_value(uint8_t(0x7A)).help("ECU id to log");
 
@@ -55,9 +56,10 @@ static bool getRunOptions(int argc, const char *argv[], std::string &deviceName,
       program.parse_args(argc, argv);
       deviceName = program.get<std::string>("-d");
       baudrate = program.get<unsigned>("-b");
-      paramsFilePath = program.get<std::string>("-v");
+      paramsFilePath = program.get<std::string>("--variables");
       outputPath = program.get<std::string>("-o");
       printCount = program.get<unsigned>("-p");
+      verbose = program.get<bool>("--verbose");
       carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
       cmId = program.get<uint8_t>("-e");
       return true;
@@ -86,9 +88,13 @@ int main(int argc, const char *argv[]) {
   common::CarPlatform carPlatform;
   uint8_t cmId;
   unsigned printCount;
+  bool verbose = false;
   const auto devices = common::getAvailableDevices();
   if (getRunOptions(argc, argv, deviceName, baudrate, paramsFilePath,
-                    outputPath, printCount, carPlatform, cmId)) {
+                    outputPath, printCount, carPlatform, cmId, verbose)) {
+    if (verbose) {
+      common::initLogger("application.log", true, true);
+    }
     for (const auto &device : devices) {
       if (deviceName.empty() ||
           device.deviceName.find(deviceName) != std::string::npos) {

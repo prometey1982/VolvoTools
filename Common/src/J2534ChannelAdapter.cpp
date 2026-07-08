@@ -3,6 +3,9 @@
 #include <j2534/J2534Channel.hpp>
 #include <j2534/J2534_v0404.h>
 
+#define LOG_MODULE_NAME "common"
+#include "common/LogHelper.hpp"
+
 #include <cstring>
 
 namespace {
@@ -60,7 +63,11 @@ bool J2534ChannelAdapter::send(const CanFrame& frame) {
     PASSTHRU_MSG msg;
     canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
     unsigned long numMsgs = 1;
-    return _channel->writeMsgs({ msg }, numMsgs) == STATUS_NOERROR;
+    auto rc = _channel->writeMsgs({ msg }, numMsgs);
+    if (rc != STATUS_NOERROR) {
+        LOG_MODULE(DEBUG) << "send failed, rc=" << rc;
+    }
+    return rc == STATUS_NOERROR;
 }
 
 bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames) {
@@ -72,12 +79,20 @@ bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames) {
         msgs.push_back(msg);
     }
     unsigned long numMsgs = static_cast<unsigned long>(msgs.size());
-    return _channel->writeMsgs(msgs, numMsgs) == STATUS_NOERROR;
+    auto rc = _channel->writeMsgs(msgs, numMsgs);
+    if (rc != STATUS_NOERROR) {
+        LOG_MODULE(DEBUG) << "send (batch) failed, rc=" << rc;
+    }
+    return rc == STATUS_NOERROR;
 }
 
 bool J2534ChannelAdapter::receive(CanFrame& frame, unsigned long timeout) {
     std::vector<PASSTHRU_MSG> msgs(1);
-    if (_channel->readMsgs(msgs, timeout) != STATUS_NOERROR || msgs.empty()) {
+    auto rc = _channel->readMsgs(msgs, timeout);
+    if (rc != STATUS_NOERROR || msgs.empty()) {
+        if (rc != STATUS_NOERROR) {
+            LOG_MODULE(DEBUG) << "receive failed, rc=" << rc;
+        }
         return false;
     }
     frame = passthruMsgToCanFrame(msgs[0]);
@@ -86,7 +101,11 @@ bool J2534ChannelAdapter::receive(CanFrame& frame, unsigned long timeout) {
 
 bool J2534ChannelAdapter::receive(std::vector<CanFrame>& frames, unsigned long timeout) {
     std::vector<PASSTHRU_MSG> msgs(16);
-    if (_channel->readMsgs(msgs, timeout) != STATUS_NOERROR || msgs.empty()) {
+    auto rc = _channel->readMsgs(msgs, timeout);
+    if (rc != STATUS_NOERROR || msgs.empty()) {
+        if (rc != STATUS_NOERROR) {
+            LOG_MODULE(DEBUG) << "receive (batch) failed, rc=" << rc;
+        }
         return false;
     }
     frames.clear();

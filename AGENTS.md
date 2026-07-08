@@ -79,6 +79,13 @@ Only `Registry/RegistryTest/` exists — a standalone console app with custom `C
 ## Misc
 
 - Logging: easyloggingpp, initialized via `common::initLogger("application.log")` at startup
+- **Log extension ТЗ**: `docs/tech_specs/code_logging_extension.md` — все шаги реализованы (кроме crash-хендлера, заблокирован conan)
+- **LOG_MODULE macro**: `Common/common/LogHelper.hpp` — per-module логирование. Каждый `.cpp` определяет `LOG_MODULE_NAME` перед `<include "common/LogHelper.hpp>`, затем использует `LOG_MODULE(level)` вместо `LOG(level)`
+- **VOLVOLOG_DEBUG**: env var, comma-separated module names, включает DEBUG/TRACE для указанных модулей
+- **Console in Debug**: `_DEBUG` автоматически включает консоль + все уровни
+- **Flow:**
+  1. `initLogger("application.log")` — консоль (если `enableConsole`) + ротация 10 MB
+  2. VolvoFlasher / VolvoLogger: `-v` или `--verbose` перезапускают initLogger с mode=verbose
 - README is in Russian
 - `.gitignore` excludes `build/`, `*.vcxproj`, `*.sln`, `CMakeUserPresets.json`
 - No linter, formatter, or typecheck config present

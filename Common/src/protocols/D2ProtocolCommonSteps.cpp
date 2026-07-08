@@ -4,6 +4,9 @@
 #include "common/Util.hpp"
 #include "common/protocols/D2Message.hpp"
 
+#define LOG_MODULE_NAME "common"
+#include "common/LogHelper.hpp"
+
 #include <map>
 #include <stdexcept>
 #include <thread>
@@ -151,6 +154,7 @@ namespace {
 
     bool D2ProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels)
 	{
+        LOG_MODULE(TRACE) << "fallAsleep enter";
         for (size_t i = 0; i < channels.size(); ++i) {
             unsigned long msgId;
             if (!channels[i]->startPeriodicMsg({D2_CAN_ID, {0xFF, 0x86, 0, 0, 0, 0, 0, 0}, true}, 5, msgId)) {
@@ -159,30 +163,36 @@ namespace {
             std::this_thread::sleep_for(std::chrono::seconds(3));
             channels[i]->stopPeriodicMsg(msgId);
         }
+        LOG_MODULE(TRACE) << "fallAsleep exit";
         return true;
 	}
 
     bool D2ProtocolCommonSteps::startPBL(ICanChannel& channel, uint8_t ecuId)
     {
+        LOG_MODULE(TRACE) << "startPBL enter";
         if (!writeMessagesAndCheckAnswer(
                 channel,
                 makeD2RawFrame(ecuId, {0xC0}),
                 { 0xC6 })) {
             throw std::runtime_error("CM didn't response with correct answer");
         }
+        LOG_MODULE(TRACE) << "startPBL exit";
         return true;
     }
 
     void D2ProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<ICanChannel>>& channels)
-	{
+    {
+        LOG_MODULE(TRACE) << "wakeUp enter";
         for (size_t i = 0; i < channels.size(); ++i) {
             channels[i]->send({D2_CAN_ID, {0xFF, 0xC8, 0, 0, 0, 0, 0, 0}, true});
         }
+        LOG_MODULE(TRACE) << "wakeUp exit";
     }
 
     bool D2ProtocolCommonSteps::transferData(ICanChannel& channel, uint8_t ecuId, const VBF& data,
                                              const std::function<void(size_t)>& progressCallback)
 	{
+        LOG_MODULE(TRACE) << "transferData enter";
         for(const auto& chunk: data.chunks) {
             auto frames = createWriteDataFrames(ecuId, chunk.data, 0, chunk.data.size());
 
@@ -206,11 +216,13 @@ namespace {
                 { 0xB1, checksum }))
             throw std::runtime_error("Failed. Checksums are not equal.");
         }
+        LOG_MODULE(TRACE) << "transferData exit";
         return true;
     }
 
     bool D2ProtocolCommonSteps::eraseFlash(ICanChannel& channel, uint8_t ecuId, const VBF& data)
-	{
+    {
+        LOG_MODULE(TRACE) << "eraseFlash enter";
         for (const auto& chunk : data.chunks) {
             writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
@@ -220,16 +232,20 @@ namespace {
                     {{ 0xF9, 0x0 }, { 0xF9, 0x2 }}, 30))
                 throw std::runtime_error("Can't erase memory");
         }
+        LOG_MODULE(TRACE) << "eraseFlash exit";
         return true;
     }
 
     void D2ProtocolCommonSteps::jumpTo(ICanChannel& channel, uint8_t ecuId, uint32_t addr)
     {
+        LOG_MODULE(TRACE) << "jumpTo enter addr: " << std::hex << addr;
         writeDataOffsetAndCheckAnswer(channel, ecuId, addr);
+        LOG_MODULE(TRACE) << "jumpTo exit";
     }
 
     bool D2ProtocolCommonSteps::startRoutine(ICanChannel& channel, uint8_t ecuId, uint32_t addr)
 	{
+        LOG_MODULE(TRACE) << "startRoutine enter addr: " << std::hex << addr;
         writeDataOffsetAndCheckAnswer(channel, ecuId, addr);
         if (!writeMessagesAndCheckAnswer(
                 channel,
@@ -237,11 +253,13 @@ namespace {
                 { 0xA0 })) {
             throw std::runtime_error("Can't start routine");
         }
+        LOG_MODULE(TRACE) << "startRoutine exit";
         return true;
-	}
+    }
 
     void D2ProtocolCommonSteps::setDIMTime(const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
+        LOG_MODULE(TRACE) << "setDIMTime enter";
         const auto now{std::chrono::system_clock::now()};
         const auto time_t = std::chrono::system_clock::to_time_t(now);
         struct tm lt;
@@ -252,6 +270,7 @@ namespace {
             {static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
              static_cast<uint8_t>((value >> 8) & 0xFF),
              static_cast<uint8_t>(value & 0xFF), 0}, true});
+        LOG_MODULE(TRACE) << "setDIMTime exit";
     }
 
 } // namespace common

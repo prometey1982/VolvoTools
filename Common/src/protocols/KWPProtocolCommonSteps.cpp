@@ -4,6 +4,9 @@
 #include "common/protocols/UDSError.hpp"
 #include "common/Util.hpp"
 
+#define LOG_MODULE_NAME "common"
+#include "common/LogHelper.hpp"
+
 #include <array>
 #include <thread>
 #include <variant>
@@ -54,7 +57,8 @@ namespace common {
 
     bool KWPProtocolCommonSteps::authorize(const RequestProcessorBase& requestProcessor, const std::array<uint8_t, 5>& pin)
 	{
-		try {
+        LOG_MODULE(TRACE) << "authorize enter";
+        try {
 			const auto seedResponse{ requestProcessor.process({ 0x27, 0x01 }) };
 			if (seedResponse.size() < 6)
 				return false;
@@ -65,10 +69,12 @@ namespace common {
 		catch (...) {
 			return false;
 		}
+        LOG_MODULE(TRACE) << "authorize exit";
 	}
 
 	bool KWPProtocolCommonSteps::enterProgrammingSession(RequestProcessorBase& requestProcessor)
 	{
+        LOG_MODULE(TRACE) << "enterProgrammingSession enter";
 		try {
 			requestProcessor.process({ 0x10, 0x85 });
 			std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -82,12 +88,14 @@ namespace common {
 		catch (...) {
 			return false;
 		}
+        LOG_MODULE(TRACE) << "enterProgrammingSession exit";
 	}
 
 	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBF& data,
                                               const std::function<void(size_t)>& progressCallback)
 	{
-		try {
+        LOG_MODULE(TRACE) << "transferData enter (VBF)";
+        try {
 			for (const auto& chunk : data.chunks) {
 				const auto startAddr = chunk.writeOffset;
 				const auto dataSize = chunk.data.size();
@@ -115,12 +123,13 @@ namespace common {
 		catch (...) {
 			return false;
 		}
-
+        LOG_MODULE(TRACE) << "transferData exit (VBF)";
 		return true;
 	}
 
     bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBF& data)
-	{
+    {
+        LOG_MODULE(TRACE) << "eraseFlash enter (VBF)";
 		try {
 			for (const auto& chunk : data.chunks) {
 				const auto eraseAddr = toVector(chunk.writeOffset);
@@ -134,10 +143,12 @@ namespace common {
 		catch (...) {
 			return false;
 		}
+        LOG_MODULE(TRACE) << "eraseFlash exit (VBF)";
 	}
 
 	size_t KWPProtocolCommonSteps::requestDownload(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
-	{
+    {
+        LOG_MODULE(TRACE) << "requestDownload enter";
 		try {
 			const auto startAddr = chunk.writeOffset;
 			const auto dataSize = chunk.data.size();
@@ -150,10 +161,12 @@ namespace common {
 		catch (...) {
 			return 0;
 		}
+        LOG_MODULE(TRACE) << "requestDownload exit";
 	}
 
 	bool KWPProtocolCommonSteps::eraseFlash(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk)
-	{
+    {
+        LOG_MODULE(TRACE) << "eraseFlash enter (chunk)";
 		try {
 			const auto eraseAddr = toVector(chunk.writeOffset);
 			const auto eraseEndAddr = toVector(chunk.writeOffset + static_cast<uint32_t>(chunk.data.size()) - 1);
@@ -166,12 +179,14 @@ namespace common {
 		catch (...) {
 			return false;
 		}
+        LOG_MODULE(TRACE) << "eraseFlash exit (chunk)";
 	}
 
 	bool KWPProtocolCommonSteps::transferData(const RequestProcessorBase& requestProcessor, const VBFChunk& chunk,
 		size_t maxSizeToTransfer, const std::function<void(size_t)>& progressCallback)
 	{
-		try {
+        LOG_MODULE(TRACE) << "transferData enter (chunk)";
+        try {
 			maxSizeToTransfer -= 5;
 			for (size_t i = 0; i < chunk.data.size(); i += maxSizeToTransfer) {
 				const auto chunkEnd{ std::min(i + maxSizeToTransfer, chunk.data.size()) };
@@ -188,17 +203,19 @@ namespace common {
 		catch (...) {
 			return false;
 		}
-
+        LOG_MODULE(TRACE) << "transferData exit (chunk)";
 		return true;
 	}
 
 	bool KWPProtocolCommonSteps::startRoutine(const RequestProcessorBase& requestProcessor, uint32_t addr)
-	{
+    {
+        LOG_MODULE(TRACE) << "startRoutine enter addr: " << std::hex << addr;
 		const auto callAddr = common::toVector(addr);
 		const auto callResult{ requestProcessor.process({ 0x31, 0x01, 0x03, 0x01, callAddr[0], callAddr[1], callAddr[2], callAddr[3] }) };
 		if (callResult.size() < 6 || callResult[2] != 0x71 || callResult[3] != 0x01 || callResult[4] != 0x03
 			|| callResult[5] != 0x01)
 			return false;
+        LOG_MODULE(TRACE) << "startRoutine exit";
 		return true;
 	}
 

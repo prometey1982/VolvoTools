@@ -12,6 +12,9 @@
 #define HFSM2_ENABLE_ALL
 #include <common/hfsm2/machine.hpp>
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 #include <ctime>
 #include <numeric>
 
@@ -160,6 +163,7 @@ size_t D2FlasherImpl::getMaximumFlashProgressValue() const
 
 void D2FlasherImpl::setFailed(const std::string& message)
 {
+    LOG_MODULE(ERROR) << message;
     _isFailed = true;
     _errorMessage = message;
 }

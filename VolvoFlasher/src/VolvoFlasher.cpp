@@ -26,7 +26,8 @@
 
 #include <argparse/argparse.hpp>
 
-#include <easylogging++.h>
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
 
 #include <algorithm>
 #include <cstdlib>
@@ -55,13 +56,14 @@ enum class RunMode
 bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	unsigned long& baudrate, std::string& flashPath, uint64_t& pin,
 	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
-	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform, bool& pinUpward) {
+	RunMode& runMode, std::string& sblPath, common::CarPlatform& carPlatform, bool& pinUpward, bool& verbose) {
 	argparse::ArgumentParser program("VolvoFlasher", "1.0", argparse::default_arguments::help);
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
 	program.add_argument("-f", "--platform").default_value(std::string{ "P2" }).help("Car's platform, supported values: P80, P1, P1_UDS, P2, P2_250, P2_UDS, P3, SPA");
 	program.add_argument("-e", "--ecu").scan<'x', uint8_t>().default_value(0x7A).help("ECU id");
 	program.add_argument("-p", "--pin").scan<'x', uint64_t>().default_value(static_cast<uint64_t>(0)).help("PIN to unlock ECU");
+	program.add_argument("-v", "--verbose").default_value(false).implicit_value(true).nargs(0).help("Enable verbose (debug) logging");
 
 	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
 	flash_command.add_description("Flash BIN to ECU");
@@ -121,6 +123,7 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 		ecuId = program.get<uint8_t>("-e");
 		carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
 		pin = program.get<uint64_t>("-p");
+		verbose = program.get<bool>("-v");
 		return true;
 	}
 	catch (const std::exception& err) {
@@ -403,6 +406,7 @@ std::vector<PASSTHRU_MSG> readMessages(j2534::J2534Channel& channel, size_t mess
 	if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
 	{
 		std::cout << "Can't read message" << std::endl;
+		LOG_MODULE(ERROR) << "Can't read message";
 		return {};
 	}
 	return read_msgs;
@@ -425,6 +429,7 @@ bool authByKey(j2534::J2534Channel& channel, unsigned long protocolId, const std
 	if (!success)
 	{
 		std::cout << "Can't request seed" << std::endl;
+		LOG_MODULE(ERROR) << "Can't request seed";
 		return false;
 	}
 	std::vector<PASSTHRU_MSG> read_msgs;
@@ -432,6 +437,7 @@ bool authByKey(j2534::J2534Channel& channel, unsigned long protocolId, const std
 	if (channel.readMsgs(read_msgs, 5000) != STATUS_NOERROR || read_msgs.empty())
 	{
 		std::cout << "Can't read seed" << std::endl;
+		LOG_MODULE(ERROR) << "Can't read seed";
 		return false;
 	}
 	uint8_t seed[3] = { read_msgs[0].Data[7], read_msgs[0].Data[8], read_msgs[0].Data[9] };
@@ -441,12 +447,14 @@ bool authByKey(j2534::J2534Channel& channel, unsigned long protocolId, const std
 	if (sendMessage(channel, protocolId, { 0x07, 0xE0, 5, 0x27, 0x02, key[0], key[1], key[2] }) != STATUS_NOERROR)
 	{
 		std::cout << "Can't write key" << std::endl;
+		LOG_MODULE(ERROR) << "Can't write key";
 		return false;
 	}
 	read_msgs.resize(1);
 	if (channel.readMsgs(read_msgs) != STATUS_NOERROR || read_msgs.empty())
 	{
 		std::cout << "Can't read key result" << std::endl;
+		LOG_MODULE(ERROR) << "Can't read key result";
 		return false;
 	}
 	const auto& answer_data = read_msgs[0].Data;
@@ -481,6 +489,7 @@ void findPin(j2534::J2534& j2534, uint64_t i = 0)
 	if (channel.startPeriodicMsg(msg, msg_id, 5) != STATUS_NOERROR)
 	{
 		std::cout << "Can't start prog periodic message" << std::endl;
+		LOG_MODULE(ERROR) << "Can't start prog periodic message";
 		return;
 	}
 	std::this_thread::sleep_for(std::chrono::seconds(4));
@@ -499,6 +508,7 @@ void findPin(j2534::J2534& j2534, uint64_t i = 0)
 	if (channel.startPeriodicMsg(msg, msg_id, 1900) != STATUS_NOERROR)
 	{
 		std::cout << "Can't start keep alive periodic message" << std::endl;
+		LOG_MODULE(ERROR) << "Can't start keep alive periodic message";
 		return;
 	}
 	for (; i <= 0xFFFFFF; ++i)
@@ -587,6 +597,7 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 	if (channel.startPeriodicMsg(msg, msg_id, 5) != STATUS_NOERROR)
 	{
 		std::cout << "Can't start prog periodic message" << std::endl;
+		LOG_MODULE(ERROR) << "Can't start prog periodic message";
 		return false;
 	}
 	std::this_thread::sleep_for(std::chrono::seconds(4));
@@ -606,6 +617,7 @@ bool switchToDiagSession(j2534::J2534Channel& channel, unsigned long protocolId,
 	if (channel.startPeriodicMsg(msg, msg_id, 1900) != STATUS_NOERROR)
 	{
 		std::cout << "Can't start keep alive periodic message" << std::endl;
+		LOG_MODULE(ERROR) << "Can't start keep alive periodic message";
 		return false;
 	}
 
@@ -935,8 +947,12 @@ int main(int argc, const char* argv[]) {
 	uint8_t ecuId = 0;
 	RunMode runMode = RunMode::None;
 	bool scanPinsUpward = true;
+	bool verbose = false;
 	const auto devices = common::getAvailableDevices();
-	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize, runMode, sblPath, carPlatform, scanPinsUpward)) {
+	if (getRunOptions(argc, argv, deviceName, baudrate, flashPath, pin, ecuId, start, datasize, runMode, sblPath, carPlatform, scanPinsUpward, verbose)) {
+        if (verbose) {
+            common::initLogger("application.log", true, true);
+        }
 		for (const auto& device : devices) {
 			if (deviceName.empty() ||
 				device.deviceName.find(deviceName) != std::string::npos) {
@@ -973,14 +989,17 @@ int main(int argc, const char* argv[]) {
 						doSomeStuff(std::move(j2534), pin);
 					}
 				}
-				catch (const std::exception& ex) {
-					std::cout << ex.what() << std::endl;
+			catch (const std::exception& ex) {
+				std::cout << ex.what() << std::endl;
+				LOG_MODULE(ERROR) << "Exception: " << ex.what();
 				}
 				catch (const char* ex) {
-					std::cout << ex << std::endl;
+				std::cout << ex << std::endl;
+				LOG_MODULE(ERROR) << "Exception: " << ex;
 				}
 				catch (...) {
-					std::cout << "exception" << std::endl;
+				std::cout << "exception" << std::endl;
+				LOG_MODULE(ERROR) << "Unknown exception";
 				}
 			}
 		}

@@ -6,7 +6,8 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
-#include <easylogging++.h>
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
 
 #include <numeric>
 
@@ -72,6 +73,7 @@ void FlasherBase::unregisterCallback(FlasherCallback &callback)
 void FlasherBase::start()
 {
     _flasherThread = std::thread([this]() {
+        LOG_SCOPE_DURATION(FlasherBase_start);
         try {
             auto channels{_j2534ChannelProvider.getAllChannels(_flasherParameters.ecuId)};
             startImpl(channels);
@@ -129,11 +131,11 @@ void FlasherBase::runOnThread(std::function<void()> callable)
             callable();
         }
         catch(const std::exception& ex) {
-            LOG(ERROR) << "Exception during flashing, what = " << ex.what();
+            LOG_MODULE(ERROR) << "Exception during flashing, what = " << ex.what();
             setCurrentState(FlasherState::Error);
         }
         catch(...) {
-            LOG(ERROR) << "Exception during flashing";
+            LOG_MODULE(ERROR) << "Exception during flashing";
             setCurrentState(FlasherState::Error);
         }
     });

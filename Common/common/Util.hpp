@@ -98,7 +98,7 @@ namespace common {
 
     std::array<uint8_t, 5> getPinArray(uint64_t pin);
 
-    void initLogger(const std::string& logFilename);
+    void initLogger(const std::string& logFilename, bool enableConsole = false, bool debugMode = false);
 
     uint16_t crc16(const uint8_t* data_p, size_t length);
 

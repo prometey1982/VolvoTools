@@ -5,6 +5,9 @@
 
 #include <common/protocols/KWPProtocolCommonSteps.hpp>
 #include <common/protocols/TP20RequestProcessor.hpp>
+
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
 #include <common/protocols/UDSRequestProcessor.hpp>
 #include <common/ICanChannel.hpp>
 #include <common/CommonData.hpp>
@@ -107,6 +110,7 @@ namespace flasher {
     private:
         void setFailed(const std::string& message)
         {
+            LOG_MODULE(ERROR) << message;
             _isFailed = true;
             _errorMessage = message;
         }

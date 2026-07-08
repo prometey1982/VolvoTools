@@ -6,6 +6,9 @@
 #include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
+#define LOG_MODULE_NAME "common"
+#include "common/LogHelper.hpp"
+
 #define HFSM2_ENABLE_ALL
 #include "common/hfsm2/machine.hpp"
 
@@ -151,10 +154,12 @@ namespace common {
 
         bool readResponse()
         {
+            LOG_MODULE(TRACE) << "TP20Session::readResponse enter";
             try {
                 while (true) {
                     CanFrame frame;
                     if (!_channel.receive(frame, _readTimeout)) {
+                        LOG_MODULE(DEBUG) << "TP20Session::readResponse timeout";
                         throw std::runtime_error("read timeout");
                     }
                     if (checkMessageForSkip(frame)) {
@@ -182,16 +187,20 @@ namespace common {
                 return true;
             }
             catch (...) {
+                LOG_MODULE(DEBUG) << "TP20Session::readResponse failed";
                 return false;
             }
+            LOG_MODULE(TRACE) << "TP20Session::readResponse exit";
         }
 
         bool readAck()
         {
+            LOG_MODULE(TRACE) << "TP20Session::readAck enter";
             try {
                 while (true) {
                     CanFrame frame;
                     if (!_channel.receive(frame, 10000)) {
+                        LOG_MODULE(DEBUG) << "TP20Session::readAck timeout";
                         throw std::runtime_error("ack timeout");
                     }
                     if (checkMessageForSkip(frame)) {
@@ -205,8 +214,10 @@ namespace common {
                 }
             }
             catch (...) {
+                LOG_MODULE(DEBUG) << "TP20Session::readAck failed";
                 return false;
             }
+            LOG_MODULE(TRACE) << "TP20Session::readAck exit";
         }
 
         bool sendAck()

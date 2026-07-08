@@ -9,3 +9,6 @@ CMakeToolchain
 
 [layout]
 cmake_layout
+
+[options]
+easyloggingpp/*:enable_default_logfile=False

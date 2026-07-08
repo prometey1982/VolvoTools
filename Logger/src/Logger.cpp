@@ -13,7 +13,8 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
-#include <easylogging++.h>
+#define LOG_MODULE_NAME "logger"
+#include <common/LogHelper.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -345,7 +346,7 @@ namespace logger {
                     }
                 }
                 catch(const std::exception& ex) {
-                    LOG(ERROR) << ex.what();
+                    LOG_MODULE(ERROR) << ex.what();
                 }
                 catch(...) {
                 }
@@ -465,7 +466,8 @@ namespace logger {
 	}
 
 	void Logger::logFunction() {
-		{
+        LOG_SCOPE_DURATION(Logger_logFunction);
+        {
 			std::unique_lock<std::mutex> lock{ _callbackMutex };
 			for (const auto callback : _callbacks) {
 				callback->onStatusChanged(true);
