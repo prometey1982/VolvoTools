@@ -3,10 +3,11 @@
 #include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
-#include <common/SBL.hpp>
 #include <common/VBFParser.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
+
+#include <numeric>
 
 namespace {
 
@@ -25,57 +26,79 @@ namespace {
         return response;
     }
 
-} // namespace
+} // namespace anonymous
 
 namespace flasher {
-D2Reader::D2Reader(j2534::J2534 &j2534, FlasherParameters&& flasherParameters,
-                   uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin)
-    : D2FlasherBase{ j2534, std::move(flasherParameters)}
-    , _startPos{ startPos }
-    , _size{ size }
-    , _bin{ bin }
-{}
 
-D2Reader::~D2Reader() { }
-
-size_t D2Reader::getMaximumFlashProgress() const
-{
-    return _size;
-}
-
-bool D2Reader::isBootloaderRequired() const
-{
-    return false;
-}
-
-void D2Reader::eraseStep(ICanChannel&, uint8_t)
+D2Reader::D2Reader(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+                   ReadRanges ranges, std::shared_ptr<SBLProviderBase> sblProvider)
+    : ReaderBase{ j2534, carPlatform, ecuId, ranges }
+    , _sblProvider{ std::move(sblProvider) }
 {
 }
 
-void D2Reader::writeStep(ICanChannel &channel, uint8_t ecuId)
+void D2Reader::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 {
-    for (uint32_t i = 0; i < _size; ++i)
-    {
-        const auto currentPos = _startPos + i;
-        common::D2ProtocolCommonSteps::jumpTo(channel, ecuId, currentPos);
-        auto calcMsg = common::toVector(currentPos + 1);
-        std::vector<uint8_t> payload(8, 0);
-        payload[0] = ecuId;
-        payload[1] = 0xB4;
-        payload[2] = 0x15;
-        payload[3] = 0x22;
-        payload[4] = calcMsg[0];
-        payload[5] = calcMsg[1];
-        payload[6] = calcMsg[2];
-        payload[7] = calcMsg[3];
-        const auto checksumAnswer = writeMessagesAndReadMessage(channel,
-            {D2_CAN_ID, std::move(payload), true});
-        if (checksumAnswer.data.size() >= 2 && checksumAnswer.data[1] == 0xB1)
-        {
-            _bin.push_back(checksumAnswer.data[2]);
-            incCurrentProgress(1);
+    auto bootloader = _sblProvider->getSBL(_carPlatform, _ecuId, {});
+    auto& channel = *channels[0];
+    const uint8_t ecuId = static_cast<uint8_t>(_ecuId);
+
+    // D2 protocol steps (same sequence as D2FlasherBase)
+    setCurrentState(FlasherState::WakeUp);
+    common::D2ProtocolCommonSteps::wakeUp(channels);
+
+    setCurrentState(FlasherState::FallAsleep);
+    common::D2ProtocolCommonSteps::fallAsleep(channels);
+
+    setCurrentState(FlasherState::OpenChannels);
+    common::D2ProtocolCommonSteps::startPBL(channel, ecuId);
+
+    // Load bootloader if needed
+    if (!bootloader.chunks.empty()) {
+        setCurrentState(FlasherState::LoadBootloader);
+        common::D2ProtocolCommonSteps::transferData(channel, ecuId,
+            bootloader, [](size_t) {});
+
+        setCurrentState(FlasherState::StartBootloader);
+        common::D2ProtocolCommonSteps::startRoutine(channel, ecuId,
+            bootloader.header.call);
+    }
+
+    // Read bytes
+    setCurrentState(FlasherState::ReadFlash);
+    for(size_t i = 0; i < _ranges.size(); ++i) {
+        auto& buffer = _buffers[i];
+        buffer.clear();
+        const auto& range = _ranges[i];
+        buffer.reserve(range.size);
+
+        for (uint32_t j = 0; j < range.size; ++j) {
+            const auto currentPos = range.startAddr + j;
+            common::D2ProtocolCommonSteps::jumpTo(channel, ecuId, currentPos);
+            auto calcMsg = common::toVector(currentPos + 1);
+            std::vector<uint8_t> payload(8, 0);
+            payload[0] = ecuId;
+            payload[1] = 0xB4;
+            payload[2] = 0x15;
+            payload[3] = 0x22;
+            payload[4] = calcMsg[0];
+            payload[5] = calcMsg[1];
+            payload[6] = calcMsg[2];
+            payload[7] = calcMsg[3];
+            const auto checksumAnswer = writeMessagesAndReadMessage(channel,
+                {D2_CAN_ID, std::move(payload), true});
+            if (checksumAnswer.data.size() >= 2 && checksumAnswer.data[1] == 0xB1) {
+                buffer.push_back(checksumAnswer.data[2]);
+                incCurrentProgress(1);
+            }
         }
     }
+
+    // Wake up after read
+    setCurrentState(FlasherState::WakeUp);
+    common::D2ProtocolCommonSteps::wakeUp(channels);
+
+    setCurrentState(FlasherState::Done);
 }
 
 } // namespace flasher

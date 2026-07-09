@@ -1,37 +1,23 @@
 #pragma once
 
-#include "D2FlasherBase.hpp"
+#include "ReaderBase.hpp"
 
-#include <common/GenericProcess.hpp>
-#include <common/CMType.hpp>
-#include <common/VBF.hpp>
+#include "SBLProviderBase.hpp"
 
-#include <vector>
-
-class ICanChannel;
-
-namespace j2534 {
-class J2534;
-} // namespace j2534
+#include <memory>
 
 namespace flasher {
 
-class D2Reader: public D2FlasherBase {
+class D2Reader : public ReaderBase {
 public:
-  explicit D2Reader(j2534::J2534 &j2534, FlasherParameters&& flasherParameters,
-                    uint32_t startPos, uint32_t size, std::vector<uint8_t>& bin);
-  ~D2Reader();
+    D2Reader(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+             ReadRanges ranges, std::shared_ptr<SBLProviderBase> sblProvider);
+
+protected:
+    void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
 
 private:
-  virtual size_t getMaximumFlashProgress() const override;
-  virtual bool isBootloaderRequired() const override;
-  virtual void eraseStep(ICanChannel &channel, uint8_t ecuId) override;
-  virtual void writeStep(ICanChannel &channel, uint8_t ecuId) override;
-
-private:
-  uint32_t _startPos;
-  uint32_t _size;
-  std::vector<uint8_t>& _bin;
+    std::shared_ptr<SBLProviderBase> _sblProvider;
 };
 
 } // namespace flasher

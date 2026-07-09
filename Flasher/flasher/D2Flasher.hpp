@@ -18,15 +18,15 @@ namespace flasher {
 
 class D2Flasher: public D2FlasherBase {
 public:
-  explicit D2Flasher(j2534::J2534 &j2534,
-      FlasherParameters&& flasherParameters);
-  ~D2Flasher();
+    D2Flasher(j2534::J2534 &j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+              D2FlasherConfig&& config);
+    ~D2Flasher();
 
 private:
-  virtual size_t getMaximumFlashProgress() const override;
-  virtual bool isBootloaderRequired() const override;
-  virtual void eraseStep(ICanChannel &channel, uint8_t ecuId) override;
-  virtual void writeStep(ICanChannel &channel, uint8_t ecuId) override;
+    size_t getMaximumFlashProgress() const override;
+    bool isBootloaderRequired() const override;
+    void eraseStep(ICanChannel &channel, uint8_t ecuId) override;
+    void writeStep(ICanChannel &channel, uint8_t ecuId) override;
 };
 
 } // namespace flasher

@@ -324,8 +324,10 @@ struct Error : public BaseSuccesState {
 
 // D2FlasherBase methods
 
-D2FlasherBase::D2FlasherBase(j2534::J2534 &j2534, FlasherParameters&& flasherParameters)
-    : FlasherBase{ j2534, std::move(flasherParameters) }
+D2FlasherBase::D2FlasherBase(j2534::J2534 &j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+                              D2FlasherConfig&& config)
+    : FlasherBase{ j2534, carPlatform, ecuId }
+    , _config{ std::move(config) }
 {
 }
 
@@ -335,10 +337,7 @@ D2FlasherBase::~D2FlasherBase()
 
 void D2FlasherBase::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 {
-    const auto carPlatform{ getFlasherParameters().carPlatform };
-    const auto ecuId{ getFlasherParameters().ecuId };
-    const auto additionalData{ getFlasherParameters().additionalData };
-    const auto bootloader = getFlasherParameters().sblProvider->getSBL(carPlatform, ecuId, additionalData);
+    const auto bootloader = _config.sblProvider->getSBL(_carPlatform, _ecuId, "");
     if (isBootloaderRequired() && bootloader.chunks.empty()) {
         setCurrentState(FlasherState::Error);
         return;
@@ -346,7 +345,7 @@ void D2FlasherBase::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channel
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
     setCurrentProgress(0);
-    D2FlasherImpl impl(channels, carPlatform, static_cast<uint8_t>(ecuId), bootloader,
+    D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), bootloader,
         [this](FlasherState state) {
             setCurrentState(state);
         },

@@ -1,8 +1,7 @@
 #pragma once
 
-#include "FlasherCallback.hpp"
-
 #include "FlasherBase.hpp"
+#include "FlasherConfigs.hpp"
 
 #include <common/compression/CompressionType.hpp>
 #include <common/encryption/EncryptionType.hpp>
@@ -20,22 +19,17 @@ namespace j2534 {
 
 namespace flasher {
 
-    struct KWPFlasherParameters {
-        const std::array<uint8_t, 5> pin;
-        common::CompressionType compressionType;
-    };
-
     class KWPFlasher: public FlasherBase {
     public:
         KWPFlasher(j2534::J2534& j2534,
-            FlasherParameters&& flasherParameters, KWPFlasherParameters&& kwpFlasherParameters);
+            common::CarPlatform carPlatform, uint32_t ecuId,
+            KWPFlasherConfig&& config);
         ~KWPFlasher();
 
     private:
         void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
 
-    private:
-        KWPFlasherParameters _kwpFlasherParameters;
+        const KWPFlasherConfig _config;
     };
 
 } // namespace flasher

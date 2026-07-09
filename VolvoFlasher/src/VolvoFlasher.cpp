@@ -18,7 +18,9 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <flasher/D2Flasher.hpp>
-#include <flasher/D2Reader.hpp>
+#include <flasher/ReaderBase.hpp>
+#include <flasher/ReaderFactory.hpp>
+#include <flasher/ReaderParametersProviderBase.hpp>
 #include <flasher/SBLProviderVBF.hpp>
 #include <flasher/SBLProviderCommon.hpp>
 #include <flasher/UDSFlasher.hpp>
@@ -665,18 +667,11 @@ void doSomeStuff(std::unique_ptr<j2534::J2534> j2534, uint64_t pin)
 	//	return;
 	//}
 //    common::TP20RequestProcessor requestProcessor{session};
-	flasher::FlasherParameters flasherParameters{
-		carPlatform,
-		ecuId,
-		"",
-        nullptr,
-        flashVbf,
-        common::CompressorFactory::create(common::CompressionType::Bosch),
-        common::EncryptorFactory::create(common::EncryptionType::XOR, {{"key", "CodeRobert"}})
-	};
-	flasher::KWPFlasherParameters kwpFlasherParameters{
-		{ (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF } };
-    flasher::KWPFlasher flasher{ *j2534, std::move(flasherParameters), std::move(kwpFlasherParameters) };
+    std::array<uint8_t, 5> pinArray = {
+        (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
+    flasher::KWPFlasherConfig config{
+        nullptr, pinArray, flashVbf, common::CompressionType::Bosch };
+    flasher::KWPFlasher flasher{ *j2534, carPlatform, ecuId, std::move(config) };
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
@@ -714,16 +709,11 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 	const common::VBF flash{ vbfParser.parse(flashVbf) };
     const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
 
-	flasher::FlasherParameters flasherParameters{
-		carPlatform,
-		ecuId,
-		"",
-        std::make_unique<flasher::SBLProviderVBF>(bootloader),
-        flash
-	};
-	flasher::UDSFlasherParameters udsFlasherParameters{
-        { (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF }};
-    flasher::UDSFlasher flasher{ *j2534, std::move(flasherParameters), std::move(udsFlasherParameters) };
+    std::array<uint8_t, 5> pinArray = {
+        (pin >> 32) & 0xFF, (pin >> 24) & 0xFF, (pin >> 16) & 0xFF, (pin >> 8) & 0xFF, pin & 0xFF };
+    flasher::UDSFlasherConfig config{ pinArray,
+        std::make_shared<flasher::SBLProviderVBF>(bootloader), flash };
+    flasher::UDSFlasher flasher{ *j2534, carPlatform, ecuId, std::move(config) };
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
 	flasher.start();
@@ -761,14 +751,9 @@ void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, 
     const auto vbf = vbfForFlasher(bin, cmType);
 	const auto carPlatform = baudrate == 500000 ? common::CarPlatform::P2 : common::CarPlatform::P2_250;
 
-	flasher::FlasherParameters flasherParameters{
-		carPlatform,
-		0x7A,
-		"",
-        std::make_unique<flasher::SBLProviderCommon>(),
-        vbf
-	};
-    flasher::D2Flasher flasher(*j2534, std::move(flasherParameters));
+    flasher::D2FlasherConfig config{
+        std::make_shared<flasher::SBLProviderCommon>(), vbf };
+    flasher::D2Flasher flasher(*j2534, carPlatform, 0x7A, std::move(config));
 	FlasherCallback callback;
 	flasher.registerCallback(callback);
     flasher.start();
@@ -812,25 +797,38 @@ void fill_crc_map()
 
 void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatform, uint8_t ecuId, const std::string& flashPath, unsigned long start, unsigned long datasize)
 {
-	flasher::FlasherParameters flasherParameters{
-		carPlatform,
-		ecuId,
-		"",
-        std::make_unique<flasher::SBLProviderCommon>(),
-        {{}, {}}
-	};
-	std::vector<uint8_t> bin;
-    flasher::D2Reader flasher(*j2534, std::move(flasherParameters), start, datasize, bin);
+    class CLIReaderProvider final : public flasher::ReaderParametersProviderBase {
+    public:
+        CLIReaderProvider(common::CarPlatform platform, uint32_t id,
+                          uint32_t s, size_t sz,
+                          std::shared_ptr<flasher::SBLProviderBase> sbl)
+            : ReaderParametersProviderBase(platform, id, "")
+            , _range{ s, sz }
+            , _sbl(std::move(sbl)) {}
+        flasher::ReadRanges getReadRanges() const override { return {_range}; }
+        std::optional<flasher::BootloaderParams> getBootloaderParams() const override {
+            if (!_sbl) return std::nullopt;
+            return flasher::BootloaderParams{ _sbl };
+        }
+    private:
+        flasher::ReadRange _range;
+        std::shared_ptr<flasher::SBLProviderBase> _sbl;
+    };
+
+    auto provider = CLIReaderProvider(carPlatform, ecuId,
+        static_cast<uint32_t>(start), static_cast<size_t>(datasize),
+        std::make_shared<flasher::SBLProviderCommon>());
+    auto reader = flasher::ReaderFactory::create(*j2534, provider);
     FlasherCallback callback;
-    flasher.registerCallback(callback);
-    flasher.start();
-    while (flasher.getCurrentState() !=
-               flasher::FlasherState::Done && flasher.getCurrentState() !=
+    reader->registerCallback(callback);
+    reader->start();
+    while (reader->getCurrentState() !=
+               flasher::FlasherState::Done && reader->getCurrentState() !=
                   flasher::FlasherState::Error) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         std::cout << ".";
     }
-    const bool success = flasher.getCurrentState() ==
+    const bool success = reader->getCurrentState() ==
         flasher::FlasherState::Done;
 	std::cout << std::endl
 		<< ((success)
@@ -841,6 +839,7 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
 	{
 		std::fstream output(flashPath,
 			std::ios_base::binary | std::ios_base::out);
+		const auto& bin = reader->buffers()[0];
 		output.write((const char*)bin.data(), bin.size());
 	}
 }

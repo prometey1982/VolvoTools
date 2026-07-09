@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FlasherParametersProviderBase.hpp"
+#include "ReaderParametersProviderBase.hpp"
 
 #include <j2534/J2534.hpp>
 
@@ -8,13 +8,13 @@
 
 namespace flasher {
 
-class FlasherBase;
+class ReaderBase;
 
-class FlasherFactory {
+class ReaderFactory {
 public:
-    static std::unique_ptr<FlasherBase> create(
+    static std::unique_ptr<ReaderBase> create(
         j2534::J2534& j2534,
-        const FlasherParametersProviderBase& params);
+        const ReaderParametersProviderBase& params);
 
     static bool isD2Platform(common::CarPlatform p);
     static bool isUDSPlatform(common::CarPlatform p);

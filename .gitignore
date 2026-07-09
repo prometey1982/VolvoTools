@@ -25,6 +25,7 @@ CPackConfig.cmake
 CPackSourceConfig.cmake
 cmake_install.cmake
 myeasylog.log
+.opencode
 *.vcxproj
 *.vcxproj.filters
 *.user
