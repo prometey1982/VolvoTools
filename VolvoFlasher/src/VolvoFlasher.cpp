@@ -800,24 +800,16 @@ void readFlash(std::unique_ptr<j2534::J2534> j2534, common::CarPlatform carPlatf
     class CLIReaderProvider final : public flasher::ReaderParametersProviderBase {
     public:
         CLIReaderProvider(common::CarPlatform platform, uint32_t id,
-                          uint32_t s, size_t sz,
-                          const common::VBF& bootloader)
-            : ReaderParametersProviderBase(platform, id, "")
-            , _range{ s, sz }
-			, _bootloader(bootloader) {}
+                          uint32_t s, size_t sz)
+            : ReaderParametersProviderBase(platform, id, "", std::make_unique<flasher::SBLProviderCommon>())
+            , _range{ s, sz } {}
         flasher::ReadRanges getReadRanges() const override { return {_range}; }
-        std::optional<flasher::BootloaderParams> getBootloaderParams() const override {
-            return flasher::BootloaderParams{ _bootloader };
-        }
     private:
         flasher::ReadRange _range;
-		common::VBF _bootloader;
     };
 
-	flasher::SBLProviderCommon bootloaderProvider;
     auto provider = CLIReaderProvider(carPlatform, ecuId,
-        static_cast<uint32_t>(start), static_cast<size_t>(datasize),
-        bootloaderProvider.getSBL(carPlatform, ecuId, ""));
+        static_cast<uint32_t>(start), static_cast<size_t>(datasize));
     auto reader = flasher::ReaderFactory::create(*j2534, provider);
     FlasherCallback callback;
     reader->registerCallback(callback);
