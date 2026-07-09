@@ -38,7 +38,7 @@ std::unique_ptr<FlasherBase> FlasherFactory::create(
         if (!bootloader)
             throw std::runtime_error("D2 flasher requires bootloader");
         return std::make_unique<D2Flasher>(j2534, platform, ecuId,
-            D2FlasherConfig{ bootloader->sblProvider, flash });
+            D2FlasherConfig{ bootloader->bootloader, flash });
     }
 
     // UDS (Volvo, Ford)
@@ -58,7 +58,7 @@ std::unique_ptr<FlasherBase> FlasherFactory::create(
             };
         }
         return std::make_unique<UDSFlasher>(j2534, platform, ecuId,
-            UDSFlasherConfig{ pinArray, bootloader->sblProvider, flash });
+            UDSFlasherConfig{ pinArray, bootloader->bootloader, flash });
     }
 
     // VAG
@@ -76,7 +76,7 @@ std::unique_ptr<FlasherBase> FlasherFactory::create(
             };
         }
         return std::make_unique<UDSFlasher>(j2534, platform, ecuId,
-            UDSFlasherConfig{ pinArray, nullptr, flash });
+            UDSFlasherConfig{ pinArray, {}, flash });
     }
 
     throw std::runtime_error("Unsupported platform for flashing");

@@ -12,18 +12,18 @@
 namespace flasher {
 
 struct D2FlasherConfig {
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;
     const common::VBF flash;
 };
 
 struct UDSFlasherConfig {
     std::array<uint8_t, 5> pin;
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;
     const common::VBF flash;
 };
 
 struct KWPFlasherConfig {
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;
     std::array<uint8_t, 5> pin;
     const common::VBF flash;
     common::CompressionType compressionType;

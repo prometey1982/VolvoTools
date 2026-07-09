@@ -14,8 +14,6 @@ class ICanChannel;
 
 namespace flasher {
 
-class D2FlasherBase;
-
 class D2FlasherImpl {
 public:
     D2FlasherImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
@@ -27,8 +25,13 @@ public:
                    const std::function<void(ICanChannel&, uint8_t)>& eraseCallback,
                    const std::function<void(ICanChannel&, uint8_t)>& writeCallback);
 
+    void run();
+
     void setMaximumFlashProgressValue(size_t value);
     size_t getMaximumProgress() const;
+
+    bool isFailed() const;
+    bool isSBLRequired() const;
 
     void wakeUpChannels();
     void fallAsleep();
@@ -42,9 +45,6 @@ public:
     void done();
     void error();
 
-    bool isFailed() const;
-    bool isSBLRequired() const;
-
 private:
     size_t getMaximumFlashProgressValue() const;
     void setFailed(const std::string& msg);
@@ -52,8 +52,9 @@ private:
     const std::vector<std::unique_ptr<ICanChannel>>& _channels;
     common::CarPlatform _carPlatform;
     uint8_t _ecuId;
-    const common::VBF& _bootloader;
+    common::VBF _bootloader;
     bool _isFailed = false;
+    bool _isDone = false;
     std::string _errorMessage;
     size_t _maximumFlashProgress = 0;
     const std::function<void(FlasherState)> _stateUpdater;

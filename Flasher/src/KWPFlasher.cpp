@@ -40,13 +40,7 @@ namespace flasher {
 
         size_t getMaximumProgress()
         {
-            size_t bootloaderSize{};
-            if (const auto sblProvider = _config.sblProvider) {
-                const auto bootloader{ sblProvider->getSBL(
-                    _carPlatform, _ecuId, "") };
-                bootloaderSize = FlasherBase::getProgressFromVBF(bootloader);
-            }
-            return bootloaderSize  + FlasherBase::getProgressFromVBF(_config.flash);
+            return FlasherBase::getProgressFromVBF(_config.bootloader)  + FlasherBase::getProgressFromVBF(_config.flash);
         }
 
         void authorize()

@@ -35,8 +35,10 @@ struct FlasherParameters {
 ```cpp
 // ParamsTypes.hpp
 struct ReadRange { uint32_t startAddr; size_t size; };
+using ReadRanges = std::vector<ReadRange>;
+
 struct AuthorizationParams { uint64_t pin; };
-struct BootloaderParams { std::shared_ptr<SBLProviderBase> sblProvider; };
+struct BootloaderParams { common::VBF bootloader; };  // VBF, не SBLProviderBase*
 struct EncryptionParams {
     common::CompressionType compression;
     common::EncryptionType encryption;
@@ -48,23 +50,32 @@ struct EncryptionParams {
 ```cpp
 // FlasherConfigs.hpp
 struct D2FlasherConfig {
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;     // предзарезолвленный VBF (не SBLProviderBase*)
     const common::VBF flash;
 };
 
 struct UDSFlasherConfig {
     std::array<uint8_t, 5> pin;
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;     // предзарезолвленный VBF
     const common::VBF flash;
 };
 
 struct KWPFlasherConfig {
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;
     std::array<uint8_t, 5> pin;
     const common::VBF flash;
     common::CompressionType compressionType;
 };
+
+struct VAGFlasherConfig {
+    std::array<uint8_t, 5> pin;
+    const common::VBF flash;
+    common::CompressionType compressionType;
+    common::EncryptionType encryptionType;
+};
 ```
+
+**Ключевое отличие от первой версии:** `bootloader` — готовый `VBF`, а не `SBLProviderBase*`. Бутлоадер резолвится ДО создания config-а, в фабрике или CLI.
 
 ### 3.3. Provider base классы
 
@@ -76,7 +87,7 @@ public:
     common::CarPlatform getCarPlatform() const;
     uint32_t getEcuId() const;
     const std::string& getCmInfo() const;
-    virtual ReadRange getReadRange() const = 0;
+    virtual ReadRanges getReadRanges() const = 0;      // вектор диапазонов
     virtual std::optional<AuthorizationParams> getAuthParams() const;
     virtual std::optional<BootloaderParams> getBootloaderParams() const;
 };
@@ -95,7 +106,7 @@ public:
 };
 ```
 
-### 3.4. FlasherBase — без FlasherParameters
+### 3.4. FlasherBase
 
 ```cpp
 class FlasherBase: public FlasherCallbackHolder {
@@ -111,20 +122,10 @@ protected:
 };
 ```
 
-Каждый конкретный флешер хранит свою config-структуру:
+Каждый флешер хранит свою config-структуру. `D2FlasherBase` делегирует выполнение в `D2FlasherImpl` (отдельный .cpp с HFSM2):
 
-```cpp
-class D2Flasher : public D2FlasherBase {
-    D2FlasherConfig _config;
-};
-
-class UDSFlasher : public FlasherBase {
-    const UDSFlasherConfig _config;
-};
-
-class KWPFlasher : public FlasherBase {
-    const KWPFlasherConfig _config;
-};
+```
+D2FlasherBase → D2FlasherImpl::run() → HFSM2: WakeUp → FallAsleep → StartPBL → LoadSBL → StartSBL → [колбэк] → WakeUp → Done
 ```
 
 ### 3.5. ReaderBase
@@ -132,128 +133,129 @@ class KWPFlasher : public FlasherBase {
 ```cpp
 class ReaderBase: public FlasherCallbackHolder {
 public:
-    ReaderBase(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId, ReadRange range);
-    const std::vector<uint8_t>& buffer() const;
+    ReaderBase(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId, ReadRanges ranges);
+    const std::vector<std::vector<uint8_t>>& buffers() const;  // вектор буферов
     FlasherState getCurrentState() const;
     void start();
 protected:
     const common::CarPlatform _carPlatform;
     const uint32_t _ecuId;
-    const ReadRange _range;
+    const ReadRanges _ranges;                     // вектор диапазонов
     common::J2534ChannelProvider _channelProvider;
-    std::vector<uint8_t> _buffer;
+    std::vector<std::vector<uint8_t>> _buffers;   // буфер на каждый диапазон
     virtual void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) = 0;
 };
 ```
 
-### 3.6. Фабрики
+### 3.6. D2FlasherImpl — общий HFSM2 для D2ReaderChecksum и D2FlasherBase
 
 ```cpp
-class ReaderFactory {
-    static std::unique_ptr<ReaderBase> create(
-        j2534::J2534& j2534,
-        const ReaderParametersProviderBase& params);
-    static bool isD2Platform(common::CarPlatform p);
-    static bool isUDSPlatform(common::CarPlatform p);
-};
-
-class FlasherFactory {
-    static std::unique_ptr<FlasherBase> create(
-        j2534::J2534& j2534,
-        const FlasherParametersProviderBase& params);
-    static bool isD2Platform(common::CarPlatform p);
-    static bool isUDSPlatform(common::CarPlatform p);
+class D2FlasherImpl {
+public:
+    D2FlasherImpl(channels, carPlatform, ecuId, bootloader,
+                  stateUpdater, progressUpdater, eraseCallback, writeCallback);
+    void run();   // запускает FSM, ждёт Done/Error
+    // ... setMaximumFlashProgressValue, getMaximumProgress, isFailed ...
 };
 ```
 
-Фабрики диспетчеризуют по (platform, ecuId, cmInfo) и сами запрашивают данные у provider-а:
+Используется:
+- `D2FlasherBase` — с eraseStep/writeStep колбэками (прошивка)
+- `D2ReaderChecksum` — с no-op erase и write-читателем (чтение)
 
-- D2 ECM → `D2Reader` с `BootloaderParams`
-- D2 TCM (cmInfo=="aw55") → `D2ReaderAW55` 
-- D2 TCM (cmInfo=="tf80_p2") → `D2ReaderTF80`
-- UDS → `UDSReader` с `AuthorizationParams` (PIN)
-- D2 flash → `D2Flasher` с `BootloaderParams`
-- UDS flash → `UDSFlasher` с `BootloaderParams` + `AuthorizationParams` (PIN опционален)
-- VAG → `UDSFlasher` с `AuthorizationParams` + `EncryptionParams`
-
-### 3.7. CLI — inline провайдеры
-
-`CLIReaderProvider` и `CLIFlasherProvider` создаются прямо внутри функций `readFlash()`, `UDSFlash()`, `D2Flash()` в `VolvoFlasher.cpp`. Они наследуют соответствующий `*ProviderBase`, передают базовые ключи в конструктор и переопределяют data-методы.
+### 3.7. Фабрики
 
 ```cpp
-// Чтение
-CLIReaderProvider provider(platform, ecuId, "", start, size, pin, sbl);
-auto reader = ReaderFactory::create(j2534, provider);
-reader->start();
-// ... reader->buffer()
+// ReaderFactory
+static std::unique_ptr<ReaderBase> create(j2534::J2534&, const ReaderParametersProviderBase&);
 
-// Прошивка
-UDSFlasherConfig config{ pinArray, sblProvider, flash };
-UDSFlasher flasher(j2534, carPlatform, ecuId, std::move(config));
-flasher.start();
+// FlasherFactory
+static std::unique_ptr<FlasherBase> create(j2534::J2534&, const FlasherParametersProviderBase&);
 ```
 
-## 4. Изменённые файлы
+Диспетчеризация:
+- D2 ECM → `D2ReaderChecksum` (Ranges)
+- D2 TCM (cmInfo=="aw55") → `D2ReaderAW55` (Ranges)
+- D2 TCM (cmInfo=="tf80_p2") → `D2ReaderTF80` (Ranges)
+- UDS → `UDSReader` (Ranges + PIN)
+- D2 flash → `D2Flasher` (BootloaderParams)
+- UDS flash → `UDSFlasher` (BootloaderParams + PIN опционален)
+- VAG → `UDSFlasher` (PIN + EncryptionParams)
 
-### 4.1. Новые файлы
+## 4. Итоговый список файлов
+
+### 4.1. Новые
 
 | № | Файл | Описание |
 |---|---|---|
-| 1 | `Flasher/flasher/ParamsTypes.hpp` | `ReadRange`, `AuthorizationParams`, `BootloaderParams`, `EncryptionParams` |
+| 1 | `Flasher/flasher/ParamsTypes.hpp` | `ReadRange`, `ReadRanges`, `AuthorizationParams`, `BootloaderParams`, `EncryptionParams` |
 | 2 | `Flasher/flasher/ReaderParametersProviderBase.hpp` | Provider base для читателей |
 | 3 | `Flasher/flasher/FlasherParametersProviderBase.hpp` | Provider base для флешеров |
 | 4 | `Flasher/flasher/FlasherConfigs.hpp` | `D2FlasherConfig`, `UDSFlasherConfig`, `KWPFlasherConfig` |
-| 5 | `Flasher/flasher/ReaderBase.hpp` | Базовый класс читателя |
+| 5 | `Flasher/flasher/ReaderBase.hpp` | Базовый класс читателя (ReadRanges + _buffers) |
 | 6 | `Flasher/src/ReaderBase.cpp` | Реализация ReaderBase |
 | 7 | `Flasher/flasher/ReaderFactory.hpp` | Фабрика читателей |
 | 8 | `Flasher/src/ReaderFactory.cpp` | Реализация ReaderFactory |
-| 9 | `Flasher/flasher/D2Reader.hpp` | Переписан (наследует ReaderBase) |
-| 10 | `Flasher/src/D2Reader.cpp` | Переписан (startImpl с D2-шагами) |
-| 11 | `Flasher/flasher/UDSReader.hpp` | Новый — UDS чтение через 0x23 |
+| 9 | `Flasher/flasher/D2ReaderChecksum.hpp` | D2-чтение через checksum (заменил D2Reader) |
+| 10 | `Flasher/src/D2ReaderChecksum.cpp` | Использует D2FlasherImpl |
+| 11 | `Flasher/flasher/UDSReader.hpp` | UDS-чтение через 0x23 |
 | 12 | `Flasher/src/UDSReader.cpp` | Реализация UDSReader |
-| 13 | `Flasher/flasher/D2ReaderAW55.hpp` | Новый — AW55 TCM чтение |
+| 13 | `Flasher/flasher/D2ReaderAW55.hpp` | AW55 TCM чтение |
 | 14 | `Flasher/src/D2ReaderAW55.cpp` | Реализация |
-| 15 | `Flasher/flasher/D2ReaderTF80.hpp` | Новый — TF80 TCM чтение |
+| 15 | `Flasher/flasher/D2ReaderTF80.hpp` | TF80 TCM чтение |
 | 16 | `Flasher/src/D2ReaderTF80.cpp` | Реализация |
 | 17 | `Flasher/flasher/FlasherFactory.hpp` | Переписан — новая сигнатура |
 | 18 | `Flasher/src/FlasherFactory.cpp` | Реализация FlasherFactory |
+| 19 | `Flasher/src/D2FlasherImpl.hpp` | HFSM2 + D2-шаги (отдельная единица трансляции) |
+| 20 | `Flasher/src/D2FlasherImpl.cpp` | Реализация D2FlasherImpl + FSM states |
 
-### 4.2. Изменённые файлы
+### 4.2. Изменённые
 
 | № | Файл | Изменение |
 |---|---|---|
-| 19 | `Flasher/flasher/FlasherBase.hpp` | Убран `FlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId)` |
-| 20 | `Flasher/src/FlasherBase.cpp` | Конструктор без `FlasherParameters` |
-| 21 | `Flasher/flasher/D2FlasherBase.hpp` | Конструктор: `(j2534, CarPlatform, ecuId, D2FlasherConfig&&)` |
-| 22 | `Flasher/src/D2FlasherBase.cpp` | Заменён `getFlasherParameters()` на `_config` |
-| 23 | `Flasher/flasher/D2Flasher.hpp` | Конструктор: `(j2534, CarPlatform, ecuId, D2FlasherConfig&&)` |
-| 24 | `Flasher/src/D2Flasher.cpp` | `getConfig().flash` вместо `getFlasherParameters().flash` |
-| 25 | `Flasher/flasher/UDSFlasher.hpp` | Убраны `UDSFlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId, UDSFlasherConfig&&)` |
-| 26 | `Flasher/src/UDSFlasher.cpp` | `UDSFlasherImpl` переписан под `UDSFlasherConfig` |
-| 27 | `Flasher/flasher/KWPFlasher.hpp` | Убраны `KWPFlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId, KWPFlasherConfig&&)` |
-| 28 | `Flasher/src/KWPFlasher.cpp` | `KWPFlasherImpl` переписан под `KWPFlasherConfig` |
-| 29 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()`, `UDSFlash()`, `D2Flash()` — создают config напрямую |
+| 21 | `Flasher/flasher/FlasherBase.hpp` | Убран `FlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId)` |
+| 22 | `Flasher/src/FlasherBase.cpp` | Конструктор без `FlasherParameters` |
+| 23 | `Flasher/flasher/D2FlasherBase.hpp` | Конструктор: `(j2534, CarPlatform, ecuId, D2FlasherConfig&&)` |
+| 24 | `Flasher/src/D2FlasherBase.cpp` | D2FlasherImpl + HFSM2 вынесены в D2FlasherImpl.cpp. `startImpl` делегирует `impl.run()` |
+| 25 | `Flasher/flasher/D2Flasher.hpp` | Конструктор: `(j2534, CarPlatform, ecuId, D2FlasherConfig&&)` |
+| 26 | `Flasher/src/D2Flasher.cpp` | `getConfig().flash` вместо `getFlasherParameters().flash` |
+| 27 | `Flasher/flasher/UDSFlasher.hpp` | Убраны `UDSFlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId, UDSFlasherConfig&&)` |
+| 28 | `Flasher/src/UDSFlasher.cpp` | `UDSFlasherImpl` переписан под `UDSFlasherConfig` |
+| 29 | `Flasher/flasher/KWPFlasher.hpp` | Убраны `KWPFlasherParameters`. Конструктор: `(j2534, CarPlatform, ecuId, KWPFlasherConfig&&)` |
+| 30 | `Flasher/src/KWPFlasher.cpp` | `KWPFlasherImpl` переписан под `KWPFlasherConfig` |
+| 31 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()`, `UDSFlash()`, `D2Flash()` — создают config напрямую |
 
-## 5. Статус реализации
+### 4.3. Удалённые
 
-| Шаг | Статус |
+| № | Файл | Причина |
+|---|---|---|
+| 32 | `Flasher/flasher/FlasherParameters.hpp` | Struct удалён из FlasherBase.hpp |
+| 33 | `Flasher/flasher/UDSMemoryReader.hpp` | Заменён на `UDSReader` |
+| 34 | `Flasher/src/UDSMemoryReader.cpp` | Заменён на `UDSReader` |
+| 35 | `Flasher/flasher/D2Reader.hpp` | Заменён на `D2ReaderChecksum` |
+| 36 | `Flasher/src/D2Reader.cpp` | Заменён на `D2ReaderChecksum` |
+
+## 5. Ключевые архитектурные решения
+
+| Решение | Мотивация |
 |---|---|
-| A: ParamsTypes + provider base классы | ✓ |
-| B: ReaderFactory + ReaderBase + читатели | ✓ |
-| C: CLI readFlash через ReaderFactory | ✓ |
-| D: FlasherConfigs + FlasherBase без FlasherParameters | ✓ |
-| E: UDSFlash/D2Flash под новые config-ы | ✓ |
-| F: Удалён `FlasherParameters`, `additionalData`, `UDSFlasherParameters`, `KWPFlasherParameters` | ✓ |
+| `BootloaderParams` содержит `VBF`, а не `SBLProviderBase*` | Бутлоадер резолвится до создания config-а. Config-ы не зависят от SBLProviderBase |
+| `ReaderBase` принимает `ReadRanges` (вектор) | Поддержка нескольких диапазонов чтения с отдельными буферами |
+| `D2FlasherImpl` — отдельный .cpp с HFSM2 | Одна копия FSM для D2FlasherBase и D2ReaderChecksum |
+| Config-структуры без `unique_ptr` | Копируемые, можно хранить по значению |
+| Provider base с default-реализациями (`std::nullopt`) | Наследник переопределяет только то, что нужно |
 
 ## 6. Критерии готовности
 
-1. ✓ `ParamsTypes.hpp` содержит `ReadRange`, `AuthorizationParams`, `BootloaderParams`, `EncryptionParams`
-2. ✓ `ReaderParametersProviderBase` — non-virtual геттеры для базовых ключей + virtual data-методы
-3. ✓ `FlasherParametersProviderBase` — то же для флешеров
-4. ✓ `FlasherConfigs.hpp` — отдельные struct для D2, UDS, KWP
+1. ✓ `ParamsTypes.hpp` содержит `ReadRange`, `ReadRanges`, `AuthorizationParams`, `BootloaderParams`, `EncryptionParams`
+2. ✓ `ReaderParametersProviderBase` — non-virtual геттеры + virtual `getReadRanges()`, `getAuthParams()`, `getBootloaderParams()`
+3. ✓ `FlasherParametersProviderBase` — то же + `getFlashData()`, `getEncryptionParams()`
+4. ✓ `FlasherConfigs.hpp` — отдельные struct для D2, UDS, KWP, VAG с полем `bootloader` типа `VBF`
 5. ✓ `FlasherBase` не содержит `_flasherParameters` — хранит `_carPlatform` + `_ecuId`
-6. ✓ `ReaderBase` — базовый класс с потоком, прогрессом, буфером
-7. ✓ `ReaderFactory::create()` диспетчеризует по (platform, ecuId, cmInfo)
-8. ✓ `FlasherFactory::create()` диспетчеризует по (platform, ecuId)
-9. ✓ `FlasherParameters`, `UDSFlasherParameters`, `KWPFlasherParameters` удалены
-10. ✓ Сборка: `cmake --build build --config Release` — 0 ошибок
+6. ✓ `ReaderBase` — базовый класс с потоком, прогрессом, `ReadRanges`, `_buffers`
+7. ✓ `D2FlasherImpl` — отдельная единица трансляции, содержит HFSM2 + `run()`
+8. ✓ `ReaderFactory::create()` диспетчеризует по `(platform, ecuId, cmInfo)`
+9. ✓ `FlasherFactory::create()` диспетчеризует по `(platform, ecuId)`
+10. ✓ `D2Reader` → `D2ReaderChecksum`, `UDSMemoryReader` → `UDSReader`
+11. ✓ `FlasherParameters`, `UDSFlasherParameters`, `KWPFlasherParameters` удалены
+12. ✓ Сборка: `cmake --build build --config Release` — 0 ошибок

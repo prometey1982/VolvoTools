@@ -16,6 +16,8 @@ namespace common {
 		VBF(VBFHeader header, std::vector<VBFChunk>&& chunks)
 			: header(header), chunks(std::move(chunks)) {
 		}
+
+		VBF() = default;
 	};
 
 } // namespace common

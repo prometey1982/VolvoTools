@@ -39,9 +39,7 @@ namespace flasher {
 
         size_t getMaximumProgress()
         {
-            const auto bootloader{ _config.sblProvider->getSBL(
-                _carPlatform, _ecuId, "")};
-            return FlasherBase::getProgressFromVBF(bootloader) + FlasherBase::getProgressFromVBF(_config.flash);
+            return FlasherBase::getProgressFromVBF(_config.bootloader) + FlasherBase::getProgressFromVBF(_config.flash);
         }
 
         void fallAsleep()
@@ -70,11 +68,9 @@ namespace flasher {
         void loadBootloader()
         {
             _stateUpdater(FlasherState::LoadBootloader);
-            if (_config.sblProvider) {
-                const auto bootloader{ _config.sblProvider->getSBL(
-                    _carPlatform, _ecuId, "")};
+            if (!_config.bootloader.chunks.empty()) {
                 auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-                if (bootloader.chunks.empty() || !common::UDSProtocolCommonSteps::transferData(channel, _canId, bootloader,
+                if (!common::UDSProtocolCommonSteps::transferData(channel, _canId, _config.bootloader,
                                                                                                 _progressUpdater)) {
                     setFailed("Bootloader loading failed");
                 }
@@ -84,11 +80,9 @@ namespace flasher {
         void startBootloader()
         {
             _stateUpdater(FlasherState::StartBootloader);
-            if (_config.sblProvider) {
-                const auto bootloader{ _config.sblProvider->getSBL(
-                    _carPlatform, _ecuId, "") };
+            if (!_config.bootloader.chunks.empty()) {
                 auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-                if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canId, bootloader.header.call)) {
+                if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canId, _config.bootloader.header.call)) {
                     setFailed("Bootloader starting failed");
                 }
             }

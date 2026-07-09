@@ -1,8 +1,8 @@
 #include "flasher/ReaderFactory.hpp"
 
 #include "flasher/ReaderBase.hpp"
-#include "flasher/D2Reader.hpp"
 #include "flasher/D2ReaderAW55.hpp"
+#include "flasher/D2ReaderChecksum.hpp"
 #include "flasher/D2ReaderTF80.hpp"
 #include "flasher/UDSReader.hpp"
 
@@ -36,11 +36,7 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
 
     // D2 ECM
     if (ecuId == 0x7A && isD2Platform(platform)) {
-        auto bootloader = p.getBootloaderParams();
-        if (!bootloader)
-            throw std::runtime_error("D2Reader requires bootloader");
-        return std::make_unique<D2Reader>(j2534, platform, ecuId, ranges,
-                                          std::move(bootloader->sblProvider));
+        return std::make_unique<D2ReaderChecksum>(j2534, platform, ecuId, ranges);
     }
 
     // D2 TCM

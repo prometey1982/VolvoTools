@@ -14,7 +14,7 @@ title: Диаграмма класса читателей
 ---
 classDiagram
     FlasherCallbackHolder <|-- ReaderBase
-    ReaderBase <|-- D2Reader
+    ReaderBase <|-- D2ReaderChecksum
     ReaderBase <|-- UDSReader
     ReaderBase <|-- D2ReaderAW55
     ReaderBase <|-- D2ReaderTF80
@@ -23,24 +23,24 @@ classDiagram
         +unregisterCallback()
     }
     class ReaderBase {
-        +ReaderBase(j2534, carPlatform, ecuId, ReadRange)
-        +buffer(): vector~uint8_t~
+        +ReaderBase(j2534, carPlatform, ecuId, ReadRanges)
+        +buffers(): vector~vector~uint8_t~~
         +getCurrentProgress(): size_t
         +getMaximumProgress(): size_t
         +getCurrentState(): FlasherState
         +start()
     }
-    class D2Reader {
-        +D2Reader(j2534, carPlatform, ecuId, ReadRange, sblProvider)
+    class D2ReaderChecksum {
+        +D2ReaderChecksum(j2534, carPlatform, ecuId, ReadRanges)
     }
     class UDSReader {
-        +UDSReader(j2534, carPlatform, ecuId, ReadRange, pin)
+        +UDSReader(j2534, carPlatform, ecuId, ReadRanges, pin)
     }
     class D2ReaderAW55 {
-        +D2ReaderAW55(j2534, carPlatform, ecuId, ReadRange)
+        +D2ReaderAW55(j2534, carPlatform, ecuId, ReadRanges)
     }
     class D2ReaderTF80 {
-        +D2ReaderTF80(j2534, carPlatform, ecuId, ReadRange)
+        +D2ReaderTF80(j2534, carPlatform, ecuId, ReadRanges)
     }
     class ReaderFactory {
         +create(j2534, ReaderParametersProviderBase) ReaderBase
@@ -49,19 +49,19 @@ classDiagram
 
 ### 2.2. ReaderBase
 
-Базовый класс для всех читателей. Наследует `FlasherCallbackHolder`. Инкапсулирует поток, прогресс, состояния, буфер.
+Базовый класс для всех читателей. Наследует `FlasherCallbackHolder`. Инкапсулирует поток, прогресс, состояния, буферы.
 
 ```cpp
 class ReaderBase: public FlasherCallbackHolder {
 public:
     ReaderBase(j2534::J2534& j2534, common::CarPlatform carPlatform,
-               uint32_t ecuId, ReadRange range);
+               uint32_t ecuId, ReadRanges ranges);
     virtual ~ReaderBase();
 
     FlasherState getCurrentState() const;
     size_t getCurrentProgress() const;
     size_t getMaximumProgress() const;
-    const std::vector<uint8_t>& buffer() const;
+    const std::vector<std::vector<uint8_t>>& buffers() const;
     void start();
 
 protected:
@@ -72,23 +72,31 @@ protected:
 
     const common::CarPlatform _carPlatform;
     const uint32_t _ecuId;
-    const ReadRange _range;
+    const ReadRanges _ranges;
     common::J2534ChannelProvider _channelProvider;
-    std::vector<uint8_t> _buffer;
+    std::vector<std::vector<uint8_t>> _buffers;
 };
 ```
 
-### 2.3. D2Reader
+**Ключевые изменения:**
+- `ReadRanges` — вектор `ReadRange`, поддержка нескольких диапазонов
+- `_buffers` — вектор буферов, по одному на каждый диапазон
+- `buffers()` возвращает `vector<vector<uint8_t>>`
 
-Чтение по протоколу D2. Проходит последовательность шагов: wakeUp → fallAsleep → startPBL → [loadSBL → startSBL] → побайтовое чтение через checksum → wakeUp → Done. Наследует `ReaderBase` (не `D2FlasherBase`).
+### 2.3. D2ReaderChecksum
 
-**Файлы:** `Flasher/flasher/D2Reader.hpp`, `Flasher/src/D2Reader.cpp` (100 строк)
+Чтение по протоколу D2 через checksum. Использует `D2FlasherImpl` (общий HFSM2 с `D2FlasherBase`):
+- Передаёт no-op erase-колбэк
+- В write-колбэке выполняет побайтовое чтение: `jumpTo(addr)` → запрос checksum → чтение байта
+- Не требует bootloader (передаёт пустой `VBF()`)
+
+**Файлы:** `Flasher/flasher/D2ReaderChecksum.hpp`, `Flasher/src/D2ReaderChecksum.cpp`
 
 ### 2.4. UDSReader
 
-Чтение по протоколу UDS (ISO 15765). Использует сервис 0x23 (`ReadMemoryByAddress`) блоками по 0x100 байт. Платформы: P3, Ford_UDS, VAG, Haval_UDS.
+Чтение по протоколу UDS (ISO 15765). Использует сервис 0x23 (`ReadMemoryByAddress`) блоками по 0x100 байт. Платформы: P3, Ford_UDS, VAG, Haval_UDS. Требует PIN для авторизации.
 
-**Файлы:** `Flasher/flasher/UDSReader.hpp`, `Flasher/src/UDSReader.cpp` (84 строки)
+**Файлы:** `Flasher/flasher/UDSReader.hpp`, `Flasher/src/UDSReader.cpp`
 
 ### 2.5. D2ReaderAW55
 
@@ -115,14 +123,10 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     const auto platform = p.getCarPlatform();
     const auto ecuId = p.getEcuId();
     const auto& cmInfo = p.getCmInfo();
-    const auto range = p.getReadRange();
+    const auto ranges = p.getReadRanges();
 
-    if (ecuId == 0x7A && isD2Platform(platform)) {
-        auto bootloader = p.getBootloaderParams();
-        if (!bootloader) throw ...;
-        return std::make_unique<D2Reader>(j2534, platform, ecuId, range,
-                                          std::move(bootloader->sblProvider));
-    }
+    if (ecuId == 0x7A && isD2Platform(platform))
+        return std::make_unique<D2ReaderChecksum>(j2534, platform, ecuId, ranges);
     if (ecuId == 0x6E && isD2Platform(platform)) {
         if (cmInfo == "aw55")  return D2ReaderAW55(...);
         if (cmInfo == "tf80_p2") return D2ReaderTF80(...);
@@ -130,7 +134,7 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     if (isUDSPlatform(platform)) {
         auto auth = p.getAuthParams();
         if (!auth) throw ...;
-        return std::make_unique<UDSReader>(j2534, platform, ecuId, range, auth->pin);
+        return std::make_unique<UDSReader>(j2534, platform, ecuId, ranges, auth->pin);
     }
     throw std::runtime_error("Unsupported platform/ECU for reading");
 }
@@ -140,70 +144,72 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
 
 В `VolvoFlasher.cpp` создаётся inline `CLIReaderProvider`, вызывается `ReaderFactory::create()`:
 
-```cpp
-void readFlash(...) {
-    class CLIReaderProvider final : public flasher::ReaderParametersProviderBase {
-        // наследует базовые ключи из конструктора
-        ReadRange getReadRange() const override;
-        optional<BootloaderParams> getBootloaderParams() const override;
-    };
-    CLIReaderProvider provider(carPlatform, ecuId, "", start, size, sbl);
-    auto reader = ReaderFactory::create(j2534, provider);
-    reader->start();
-    // ... wait for Done
-    output.write(reader->buffer());
-}
+```
+CLIReaderProvider provider(carPlatform, ecuId, cmInfo, ranges, pin);
+auto reader = ReaderFactory::create(j2534, provider);
+reader->start();
+// ... wait for Done
+output.write(reader->buffers()[0].data(), ...);
 ```
 
-## 3. Полный список файлов
+## 3. Файлы
 
 ### 3.1. Новые
 
 | № | Файл | Описание |
 |---|---|---|
-| 1 | `Flasher/flasher/ParamsTypes.hpp` | `ReadRange`, `AuthorizationParams`, `BootloaderParams` |
+| 1 | `Flasher/flasher/ParamsTypes.hpp` | `ReadRange`, `ReadRanges`, `AuthorizationParams`, `BootloaderParams` |
 | 2 | `Flasher/flasher/ReaderParametersProviderBase.hpp` | Provider base |
 | 3 | `Flasher/flasher/FlasherCallbackHolder.hpp` | Базовый класс с callbacks |
-| 4 | `Flasher/flasher/ReaderBase.hpp` | Абстрактный базовый класс читателя |
+| 4 | `Flasher/flasher/ReaderBase.hpp` | Абстрактный базовый класс читателя (ReadRanges) |
 | 5 | `Flasher/src/ReaderBase.cpp` | Реализация |
 | 6 | `Flasher/flasher/ReaderFactory.hpp` | Фабрика читателей |
 | 7 | `Flasher/src/ReaderFactory.cpp` | Реализация фабрики |
-| 8 | `Flasher/flasher/UDSReader.hpp` | UDS-читатель |
-| 9 | `Flasher/src/UDSReader.cpp` | Реализация |
-| 10 | `Flasher/flasher/D2ReaderAW55.hpp` | AW55 TCM |
-| 11 | `Flasher/src/D2ReaderAW55.cpp` | Реализация |
-| 12 | `Flasher/flasher/D2ReaderTF80.hpp` | TF80 TCM |
-| 13 | `Flasher/src/D2ReaderTF80.cpp` | Реализация |
+| 8 | `Flasher/flasher/D2ReaderChecksum.hpp` | D2-чтение через checksum |
+| 9 | `Flasher/src/D2ReaderChecksum.cpp` | Использует D2FlasherImpl |
+| 10 | `Flasher/flasher/UDSReader.hpp` | UDS-читатель через 0x23 |
+| 11 | `Flasher/src/UDSReader.cpp` | Реализация |
+| 12 | `Flasher/flasher/D2ReaderAW55.hpp` | AW55 TCM |
+| 13 | `Flasher/src/D2ReaderAW55.cpp` | Реализация |
+| 14 | `Flasher/flasher/D2ReaderTF80.hpp` | TF80 TCM |
+| 15 | `Flasher/src/D2ReaderTF80.cpp` | Реализация |
 
-### 3.2. Изменённые
+### 3.2. Изменённые / удалённые
 
 | № | Файл | Изменение |
 |---|---|---|
-| 14 | `Flasher/flasher/D2Reader.hpp` | Полностью переписан: наследует `ReaderBase` |
-| 15 | `Flasher/src/D2Reader.cpp` | Переписан: прямой вызов D2ProtocolCommonSteps |
-| 16 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()` переписан под ReaderFactory |
+| 16 | `Flasher/src/D2FlasherImpl.hpp` | **Новый** — HFSM2 + D2-шаги (общий для FlasherBase и ReaderChecksum) |
+| 17 | `Flasher/src/D2FlasherImpl.cpp` | **Новый** — реализация |
+| 18 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()` переписан под ReaderFactory |
+| 19 | `Flasher/flasher/D2Reader.hpp` | **Удалён** → заменён на D2ReaderChecksum |
+| 20 | `Flasher/src/D2Reader.cpp` | **Удалён** → заменён на D2ReaderChecksum |
+| 21 | `Flasher/flasher/UDSMemoryReader.hpp` | **Удалён** → заменён на UDSReader |
+| 22 | `Flasher/src/UDSMemoryReader.cpp` | **Удалён** → заменён на UDSReader |
 
-### 3.3. Удалённые
+## 4. D2FlasherImpl — общий HFSM2
 
-| № | Файл | Причина |
-|---|---|---|
-| 17 | `Flasher/flasher/UDSMemoryReader.hpp` | Заменён на `UDSReader` |
-| 18 | `Flasher/src/UDSMemoryReader.cpp` | Заменён на `UDSReader` |
+`D2FlasherImpl` находится в `Flasher/src/D2FlasherImpl.{hpp,cpp}`. Содержит:
+- HFSM2 автомат (11 состояний: WakeUp → FallAsleep → StartPBL → LoadSBL → StartSBL → Erase → Write → WakeUp → SetDIMTime → Done/Error)
+- `run()` — запускает FSM, ждёт Done/Error
+- Колбэки: `eraseCallback`, `writeCallback`
 
-## 4. Отложенные компоненты
+Используется:
+- `D2FlasherBase` → erase = стирание, write = запись (прошивка)
+- `D2ReaderChecksum` → erase = no-op, write = побайтовое чтение через checksum
+
+## 5. Отложенные компоненты
 
 | Компонент | Причина |
 |---|---|
-| `D2ReaderReadMemoryByAddr` | Чтение через 0xA6 блоками — не реализовано. `D2Reader` сейчас читает побайтово через checksum |
-| `D2ChecksumReader` | Дублирует `D2Reader` — решение о необходимости не принято |
+| `D2ReaderReadMemoryByAddr` | Чтение через 0xA6 блоками — не реализовано. `D2ReaderChecksum` читает побайтово |
 
-## 5. Критерии готовности
+## 6. Критерии готовности
 
-1. ✓ `ReaderBase` — общий предок для всех читателей (FlasherCallbackHolder + поток + прогресс + буфер)
-2. ✓ `D2Reader` наследует `ReaderBase`, читает побайтово через checksum (D2ProtocolCommonSteps)
-3. ✓ `UDSReader` читает прошивку с UDS-платформ через 0x23 блоками
+1. ✓ `ReaderBase` — общий предок с `ReadRanges`, `_buffers`, `FlasherCallbackHolder`
+2. ✓ `D2ReaderChecksum` читает побайтово через checksum, использует D2FlasherImpl
+3. ✓ `UDSReader` читает с UDS-платформ через 0x23 блоками
 4. ✓ `D2ReaderAW55` / `D2ReaderTF80` читают TCM
-5. ✓ `ReaderFactory::create()` диспетчеризует по (platform, ecuId, cmInfo) через ReaderParametersProviderBase
-6. ✓ `VolvoFlasher read` использует ReaderFactory (автоопределение протокола)
-7. ✓ `UDSMemoryReader` удалён
+5. ✓ `ReaderFactory::create()` диспетчеризует по (platform, ecuId, cmInfo)
+6. ✓ `VolvoFlasher read` использует ReaderFactory
+7. ✓ `UDSMemoryReader` и старый `D2Reader` удалены
 8. ✓ Сборка: `cmake --build build --config Release` — 0 ошибок

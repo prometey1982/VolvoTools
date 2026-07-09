@@ -23,7 +23,7 @@ struct AuthorizationParams {
 };
 
 struct BootloaderParams {
-    std::shared_ptr<SBLProviderBase> sblProvider;
+    common::VBF bootloader;
 };
 
 struct EncryptionParams {
