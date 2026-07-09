@@ -1,4 +1,4 @@
-#include "flasher/D2ReaderChecksum.hpp"
+#include "flasher/D2ReaderME7.hpp"
 #include "D2FlasherImpl.hpp"
 
 #include <common/ICanChannel.hpp>
@@ -30,15 +30,16 @@ namespace {
 
 namespace flasher {
 
-D2ReaderChecksum::D2ReaderChecksum(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
-                   ReadRanges ranges)
+D2ReaderME7::D2ReaderME7(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+                         ReadRanges ranges, common::VBF bootloader)
     : ReaderBase{ j2534, carPlatform, ecuId, std::move(ranges) }
+    , _bootloader{ std::move(bootloader) }
 {
 }
 
-void D2ReaderChecksum::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+void D2ReaderME7::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 {
-    D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), common::VBF(),
+    D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), _bootloader,
         [this](FlasherState state) {
             setCurrentState(state);
         },
@@ -57,26 +58,21 @@ void D2ReaderChecksum::startImpl(std::vector<std::unique_ptr<ICanChannel>>& chan
                 for (uint32_t i = 0; i < range.size; ++i) {
                     const auto currentPos = range.startAddr + i;
                     common::D2ProtocolCommonSteps::jumpTo(channel, ecuId, currentPos);
-                    auto calcMsg = common::toVector(currentPos + 1);
-                    std::vector<uint8_t> payload(8, 0);
-                    payload[0] = ecuId;
-                    payload[1] = 0xB4;
-                    payload[2] = 0x15;
-                    payload[3] = 0x22;
-                    payload[4] = calcMsg[0];
-                    payload[5] = calcMsg[1];
-                    payload[6] = calcMsg[2];
-                    payload[7] = calcMsg[3];
-                    const auto checksumAnswer = writeMessagesAndReadMessage(channel,
+                    auto addr = common::toVector(currentPos + 1);
+                    std::vector<uint8_t> payload = {0x7A, 0xBC};
+                    payload.insert(payload.end(), addr.cbegin(), addr.cend());
+                    const auto answer = writeMessagesAndReadMessage(channel,
                         {D2_CAN_ID, std::move(payload), true});
-                    if (checksumAnswer.data.size() >= 2 && checksumAnswer.data[1] == 0xB1) {
-                        buffer.push_back(checksumAnswer.data[2]);
+                    for(size_t s = 3; s < answer.data.size(); ++s) {
+                        buffer.push_back(answer.data[s]);
+                        incCurrentProgress(1);
                     }
                 }
             }
         });
 
     impl.setMaximumFlashProgressValue(getMaximumProgress());
+    impl.run();
 }
 
 } // namespace flasher

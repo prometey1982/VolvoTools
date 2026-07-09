@@ -128,7 +128,7 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     if (ecuId == 0x7A && isD2Platform(platform))
         return std::make_unique<D2ReaderChecksum>(j2534, platform, ecuId, ranges);
     if (ecuId == 0x6E && isD2Platform(platform)) {
-        if (cmInfo == "aw55")  return D2ReaderAW55(...);
+        if (cmInfo == "aw55_p2")  return D2ReaderAW55(...);
         if (cmInfo == "tf80_p2") return D2ReaderTF80(...);
     }
     if (isUDSPlatform(platform)) {

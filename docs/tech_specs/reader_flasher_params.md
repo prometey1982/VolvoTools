@@ -175,7 +175,7 @@ static std::unique_ptr<FlasherBase> create(j2534::J2534&, const FlasherParameter
 
 Диспетчеризация:
 - D2 ECM → `D2ReaderChecksum` (Ranges)
-- D2 TCM (cmInfo=="aw55") → `D2ReaderAW55` (Ranges)
+- D2 TCM (cmInfo=="aw55_p2") → `D2ReaderAW55` (Ranges)
 - D2 TCM (cmInfo=="tf80_p2") → `D2ReaderTF80` (Ranges)
 - UDS → `UDSReader` (Ranges + PIN)
 - D2 flash → `D2Flasher` (BootloaderParams)

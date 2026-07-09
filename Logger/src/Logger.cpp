@@ -366,7 +366,7 @@ namespace logger {
 		}
         if (cmId == 0x6E && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
 			|| carPlatform == CarPlatform::P2_250)) {
-			if (common::toLower(cmInfo) == "aw55") {
+            if (common::toLower(cmInfo) == "aw55_p2") {
                 return std::make_unique<AW55D2LoggerImpl>();
 			}
             else if (common::toLower(cmInfo) == "tf80_p2") {
