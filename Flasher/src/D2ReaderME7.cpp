@@ -57,13 +57,12 @@ void D2ReaderME7::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 
                 for (uint32_t i = 0; i < range.size; ++i) {
                     const auto currentPos = range.startAddr + i;
-                    common::D2ProtocolCommonSteps::jumpTo(channel, ecuId, currentPos);
-                    auto addr = common::toVector(currentPos + 1);
+                    auto addr = common::toVector(currentPos);
                     std::vector<uint8_t> payload = {0x7A, 0xBC};
                     payload.insert(payload.end(), addr.cbegin(), addr.cend());
                     const auto answer = writeMessagesAndReadMessage(channel,
                         {D2_CAN_ID, std::move(payload), true});
-                    for(size_t s = 3; s < answer.data.size(); ++s) {
+                    for(size_t s = 2; s < answer.data.size(); ++s) {
                         buffer.push_back(answer.data[s]);
                         incCurrentProgress(1);
                     }
