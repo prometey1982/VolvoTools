@@ -248,6 +248,7 @@ namespace {
     void D2ProtocolCommonSteps::setDIMTime(const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         LOG_MODULE(TRACE) << "setDIMTime enter";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         const auto now{std::chrono::system_clock::now()};
         const auto time_t = std::chrono::system_clock::to_time_t(now);
         struct tm lt;
@@ -255,10 +256,12 @@ namespace {
 
         uint32_t value = lt.tm_min + lt.tm_hour * 60;
         for(const auto& channel: channels) {
-            channel->send({D2_CAN_ID,
-                {static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
-                 static_cast<uint8_t>((value >> 8) & 0xFF),
-                 static_cast<uint8_t>(value & 0xFF), 0}, true});
+            if(channel->getBaudrate() == 125000) {
+                channel->send({D2_CAN_ID,
+                    {0xCF, static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
+                     static_cast<uint8_t>((value >> 8) & 0xFF),
+                     static_cast<uint8_t>(value & 0xFF), 0}, true});
+            }
         }
         LOG_MODULE(TRACE) << "setDIMTime exit";
     }
