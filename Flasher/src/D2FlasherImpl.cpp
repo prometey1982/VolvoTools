@@ -13,14 +13,14 @@
 
 namespace flasher {
 
-D2FlasherImpl::D2FlasherImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+D2FlasherImpl::D2FlasherImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels,
                                common::CarPlatform carPlatform,
                                uint8_t ecuId,
                                const common::VBF& bootloader,
                                const std::function<void(FlasherState)>& stateUpdater,
                                const std::function<void(size_t)>& progressUpdater,
-                               const std::function<void(ICanChannel&, uint8_t)>& eraseCallback,
-                               const std::function<void(ICanChannel&, uint8_t)>& writeCallback)
+                               const std::function<void(common::ICanChannel&, uint8_t)>& eraseCallback,
+                               const std::function<void(common::ICanChannel&, uint8_t)>& writeCallback)
     : _channels{ channels }
     , _carPlatform{ carPlatform }
     , _ecuId{ ecuId }

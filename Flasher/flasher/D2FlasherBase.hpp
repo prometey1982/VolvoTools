@@ -7,7 +7,9 @@
 #include <common/CMType.hpp>
 #include <common/VBF.hpp>
 
+namespace common {
 class ICanChannel;
+} // namespace common
 
 namespace flasher {
 
@@ -18,12 +20,12 @@ public:
     ~D2FlasherBase();
 
 protected:
-    void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override final;
+    void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override final;
 
     virtual size_t getMaximumFlashProgress() const = 0;
     virtual bool isBootloaderRequired() const = 0;
-    virtual void eraseStep(ICanChannel &channel, uint8_t ecuId) = 0;
-    virtual void writeStep(ICanChannel &channel, uint8_t ecuId) = 0;
+    virtual void eraseStep(common::ICanChannel &channel, uint8_t ecuId) = 0;
+    virtual void writeStep(common::ICanChannel &channel, uint8_t ecuId) = 0;
 
     const D2FlasherConfig& getConfig() const { return _config; }
 

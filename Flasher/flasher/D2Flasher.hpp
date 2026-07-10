@@ -8,12 +8,13 @@
 
 #include <vector>
 
-class ICanChannel;
-
 namespace j2534 {
 class J2534;
 } // namespace j2534
 
+namespace common {
+class ICanChannel;
+} // namespace
 namespace flasher {
 
 class D2Flasher: public D2FlasherBase {
@@ -25,8 +26,8 @@ public:
 private:
     size_t getMaximumFlashProgress() const override;
     bool isBootloaderRequired() const override;
-    void eraseStep(ICanChannel &channel, uint8_t ecuId) override;
-    void writeStep(ICanChannel &channel, uint8_t ecuId) override;
+    void eraseStep(common::ICanChannel &channel, uint8_t ecuId) override;
+    void writeStep(common::ICanChannel &channel, uint8_t ecuId) override;
 };
 
 } // namespace flasher

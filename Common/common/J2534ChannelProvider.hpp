@@ -6,14 +6,13 @@
 #include <memory>
 #include <vector>
 
-class ICanChannel;
-
 namespace j2534 {
 class J2534;
 class J2534Channel;
 } // namespace j2534
 
 namespace common {
+class ICanChannel;
 
 class J2534ChannelProvider {
 public:

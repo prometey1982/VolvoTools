@@ -3,6 +3,7 @@
 #include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 #include "common/protocols/D2Message.hpp"
+#include "common/protocols/D2Messages.hpp"
 
 #define LOG_MODULE_NAME "common"
 #include "common/LogHelper.hpp"
@@ -16,15 +17,13 @@ namespace common {
 
 namespace {
 
-    constexpr uint32_t D2_CAN_ID = 0xFFFFE;
-
-    CanFrame makeD2RawFrame(uint8_t ecuId, const std::vector<uint8_t>& data)
+    CanFrame makeBootloaderFrame(uint8_t ecuId, const std::vector<uint8_t>& data)
     {
         std::vector<uint8_t> payload(8, 0);
         payload[0] = ecuId;
         const auto copySize = std::min(data.size(), static_cast<size_t>(7));
         std::copy(data.begin(), data.begin() + copySize, payload.begin() + 1);
-        return { D2_CAN_ID, std::move(payload), true };
+        return { D2Message::CanId, std::move(payload), true };
     }
 
     bool writeMessagesAndCheckAnswer(ICanChannel& channel,
@@ -92,7 +91,7 @@ namespace {
     void writeDataOffsetAndCheckAnswer(ICanChannel& channel, uint8_t ecuId, uint32_t writeOffset)
     {
         const auto addrBytes = toVector(writeOffset);
-        const auto msg = makeD2RawFrame(ecuId, {0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3]});
+        const auto msg = makeBootloaderFrame(ecuId, {0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3]});
         for (int i = 0; i < 10; ++i) {
             if (writeMessagesAndCheckAnswer(channel, msg, { 0x9C }))
                 return;
@@ -133,7 +132,7 @@ namespace {
             if (result.empty() || result.back().size() >= maxFramesPerBatch) {
                 result.emplace_back();
             }
-            result.back().emplace_back(D2_CAN_ID, std::move(payload), true);
+            result.back().emplace_back(D2Message::CanId, std::move(payload), true);
         }
         return result;
     }
@@ -145,7 +144,7 @@ namespace {
         LOG_MODULE(TRACE) << "fallAsleep enter";
         for (size_t i = 0; i < channels.size(); ++i) {
             unsigned long msgId;
-            if (!channels[i]->startPeriodicMsg({D2_CAN_ID, {0xFF, 0x86, 0, 0, 0, 0, 0, 0}, true}, 5, msgId)) {
+            if (!channels[i]->startPeriodicMsg({D2Message::CanId, {0xFF, 0x86, 0, 0, 0, 0, 0, 0}, true}, 5, msgId)) {
                 return false;
             }
             std::this_thread::sleep_for(std::chrono::seconds(3));
@@ -160,7 +159,7 @@ namespace {
         LOG_MODULE(TRACE) << "startPBL enter";
         if (!writeMessagesAndCheckAnswer(
                 channel,
-                makeD2RawFrame(ecuId, {0xC0}),
+                makeBootloaderFrame(ecuId, {0xC0}),
                 { 0xC6 })) {
             throw std::runtime_error("CM didn't response with correct answer");
         }
@@ -172,7 +171,7 @@ namespace {
     {
         LOG_MODULE(TRACE) << "wakeUp enter";
         for (size_t i = 0; i < channels.size(); ++i) {
-            channels[i]->send({D2_CAN_ID, {0xFF, 0xC8, 0, 0, 0, 0, 0, 0}, true});
+            channels[i]->send({D2Message::CanId, {0xFF, 0xC8, 0, 0, 0, 0, 0, 0}, true});
         }
         LOG_MODULE(TRACE) << "wakeUp exit";
     }
@@ -197,7 +196,7 @@ namespace {
         uint8_t checksum = calculateCheckSum(chunk.data, 0, chunk.data.size());
         if (!writeMessagesAndCheckAnswer(
                 channel,
-                makeD2RawFrame(ecuId, {0xB4, static_cast<uint8_t>((endOffset >> 24) & 0xFF),
+                makeBootloaderFrame(ecuId, {0xB4, static_cast<uint8_t>((endOffset >> 24) & 0xFF),
                                               static_cast<uint8_t>((endOffset >> 16) & 0xFF),
                                               static_cast<uint8_t>((endOffset >> 8) & 0xFF),
                                               static_cast<uint8_t>(endOffset & 0xFF)}),
@@ -216,7 +215,7 @@ namespace {
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             if (!writeMessagesAndCheckAnswer(
                     channel,
-                    makeD2RawFrame(ecuId, {0xF8}),
+                    makeBootloaderFrame(ecuId, {0xF8}),
                     {{ 0xF9, 0x0 }, { 0xF9, 0x2 }}, 30))
                 throw std::runtime_error("Can't erase memory");
         }
@@ -237,7 +236,7 @@ namespace {
         writeDataOffsetAndCheckAnswer(channel, ecuId, addr);
         if (!writeMessagesAndCheckAnswer(
                 channel,
-                makeD2RawFrame(ecuId, {0xA0}),
+                makeBootloaderFrame(ecuId, {0xA0}),
                 { 0xA0 })) {
             throw std::runtime_error("Can't start routine");
         }
@@ -254,13 +253,12 @@ namespace {
         struct tm lt;
         localtime_s(&lt, &time_t);
 
-        uint32_t value = lt.tm_min + lt.tm_hour * 60;
+        const auto msg = D2Messages::setCurrentTime(
+            static_cast<uint8_t>(lt.tm_hour),
+            static_cast<uint8_t>(lt.tm_min));
         for(const auto& channel: channels) {
             if(channel->getBaudrate() == 125000) {
-                channel->send({D2_CAN_ID,
-                    {0xCF, static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
-                     static_cast<uint8_t>((value >> 8) & 0xFF),
-                     static_cast<uint8_t>(value & 0xFF), 0}, true});
+                channel->send(msg.getFrames());
             }
         }
         LOG_MODULE(TRACE) << "setDIMTime exit";

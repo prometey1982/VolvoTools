@@ -30,7 +30,7 @@ D2FlasherBase::~D2FlasherBase()
 {
 }
 
-void D2FlasherBase::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+void D2FlasherBase::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
@@ -42,10 +42,10 @@ void D2FlasherBase::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channel
         [this](size_t progress) {
             incCurrentProgress(progress);
         },
-        [this](ICanChannel& ch, uint8_t id) {
+        [this](common::ICanChannel& ch, uint8_t id) {
             eraseStep(ch, id);
         },
-        [this](ICanChannel& ch, uint8_t id) {
+        [this](common::ICanChannel& ch, uint8_t id) {
             writeStep(ch, id);
         });
 

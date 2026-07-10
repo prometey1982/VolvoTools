@@ -5,9 +5,8 @@
 #include <functional>
 #include <memory>
 
-class ICanChannel;
-
 namespace common {
+    class ICanChannel;
 
 	class D2ProtocolCommonSteps {
 	public:

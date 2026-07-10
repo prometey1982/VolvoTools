@@ -38,10 +38,10 @@ namespace logger {
 	public:
         LoggerImpl() {}
 
-		virtual void registerParameters(ICanChannel& channel,
+		virtual void registerParameters(common::ICanChannel& channel,
 			const LogParameters& parameters) = 0;
 		virtual std::vector<uint32_t>
-			requestMemory(ICanChannel& channel,
+			requestMemory(common::ICanChannel& channel,
 				const LogParameters& parameters) = 0;
 	};
 
@@ -62,7 +62,7 @@ namespace logger {
 			return static_cast<unsigned long>(std::ceil((totalDataLength - 3) / 7)) + 1;
 		}
 
-		virtual void registerParameters(ICanChannel& channel,
+		virtual void registerParameters(common::ICanChannel& channel,
 			const LogParameters& parameters) override {
             common::D2Request unregisterRequest{common::D2Messages::unregisterAllMemoryRequest};
             unregisterRequest.process(channel);
@@ -74,20 +74,17 @@ namespace logger {
 			}
 		}
 
-		virtual std::vector<uint32_t>
-			requestMemory(ICanChannel& channel,
-				const LogParameters& parameters) override {
-			const uint32_t d2CanId = 0xFFFFE;
-			for (const auto& frame : requstMemoryMessage.getFrames()) {
-				channel.send({d2CanId, {frame.begin(), frame.end()}, true});
-			}
-
+		virtual std::vector<uint32_t> requestMemory(
+            common::ICanChannel& channel,
+			const LogParameters& parameters) override
+        {
+            channel.send(requstMemoryMessage.getFrames());
 			const auto numberOfCanMessages = getNumberOfCanMessages(parameters);
 			std::vector<uint32_t> result;
 			result.reserve(parameters.parameters().size());
 
 			for (size_t msgIdx = 0; msgIdx < numberOfCanMessages; ++msgIdx) {
-				CanFrame msg;
+				common::CanFrame msg;
 				if (!channel.receive(msg, 1000)) {
 					break;
 				}
@@ -125,12 +122,12 @@ namespace logger {
         AW55D2LoggerImpl() : LoggerImpl() {}
 
     private:
-        virtual void registerParameters(ICanChannel&, const LogParameters&) override
+        virtual void registerParameters(common::ICanChannel&, const LogParameters&) override
         {
         }
 
         virtual std::vector<uint32_t>
-        requestMemory(ICanChannel& channel,
+        requestMemory(common::ICanChannel& channel,
                       const LogParameters& parameters) override
         {
             std::vector<uint32_t> result(parameters.parameters().size());
@@ -152,12 +149,12 @@ namespace logger {
         TF80D2LoggerImpl() : LoggerImpl() {}
 
     private:
-        virtual void registerParameters(ICanChannel&, const LogParameters&) override
+        virtual void registerParameters(common::ICanChannel&, const LogParameters&) override
         {
         }
 
         virtual std::vector<uint32_t>
-        requestMemory(ICanChannel& channel,
+        requestMemory(common::ICanChannel& channel,
                       const LogParameters& parameters) override
         {
             std::vector<uint32_t> result(parameters.parameters().size());
@@ -204,7 +201,7 @@ namespace logger {
         }
 
 		virtual void
-			registerParameters(ICanChannel& channel,
+			registerParameters(common::ICanChannel& channel,
 				const LogParameters& parameters) override {
 
             common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
@@ -244,7 +241,7 @@ namespace logger {
 		}
 
 		virtual std::vector<uint32_t>
-			requestMemory(ICanChannel& channel,
+			requestMemory(common::ICanChannel& channel,
 				const LogParameters& parameters) override {
             std::vector<uint32_t> result(parameters.parameters().size());
 			size_t paramIndex = 0;
@@ -305,7 +302,7 @@ namespace logger {
     private:
 
         virtual void
-        registerParameters(ICanChannel& channel,
+        registerParameters(common::ICanChannel& channel,
                            const LogParameters& parameters) override {
 
             common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
@@ -315,7 +312,7 @@ namespace logger {
         }
 
         virtual std::vector<uint32_t>
-        requestMemory(ICanChannel& channel,
+        requestMemory(common::ICanChannel& channel,
                       const LogParameters& parameters) override {
             std::vector<uint32_t> result;
             constexpr uint8_t addrLength = 4;

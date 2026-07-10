@@ -5,10 +5,8 @@
 #include <chrono>
 #include <memory>
 
-class ICanChannel;
-
 namespace common {
-
+    class ICanChannel;
     class TP20Request;
 
     class TP20Session {

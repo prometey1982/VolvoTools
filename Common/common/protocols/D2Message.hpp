@@ -34,36 +34,23 @@ enum class ECUType : uint8_t {
   TRM = 0x23,
 };
 
-class D2Message : public CanMessage {
+class D2Message: public CanMessage {
 public:
+  static constexpr uint32_t CanId = 0xFFFFE;
+
   static uint8_t getECUType(const uint8_t *const buffer);
   static uint8_t getECUType(const std::vector<uint8_t> &buffer);
-#if 0
-  static D2Message makeD2Message(uint8_t ecuId, std::vector<uint8_t> request);
-  template <typename T>
-  static D2Message makeD2RawMessage(uint8_t ecuId,
-                                    const std::vector<uint8_t> &request) {
-    return makeD2RawMessage(ecuId, request);
-  }
-
-  template <typename... Args> static D2Message makeD2Message(Args... args) {
-    std::vector<uint8_t> request{static_cast<uint8_t>(args)...};
-    return D2Message(request);
-  }
-#endif
-  static D2Message makeD2RawMessage(uint8_t ecuId,
-                                    const std::vector<uint8_t> &request);
 
 //  explicit D2Message(const std::vector<uint8_t> &data);
-  explicit D2Message(const std::vector<DataType> &data);
-  explicit D2Message(std::vector<DataType> &&data);
+  explicit D2Message(const DataType &data);
+  explicit D2Message(DataType &&data);
   D2Message(D2Message&&) noexcept = default;
   D2Message(const D2Message&) noexcept = default;
   D2Message(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t>& params = {});
 
   uint8_t getEcuId() const;
   const std::vector<uint8_t>& getRequestId() const;
-  const std::vector<DataType>& getFrames() const;
+  virtual std::vector<CanFrame> getFrames() const override;
 
 private:
   const uint8_t _ecuId;

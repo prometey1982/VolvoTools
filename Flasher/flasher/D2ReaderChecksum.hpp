@@ -12,7 +12,7 @@ public:
              ReadRanges ranges);
 
 protected:
-    void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
+    void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
 
 };
 

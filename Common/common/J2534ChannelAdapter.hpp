@@ -8,6 +8,8 @@ namespace j2534 {
     class J2534Channel;
 }
 
+namespace common {
+
 class J2534ChannelAdapter final : public ICanChannel {
 public:
     explicit J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel);
@@ -47,3 +49,5 @@ private:
     unsigned long _protocolId;
     unsigned long _txFlags;
 };
+
+} // namespace common

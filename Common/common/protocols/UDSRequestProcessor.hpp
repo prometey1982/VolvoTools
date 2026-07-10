@@ -2,9 +2,9 @@
 
 #include "RequestProcessorBase.hpp"
 
-class ICanChannel;
 
 namespace common {
+    class ICanChannel;
 
     class UDSRequestProcessor: public RequestProcessorBase {
     public:

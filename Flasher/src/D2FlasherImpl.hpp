@@ -10,20 +10,22 @@
 #include <memory>
 #include <vector>
 
+namespace common {
 class ICanChannel;
+} // namespace common
 
 namespace flasher {
 
 class D2FlasherImpl {
 public:
-    D2FlasherImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+    D2FlasherImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels,
                    common::CarPlatform carPlatform,
                    uint8_t ecuId,
                    const common::VBF& bootloader,
                    const std::function<void(FlasherState)>& stateUpdater,
                    const std::function<void(size_t)>& progressUpdater,
-                   const std::function<void(ICanChannel&, uint8_t)>& eraseCallback,
-                   const std::function<void(ICanChannel&, uint8_t)>& writeCallback);
+                   const std::function<void(common::ICanChannel&, uint8_t)>& eraseCallback,
+                   const std::function<void(common::ICanChannel&, uint8_t)>& writeCallback);
 
     void run();
 
@@ -49,7 +51,7 @@ private:
     size_t getMaximumFlashProgressValue() const;
     void setFailed(const std::string& msg);
 
-    const std::vector<std::unique_ptr<ICanChannel>>& _channels;
+    const std::vector<std::unique_ptr<common::ICanChannel>>& _channels;
     common::CarPlatform _carPlatform;
     uint8_t _ecuId;
     common::VBF _bootloader;
@@ -59,8 +61,8 @@ private:
     size_t _maximumFlashProgress = 0;
     const std::function<void(FlasherState)> _stateUpdater;
     const std::function<void(size_t)> _progressUpdater;
-    const std::function<void(ICanChannel&, uint8_t)> _eraseCallback;
-    const std::function<void(ICanChannel&, uint8_t)> _writeCallback;
+    const std::function<void(common::ICanChannel&, uint8_t)> _eraseCallback;
+    const std::function<void(common::ICanChannel&, uint8_t)> _writeCallback;
 };
 
 } // namespace flasher

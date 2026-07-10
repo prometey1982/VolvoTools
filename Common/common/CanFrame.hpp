@@ -3,8 +3,12 @@
 #include <cstdint>
 #include <vector>
 
-struct CanFrame {
+namespace common {
+
+    struct CanFrame {
     uint32_t id = 0;
     std::vector<uint8_t> data;
     bool isExtendedId = false;
 };
+
+} // namespace common

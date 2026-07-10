@@ -7,14 +7,6 @@
 #include <common/CarPlatform.hpp>
 #include <common/VBF.hpp>
 
-#include <array>
-
-class ICanChannel;
-
-namespace j2534 {
-    class J2534;
-} // namespace j2534
-
 namespace flasher {
 
     class UDSFlasher: public FlasherBase {
@@ -24,7 +16,7 @@ namespace flasher {
         ~UDSFlasher();
 
     private:
-        void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
+        void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
 
         const UDSFlasherConfig _config;
     };

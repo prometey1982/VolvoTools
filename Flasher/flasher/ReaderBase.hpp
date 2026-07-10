@@ -12,11 +12,13 @@
 #include <thread>
 #include <vector>
 
+namespace common {
 class ICanChannel;
+} // namespace common
 
 namespace j2534 {
 class J2534;
-}
+} // namespace j2534
 
 namespace flasher {
 
@@ -34,7 +36,7 @@ public:
     void start();
 
 protected:
-    virtual void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) = 0;
+    virtual void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) = 0;
 
     void setCurrentState(FlasherState state);
     void incCurrentProgress(size_t delta);

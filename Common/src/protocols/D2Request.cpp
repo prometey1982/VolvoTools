@@ -36,9 +36,8 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
     const uint8_t ecuId = _message.getEcuId();
     const auto requestId = _message.getRequestId();
 
-    const uint32_t canId = 0xFFFFE;
-    for (const auto& frameData : _message.getFrames()) {
-        if (!channel.send({canId, {frameData.begin(), frameData.end()}, true})) {
+    for (const auto& frame : _message.getFrames()) {
+        if (!channel.send(frame, timeout)) {
             throw std::runtime_error("Failed to send CAN message");
         }
         if (sendMessagesDelay > 0) {

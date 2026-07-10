@@ -3,9 +3,8 @@
 #include <cstdint>
 #include <vector>
 
-class ICanChannel;
-
 namespace common {
+class ICanChannel;
 
 class UDSRequest {
 public:

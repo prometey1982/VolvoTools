@@ -261,19 +261,6 @@ public:
     }
 };
 
-void writeBinToFile(const std::vector<uint8_t>& bin, const std::string& path) {
-	std::fstream out(path, std::ios::out | std::ios::binary);
-	const auto msgs =
-		common::D2Messages::createWriteDataMsgs(static_cast<uint8_t>(common::ECUType::ECM_ME), bin);
-	for (const auto& msg : msgs) {
-		auto passThruMsgs = msg.toPassThruMsgs(123, 456);
-		for (const auto& msg : passThruMsgs) {
-			for (size_t i = 0; i < msg.DataSize; ++i)
-				out << msg.Data[i];
-		}
-	}
-}
-
 uint32_t ford_seed(uint32_t seed, uint8_t* key)
 {
 	uint8_t sa[8];

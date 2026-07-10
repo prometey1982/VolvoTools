@@ -10,7 +10,7 @@
 
 namespace {
 
-void canFrameToPassthruMsg(const CanFrame& frame,
+void canFrameToPassthruMsg(const common::CanFrame& frame,
                             unsigned long protocolId,
                             unsigned long txFlags,
                             PASSTHRU_MSG& msg) {
@@ -30,8 +30,8 @@ void canFrameToPassthruMsg(const CanFrame& frame,
     }
 }
 
-CanFrame passthruMsgToCanFrame(const PASSTHRU_MSG& msg) {
-    CanFrame frame;
+common::CanFrame passthruMsgToCanFrame(const PASSTHRU_MSG& msg) {
+    common::CanFrame frame;
     frame.id = (static_cast<uint32_t>(msg.Data[0]) << 24) |
                (static_cast<uint32_t>(msg.Data[1]) << 16) |
                (static_cast<uint32_t>(msg.Data[2]) << 8) |
@@ -44,6 +44,8 @@ CanFrame passthruMsgToCanFrame(const PASSTHRU_MSG& msg) {
 }
 
 } // anonymous namespace
+
+namespace common {
 
 J2534ChannelAdapter::J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel)
     : _channel{ std::move(channel) }
@@ -168,3 +170,5 @@ bool J2534ChannelAdapter::ioctl(unsigned long ioctlId,
                                  void* output) {
     return _channel->passThruIoctl(ioctlId, input, output) == STATUS_NOERROR;
 }
+
+} // namespace common

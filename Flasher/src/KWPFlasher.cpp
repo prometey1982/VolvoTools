@@ -220,7 +220,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
     {
     }
 
-    void KWPFlasher::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+    void KWPFlasher::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(_carPlatform, _ecuId) };
 

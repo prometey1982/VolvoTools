@@ -19,7 +19,7 @@ namespace flasher {
 
     class UDSFlasherImpl {
     public:
-        UDSFlasherImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+        UDSFlasherImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels,
                        common::CarPlatform carPlatform,
                        uint32_t ecuId,
                        const UDSFlasherConfig& config,
@@ -145,7 +145,7 @@ namespace flasher {
         }
 
     private:
-        const std::vector<std::unique_ptr<ICanChannel>>& _channels;
+        const std::vector<std::unique_ptr<common::ICanChannel>>& _channels;
         common::CarPlatform _carPlatform;
         uint32_t _ecuId;
         const UDSFlasherConfig& _config;
@@ -311,7 +311,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     {
     }
 
-    void UDSFlasher::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+    void UDSFlasher::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(_carPlatform, _ecuId) };
 

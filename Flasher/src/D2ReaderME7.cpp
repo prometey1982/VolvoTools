@@ -3,6 +3,8 @@
 
 #include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
+#include <common/protocols/D2Message.hpp>
+#include <common/protocols/D2Messages.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -11,15 +13,13 @@
 
 namespace {
 
-    constexpr uint32_t D2_CAN_ID = 0xFFFFE;
-
-    CanFrame writeMessagesAndReadMessage(ICanChannel& channel,
-                                          const CanFrame& msg) {
+    common::CanFrame writeMessagesAndReadMessage(common::ICanChannel& channel,
+                                          const common::CanFrame& msg) {
         channel.clearRx();
         if (!channel.send(msg)) {
             throw std::runtime_error("write msgs error");
         }
-        CanFrame response;
+        common::CanFrame response;
         if (!channel.receive(response, 3000)) {
             throw std::runtime_error("Failed to receive message");
         }
@@ -37,7 +37,7 @@ D2ReaderME7::D2ReaderME7(j2534::J2534& j2534, common::CarPlatform carPlatform, u
 {
 }
 
-void D2ReaderME7::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+void D2ReaderME7::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), _bootloader,
         [this](FlasherState state) {
@@ -46,8 +46,8 @@ void D2ReaderME7::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
         [this](size_t progress) {
             incCurrentProgress(progress);
         },
-        [](ICanChannel&, uint8_t) {},  // erase — no-op
-        [this](ICanChannel& channel, uint8_t ecuId) {
+        [](common::ICanChannel&, uint8_t) {},  // erase — no-op
+        [this](common::ICanChannel& channel, uint8_t ecuId) {
             // write callback = byte-by-byte read for all ranges
             for (size_t r = 0; r < _ranges.size(); ++r) {
                 auto& buffer = _buffers[r];
@@ -57,11 +57,9 @@ void D2ReaderME7::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
 
                 for (uint32_t i = 0; i < range.size; ++i) {
                     const auto currentPos = range.startAddr + i;
-                    auto addr = common::toVector(currentPos);
-                    std::vector<uint8_t> payload = {0x7A, 0xBC};
-                    payload.insert(payload.end(), addr.cbegin(), addr.cend());
-                    const auto answer = writeMessagesAndReadMessage(channel,
-                        {D2_CAN_ID, std::move(payload), true});
+                    const auto msg = common::D2RawMessages::createReadOffsetMsg2(
+                        static_cast<uint8_t>(common::ECUType::ECM_ME), currentPos);
+                    const auto answer = writeMessagesAndReadMessage(channel, msg);
                     for(size_t s = 2; s < answer.data.size(); ++s) {
                         buffer.push_back(answer.data[s]);
                         incCurrentProgress(1);

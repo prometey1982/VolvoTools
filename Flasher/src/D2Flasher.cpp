@@ -31,12 +31,12 @@ bool D2Flasher::isBootloaderRequired() const
     return true;
 }
 
-void D2Flasher::eraseStep(ICanChannel &channel, uint8_t ecuId)
+void D2Flasher::eraseStep(common::ICanChannel &channel, uint8_t ecuId)
 {
     common::D2ProtocolCommonSteps::eraseFlash(channel, ecuId, getConfig().flash);
 }
 
-void D2Flasher::writeStep(ICanChannel &channel, uint8_t ecuId)
+void D2Flasher::writeStep(common::ICanChannel &channel, uint8_t ecuId)
 {
     common::D2ProtocolCommonSteps::transferData(
         channel, ecuId, getConfig().flash,

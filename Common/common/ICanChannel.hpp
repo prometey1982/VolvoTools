@@ -4,6 +4,8 @@
 
 #include <vector>
 
+namespace common {
+
 class ICanChannel {
 public:
     virtual ~ICanChannel() = default;
@@ -37,3 +39,5 @@ public:
                        const void* input,
                        void* output) = 0;
 };
+
+} // namespace common

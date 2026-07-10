@@ -10,7 +10,7 @@ public:
               ReadRanges ranges, uint64_t pin);
 
 protected:
-    void startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels) override;
+    void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
 
 private:
     uint64_t _pin;

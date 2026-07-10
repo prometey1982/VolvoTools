@@ -14,7 +14,7 @@ D2ReaderAW55::D2ReaderAW55(j2534::J2534& j2534, common::CarPlatform carPlatform,
 {
 }
 
-void D2ReaderAW55::startImpl(std::vector<std::unique_ptr<ICanChannel>>& channels)
+void D2ReaderAW55::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     auto& channel = *channels[0];
     const uint8_t ecuId = static_cast<uint8_t>(_ecuId);
