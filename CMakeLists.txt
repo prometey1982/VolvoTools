@@ -4,6 +4,12 @@ project(VolvoTools VERSION 0.0.1 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(BUILD_TESTS "Build unit tests" OFF)
+
+if(BUILD_TESTS)
+    enable_testing()
+endif()
+
 add_subdirectory (j2534)
 add_subdirectory (Registry)
 add_subdirectory (Common)

@@ -35,7 +35,6 @@ public:
     bool isFailed() const;
     bool isSBLRequired() const;
 
-    void wakeUpChannels();
     void fallAsleep();
     void startPBL();
     void loadSBL();

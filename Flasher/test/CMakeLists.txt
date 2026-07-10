@@ -17,4 +17,4 @@ if (WIN32)
     )
 endif()
 
-add_test(NAME D2Flasher COMMAND FlasherTests)
+add_test(NAME D2Flasher COMMAND FlasherTests --log_level=all)

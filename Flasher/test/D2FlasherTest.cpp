@@ -66,7 +66,7 @@ BOOST_FIXTURE_TEST_CASE(WakeUpSendsOnAllChannels, D2FlasherFixture)
         [](size_t) {},
         [](ICanChannel&, uint8_t) {}, [](ICanChannel&, uint8_t) {});
 
-    impl.wakeUpChannels();
+    impl.wakeUpFinish();
 
     BOOST_CHECK(stateUpdates == 1);
     BOOST_CHECK(mock1.sendCount > 0);

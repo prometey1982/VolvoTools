@@ -389,18 +389,177 @@ D2RawMessages → (raw CanFrame, без D2Message)
 | `generateCanFrames` — упрощение | `D2Message.cpp`: ~~inSeries, messagePrefix, memset~~ → единая формула `prefix` | ✓ |
 | seriesId инкремент — исправлен баг | `D2Message.cpp`: сдвиг 0x09→0x0A устранён, последовательность 0x09→0x0A→… | ✓ |
 
-## Тестирование
+## ТЗ на реализацию тестов D2Message и D2Request
 
-Тесты D2 отсутствуют (по состоянию на 2024). Для верификации протокола необходимо:
+### Цель
 
-1. Mock `ICanChannel` для эмуляции ЭБУ
-2. Test cases:
-   - Single-frame запрос/ответ
-   - Multi-frame запрос 2, 3, 8+ фреймов
-   - Multi-frame ответ 2, 3, 8+ фреймов
-   - Серийные ответы с seriesId
-   - Ошибка D2 (0x7F в ответе)
-   - Проверка эха requestId
-   - Сериализация dataSize на границе 7 байт
-   - Некорректные seriesId в ответе
-   - Timeout при приёме
+Создать тесты для `D2Message` (сериализация запросов) и `D2Request` (отправка/приём ответов) с использованием существующего `MockICanChannel` и Boost.Test.
+
+### Файлы
+
+| Файл | Описание |
+|------|----------|
+| `Common/test/D2MessageTest.cpp` | Тесты `D2Message` |
+| `Common/test/D2RequestTest.cpp` | Тесты `D2Request` |
+| `Common/test/CMakeLists.txt` | Новый, или добавить в существующий `CMakeLists.txt` |
+
+### Инфраструктура
+
+- **Фреймворк:** Boost.Test (уже используется в `Flasher/test/D2FlasherTest.cpp`)
+- **Mock:** `MockICanChannel` (уже есть в `Flasher/test/MockICanChannel.hpp`) — вынести в `Common/test/` или использовать `target_include_directories`
+- **Проверки:** `BOOST_CHECK_EQUAL`, `BOOST_CHECK`, `BOOST_CHECK_THROW`, `BOOST_REQUIRE`
+
+### Структура тестов D2Message
+
+#### 1. Конструкторы
+
+| Тест | Описание |
+|------|----------|
+| `ConstructorRawData` | `D2Message(DataType{0x50, 0xB9, 0xFB})` — raw payload |
+| `ConstructorEcuIdRequestId` | `D2Message(0x50, {0xB9, 0xFB})` — structured, без params |
+| `ConstructorEcuIdRequestIdParams` | `D2Message(0x50, {0xB7}, {0x01, 0x02})` — structured, с params |
+| `ConstructorMove` | `D2Message(D2Message(std::move(...)))` — move-конструктор |
+
+#### 2. Getters
+
+| Тест | Описание |
+|------|----------|
+| `GetEcuId` | `getEcuId()` == переданному ecuId |
+| `GetRequestId` | `getRequestId()` == переданному requestId |
+| `GetEcuIdRaw` | Для raw-конструктора `getEcuId()` == 0 (пусто) |
+| `GetRequestIdRaw` | Для raw-конструктора `getRequestId()` == пусто |
+
+#### 3. Сериализация single-frame (dataSize ≤ 7)
+
+| Тест | Описание |
+|------|----------|
+| `SingleFrame1Byte` | 1 байт данных → 1 CAN-фрейм, prefix 0xC9 |
+| `SingleFrame7Bytes` | 7 байт → 1 CAN-фрейм, prefix 0xCF |
+| `SingleFramePrefix` | `[0]` == `0xC8 + dataSize` |
+| `SingleFrameEcuId` | `[1]` == ecuId |
+| `SingleFrameRequestId` | `[2..]` == requestId |
+| `SingleFrameParams` | `[2+requestId.size..]` == params |
+| `SingleFramePadding` | Все байты после payload == 0x00 |
+
+#### 4. Сериализация multi-frame (dataSize > 7)
+
+| Тест | Описание |
+|------|----------|
+| `MultiFrame2Frames` | dataSize=8 → 2 CAN-фрейма |
+| `MultiFrame3Frames` | dataSize=15 → 3 CAN-фрейма |
+| `MultiFrame8Frames` | dataSize=57 → 8+1=9 CAN-фреймов |
+| `MultiFrameExact7n` | dataSize=14 (ровно 2×7) → 2 CAN-фрейма |
+
+#### 5. Префиксы multi-frame
+
+| Тест | Описание |
+|------|----------|
+| `FirstFramePrefixMulti` | Превый фрейм: `[0]` == `0x88 + 7` |
+| `MiddleFrameSeriesId` | Средние фреймы: `[0]` == seriesId (0x09, 0x0A, …) |
+| `MiddleFrameNoPayloadSize` | Средние фреймы: `[0]` не содержит payloadSize |
+| `LastFramePrefix` | Последний фрейм: `[0]` == `0x48 + payloadSize` |
+
+#### 6. SeriesId последовательность
+
+| Тест | Описание |
+|------|----------|
+| `SeriesIdSequence9toF` | 8 middle-фреймов: 0x09, 0x0A, …, 0x0F |
+| `SeriesIdWrapAround` | 9 middle-фреймов: … 0x0F, 0x08, 0x09 |
+| `SeriesIdNoGap` | Первый middle === 0x09 (проверка исправления бага) |
+
+#### 7. Граничные случаи
+
+| Тест | Описание |
+|------|----------|
+| `DataSizeExact7` | 7 байт → single-frame (граница single/multi) |
+| `DataSize8` | 8 байт → 2 фрейма (минимальный multi) |
+| `ParamsEmpty` | `params = {}` — корректрный single/multi |
+| `RequestIdOnly` | `params = {}` — фреймы только с requestId |
+
+### Структура тестов D2Request
+
+#### 1. Успешный приём single-frame
+
+| Тест | Описание |
+|------|----------|
+| `SingleFrameResponse` | Отправка запроса → ответ 1 CAN-фреймом → ответ разобран корректно |
+| `SingleFrameResponseData` | Данные ответа соответствуют ожидаемым |
+| `SingleFrameEchoCheck` | Проверка эха `ecuId` и `requestId[0] + 0x40` |
+
+#### 2. Успешный приём multi-frame
+
+| Тест | Описание |
+|------|----------|
+| `MultiFrameResponse2Frames` | Ответ из 2 фреймов → сборка корректна |
+| `MultiFrameResponse3Frames` | Ответ из 3 фреймов |
+| `MultiFrameResponseMany` | Ответ из 9+ фреймов |
+| `MultiFrameSeriesId` | Серийные фреймы с корректными seriesId |
+
+#### 3. Эхо-проверка
+
+| Тест | Описание |
+|------|----------|
+| `EchoWrongEcuId` | `response[1] != ecuId` → continue (пропуск) |
+| `EchoWrongRequestId` | `response[2] != requestId[0] + 0x40` → continue |
+| `EchoRestMismatch` | `response[3..] != requestId[1..]` → continue |
+
+#### 4. Обработка ошибок D2
+
+| Тест | Описание |
+|------|----------|
+| `ErrorResponse` | `[4]=0x7F, [5]=ecuId, [6]=errorCode` → `D2Error` |
+| `ErrorWrongEcuId` | `[5] != ecuId` → не ошибка, continue |
+| `ErrorNo7F` | `[4] != 0x7F` → не ошибка |
+
+#### 5. Таймауты и пустые ответы
+
+| Тест | Описание |
+|------|----------|
+| `ReceiveTimeout` | `receive()` → false → `runtime_error` |
+| `EmptyFrameSkip` | `response.data.empty()` → skip, continue |
+| `ShortFrameSkip` | `response.data.size() < dataOffset + restRequestSize + 1` → skip |
+
+#### 6. Параметры таймаута
+
+| Тест | Описание |
+|------|----------|
+| `CustomTimeout` | `process(channel, 5000)` — таймаут 5 сек |
+| `SendMessagesDelay` | `process(channel, 1000, 50)` — задержка 50мс между отправкой фреймов |
+
+### Тестовые сценарии (интеграционные)
+
+| Тест | Описание |
+|------|----------|
+| `D2MessageD2RequestRoundtrip` | Создать D2Message → отправить через D2Request с mock-ответом → проверить разобранные данные |
+| `RequestIdEchoConsistency` | Длинный requestId (> 7 байт) — multi-frame запрос → ответ с полным эхом |
+
+### CMakeLists.txt
+
+```cmake
+cmake_minimum_required(VERSION 3.16)
+project(CommonTests LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+
+find_package(Boost REQUIRED COMPONENTS unit_test_framework)
+find_package(Easyloggingpp REQUIRED)
+
+add_executable(CommonTests
+    D2MessageTest.cpp
+    D2RequestTest.cpp
+)
+target_link_libraries(CommonTests Common Boost::unit_test_framework easyloggingpp::easyloggingpp)
+target_include_directories(CommonTests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/Flasher/test  # для MockICanChannel
+)
+
+if (WIN32)
+    target_compile_definitions(CommonTests PRIVATE
+       WIN32_LEAN_AND_MEAN
+       NOMINMAX
+    )
+endif()
+
+add_test(NAME D2Common COMMAND CommonTests)
+```

@@ -6,6 +6,8 @@
 #include <queue>
 #include <vector>
 
+using namespace common;
+
 class MockICanChannel final : public ICanChannel {
 public:
     bool send(const CanFrame&, unsigned long = 1000) override {
