@@ -8,12 +8,12 @@
 
 class MockICanChannel final : public ICanChannel {
 public:
-    bool send(const CanFrame&) override {
+    bool send(const CanFrame&, unsigned long = 1000) override {
         ++sendCount;
         return !failOnSend;
     }
 
-    bool send(const std::vector<CanFrame>& frames) override {
+    bool send(const std::vector<CanFrame>& frames, unsigned long = 1000) override {
         sendCount += static_cast<int>(frames.size());
         return !failOnSend;
     }
@@ -62,8 +62,8 @@ class MockChannelWrapper : public ICanChannel {
 public:
     explicit MockChannelWrapper(MockICanChannel& mock) : _mock{ mock } {}
 
-    bool send(const CanFrame& frame) override { return _mock.send(frame); }
-    bool send(const std::vector<CanFrame>& frames) override { return _mock.send(frames); }
+    bool send(const CanFrame& frame, unsigned long timeout = 1000) override { return _mock.send(frame, timeout); }
+    bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) override { return _mock.send(frames, timeout); }
     bool receive(CanFrame& frame, unsigned long timeout) override { return _mock.receive(frame, timeout); }
     bool receive(std::vector<CanFrame>& frames, unsigned long timeout) override { return _mock.receive(frames, timeout); }
     void clearRx() override { _mock.clearRx(); }

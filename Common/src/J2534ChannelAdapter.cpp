@@ -59,18 +59,18 @@ unsigned long J2534ChannelAdapter::getBaudrate() const
 
 J2534ChannelAdapter::~J2534ChannelAdapter() = default;
 
-bool J2534ChannelAdapter::send(const CanFrame& frame) {
+bool J2534ChannelAdapter::send(const CanFrame& frame, unsigned long timeout) {
     PASSTHRU_MSG msg;
     canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
     unsigned long numMsgs = 1;
-    auto rc = _channel->writeMsgs({ msg }, numMsgs);
+    auto rc = _channel->writeMsgs({ msg }, numMsgs, timeout);
     if (rc != STATUS_NOERROR) {
         LOG_MODULE(DEBUG) << "send failed, rc=" << rc;
     }
     return rc == STATUS_NOERROR;
 }
 
-bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames) {
+bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames, unsigned long timeout) {
     std::vector<PASSTHRU_MSG> msgs;
     msgs.reserve(frames.size());
     for (const auto& frame : frames) {
@@ -79,7 +79,7 @@ bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames) {
         msgs.push_back(msg);
     }
     unsigned long numMsgs = static_cast<unsigned long>(msgs.size());
-    auto rc = _channel->writeMsgs(msgs, numMsgs);
+    auto rc = _channel->writeMsgs(msgs, numMsgs, timeout);
     if (rc != STATUS_NOERROR) {
         LOG_MODULE(DEBUG) << "send (batch) failed, rc=" << rc;
     }

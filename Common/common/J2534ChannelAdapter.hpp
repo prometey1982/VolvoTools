@@ -13,8 +13,8 @@ public:
     explicit J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel);
     ~J2534ChannelAdapter() override;
 
-    bool send(const CanFrame& frame) override;
-    bool send(const std::vector<CanFrame>& frames) override;
+    bool send(const CanFrame& frame, unsigned long timeout = 1000) override;
+    bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) override;
 
     bool receive(CanFrame& frame, unsigned long timeout) override;
     bool receive(std::vector<CanFrame>& frames, unsigned long timeout) override;

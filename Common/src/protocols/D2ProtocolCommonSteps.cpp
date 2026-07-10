@@ -114,15 +114,14 @@ namespace {
         return static_cast<uint8_t>(sum);
     }
 
-    std::vector<CanFrame> createWriteDataFrames(uint8_t ecuId,
-                                                 const std::vector<uint8_t>& data,
-                                                 size_t beginOffset,
-                                                 size_t endOffset)
+    std::vector<std::vector<CanFrame>> createWriteDataFrames(uint8_t ecuId,
+                                                              const std::vector<uint8_t>& data,
+                                                              size_t beginOffset,
+                                                              size_t endOffset)
     {
-        std::vector<CanFrame> result;
+        std::vector<std::vector<CanFrame>> result;
         const size_t chunkSize = 6;
         const size_t maxFramesPerBatch = 10;
-        std::vector<std::vector<uint8_t>> batch;
 
         for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
             const auto payloadSize = std::min(chunkSize, endOffset - i);
@@ -130,22 +129,11 @@ namespace {
             payload[0] = ecuId;
             payload[1] = 0xA8 + static_cast<uint8_t>(payloadSize);
             std::copy(data.begin() + i, data.begin() + i + payloadSize, payload.begin() + 2);
-            batch.push_back(std::move(payload));
-            if (batch.size() >= maxFramesPerBatch) {
-                for (auto& p : batch) {
-                    result.emplace_back(D2_CAN_ID, std::move(p), true);
-                }
-                batch.clear();
+
+            if (result.empty() || result.back().size() >= maxFramesPerBatch) {
+                result.emplace_back();
             }
-        }
-        {
-            std::vector<uint8_t> terminator(8, 0);
-            terminator[0] = ecuId;
-            terminator[1] = 0xA8;
-            batch.push_back(std::move(terminator));
-            for (auto& p : batch) {
-                result.emplace_back(D2_CAN_ID, std::move(p), true);
-            }
+            result.back().emplace_back(D2_CAN_ID, std::move(payload), true);
         }
         return result;
     }
@@ -194,15 +182,15 @@ namespace {
 	{
         LOG_MODULE(TRACE) << "transferData enter";
         for(const auto& chunk: data.chunks) {
-            auto frames = createWriteDataFrames(ecuId, chunk.data, 0, chunk.data.size());
+            auto batches = createWriteDataFrames(ecuId, chunk.data, 0, chunk.data.size());
 
         writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
-        for (const auto& frame : frames) {
+        for (const auto& batch : batches) {
             channel.clearRx();
-            if (!channel.send(frame)) {
+            if (!channel.send(batch, 50000)) {
                 throw std::runtime_error("write msgs error");
             }
-            progressCallback(6);
+            progressCallback(6 * batch.size());
         }
         writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
         uint32_t endOffset =  chunk.writeOffset + chunk.data.size();

@@ -8,8 +8,8 @@ class ICanChannel {
 public:
     virtual ~ICanChannel() = default;
 
-    virtual bool send(const CanFrame& frame) = 0;
-    virtual bool send(const std::vector<CanFrame>& frames) = 0;
+    virtual bool send(const CanFrame& frame, unsigned long timeout = 1000) = 0;
+    virtual bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) = 0;
 
     virtual bool receive(CanFrame& frame, unsigned long timeout) = 0;
     virtual bool receive(std::vector<CanFrame>& frames, unsigned long timeout) = 0;

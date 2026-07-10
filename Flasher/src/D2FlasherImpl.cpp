@@ -48,12 +48,6 @@ size_t D2FlasherImpl::getMaximumFlashProgressValue() const
     return _maximumFlashProgress;
 }
 
-void D2FlasherImpl::wakeUpChannels()
-{
-    _stateUpdater(FlasherState::WakeUp);
-    common::D2ProtocolCommonSteps::wakeUp(_channels);
-}
-
 void D2FlasherImpl::fallAsleep()
 {
     _stateUpdater(FlasherState::FallAsleep);
@@ -168,7 +162,6 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<D2FlasherImpl&>>;
 using FSM = M::PeerRoot<
     M::Composite<
         struct StartWork,
-        struct WakeUpChannels,
         struct FallAsleep,
         struct StartPBL,
         struct LoadSBL,
@@ -206,7 +199,6 @@ struct StartWork : public FSM::State {
     void enter(PlanControl& control)
     {
         auto plan = control.plan();
-        plan.change<WakeUpChannels, FallAsleep>();
         plan.change<FallAsleep, StartPBL>();
         plan.change<StartPBL, LoadSBL>();
         plan.change<LoadSBL, StartSBL>();
@@ -221,13 +213,6 @@ struct StartWork : public FSM::State {
     void planFailed(FullControl& control)
     {
         control.changeTo<Finish>();
-    }
-};
-
-struct WakeUpChannels : public BaseState {
-    void enter(PlanControl& control)
-    {
-        control.context().wakeUpChannels();
     }
 };
 
