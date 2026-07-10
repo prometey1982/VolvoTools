@@ -11,7 +11,7 @@ common::CanMessage::DataType createPayload(const common::CanMessage::DataType& r
                                            const common::CanMessage::DataType& params)
 {
     common::CanMessage::DataType result(request);
-    result.insert(result.begin(), params.cbegin(), params.cend());
+    result.insert(result.end(), params.cbegin(), params.cend());
     return result;
 }
 
@@ -27,30 +27,25 @@ std::vector<common::CanFrame>
 generateCanFrames(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t> &params)
 {
     std::vector<common::CanFrame> result;
-    const size_t maxSingleMessagePayload = 7u;
-    const bool isMultipleMessages = requestId.size() + params.size() > maxSingleMessagePayload;
-    uint8_t messagePrefix = isMultipleMessages ? 0x88 : 0xC8;
-    uint8_t seriesId = 0x08;
-    bool inSeries = 0;
+    constexpr size_t maxSingleMessagePayload = 7u;
     const auto dataSize = requestId.size() + params.size() + 1;
+    uint8_t seriesCounter = 0;
     for (size_t i = 0; i < dataSize; i += maxSingleMessagePayload) {
         const auto payloadSize =
             std::min(dataSize - i, maxSingleMessagePayload);
-        seriesId = ((seriesId - 8) + 1) % 8 + 8;
-        // Last message
-        if(i + payloadSize >= dataSize) {
-            inSeries = false;
-        }
-        uint8_t newPrefix = inSeries? seriesId : messagePrefix + payloadSize;
-        inSeries = isMultipleMessages && (i + payloadSize < dataSize);
-        std::vector<uint8_t> canPayload(common::CanMessage::CanPayloadSize);
-        canPayload[0] = newPrefix;
-        memset(&canPayload[1], 0, canPayload.size() - 1);
+
+        const bool firstMessage = (i == 0);
+        const bool lastMessage = (i + payloadSize) >= dataSize;
+
+        uint8_t prefix = 8 + (firstMessage ? 0x80 : 0) + (lastMessage ? 0x40 : seriesCounter) + (firstMessage | lastMessage ? payloadSize : 0);
+
+        std::vector<uint8_t> canPayload(8, 0);
+        canPayload[0] = prefix;
         for(size_t j = 0; j < payloadSize; ++j) {
             canPayload[j + 1] = getData(ecuId, requestId, params, i + j);
         }
-        result.emplace_back(common::D2Message::CanId, move(canPayload), true);
-        messagePrefix = 0x48;
+        result.emplace_back(common::D2Message::CanId, std::move(canPayload), true);
+        seriesCounter = (seriesCounter + 1) % 8;
     }
     return result;
 }
