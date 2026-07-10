@@ -266,10 +266,12 @@ namespace {
         localtime_s(&lt, &time_t);
 
         uint32_t value = lt.tm_min + lt.tm_hour * 60;
-        channels[1]->send({D2_CAN_ID,
-            {static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
-             static_cast<uint8_t>((value >> 8) & 0xFF),
-             static_cast<uint8_t>(value & 0xFF), 0}, true});
+        for(const auto& channel: channels) {
+            channel->send({D2_CAN_ID,
+                {static_cast<uint8_t>(ECUType::DIM), 0xB0, 0x07, 0x01, 0xFF,
+                 static_cast<uint8_t>((value >> 8) & 0xFF),
+                 static_cast<uint8_t>(value & 0xFF), 0}, true});
+        }
         LOG_MODULE(TRACE) << "setDIMTime exit";
     }
 
