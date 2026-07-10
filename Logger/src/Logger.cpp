@@ -50,18 +50,6 @@ namespace logger {
         D2LoggerImpl() : LoggerImpl() {}
 
 	private:
-        const common::D2Message requstMemoryMessage{
-            common::D2Messages::requestMemory};
-
-		unsigned long getNumberOfCanMessages(const LogParameters& parameters) const {
-			double totalDataLength =
-				std::accumulate(parameters.parameters().cbegin(), parameters.parameters().cend(), static_cast<size_t>(0),
-					[](size_t prevValue, const auto& param) {
-						return prevValue + param.size();
-					});
-			return static_cast<unsigned long>(std::ceil((totalDataLength - 3) / 7)) + 1;
-		}
-
 		virtual void registerParameters(common::ICanChannel& channel,
 			const LogParameters& parameters) override {
             common::D2Request unregisterRequest{common::D2Messages::unregisterAllMemoryRequest};
@@ -78,41 +66,27 @@ namespace logger {
             common::ICanChannel& channel,
 			const LogParameters& parameters) override
         {
-            channel.send(requstMemoryMessage.getFrames());
-			const auto numberOfCanMessages = getNumberOfCanMessages(parameters);
-			std::vector<uint32_t> result;
-			result.reserve(parameters.parameters().size());
+            common::D2Request requestMemory{ common::D2Messages::requestMemory };
+            auto data { requestMemory.process(channel) };
 
-			for (size_t msgIdx = 0; msgIdx < numberOfCanMessages; ++msgIdx) {
-				common::CanFrame msg;
-				if (!channel.receive(msg, 1000)) {
-					break;
-				}
-
-				size_t msgOffset = 1;
-				if (msg.data.size() >= 5 &&
-					msg.data[0] == 0x8F &&
-					msg.data[1] == static_cast<uint8_t>(common::ECUType::ECM_ME) &&
-					msg.data[2] == 0xE6 && msg.data[3] == 0xF0 && msg.data[4] == 0)
-					msgOffset = 5;
-
-				size_t paramIndex = result.size();
-				size_t paramOffset = 0;
-				uint16_t value = 0;
-				for (size_t i = msgOffset; i < msg.data.size() && i < 8; ++i) {
-					if (paramIndex >= parameters.parameters().size())
-						break;
-					const auto& param = parameters.parameters()[paramIndex];
-					value += msg.data[i] << ((param.size() - paramOffset - 1) * 8);
-					++paramOffset;
-					if (paramOffset >= param.size()) {
-						result.push_back(value);
-						++paramIndex;
-						paramOffset = 0;
-						value = 0;
-					}
-				}
-			}
+            std::vector<uint32_t> result(parameters.parameters().size());
+            size_t paramIndex = 0;
+            size_t paramOffset = 0;
+            uint32_t value = 0;
+            for(size_t i = 0; i < data.size(); ++i) {
+                const auto& param = parameters.parameters()[paramIndex];
+                value += data[i] << ((param.size() - paramOffset - 1) * 8);
+                ++paramOffset;
+                if (paramOffset >= param.size()) {
+                    result[paramIndex] = value;
+                    ++paramIndex;
+                    paramOffset = 0;
+                    value = 0;
+                }
+                if (paramIndex >= result.size()) {
+                    break;
+                }
+            }
 			return result;
 		}
 	};
@@ -244,7 +218,6 @@ namespace logger {
 			requestMemory(common::ICanChannel& channel,
 				const LogParameters& parameters) override {
             std::vector<uint32_t> result(parameters.parameters().size());
-			size_t paramIndex = 0;
 			size_t paramOffset = 0;
 			uint32_t value = 0;
             for (const auto& didRequest: _didRequests) {
