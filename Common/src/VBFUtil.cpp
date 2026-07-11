@@ -1,5 +1,6 @@
 #include "common/VBFUtil.hpp"
 
+#include "common/protocols/D2ECUType.hpp"
 #include "common/ChecksumHelper.hpp"
 #include "common/VBFParser.hpp"
 #include "common/Util.hpp"
@@ -84,6 +85,18 @@ VBF createVBFForTCM(std::vector<uint8_t>& data)
                  createChunk(data, 0x70000, 0x10000)}};
 }
 
+VBF createVBFForDEMGen2(std::vector<uint8_t>& data)
+{
+    return {{}, {createChunk(data, 0x6000, 0x2000),
+                 createChunk(data, 0x10000, 0x30000)}};
+}
+
+VBF createVBFForDEMGen3(std::vector<uint8_t>& data)
+{
+    return {{}, {createChunk(data, 0x4000, 0x2000),
+                 createChunk(data, 0x18000, 0x38000)}};
+}
+
 VBF createVbfFromBinary(CarPlatform carPlatform, uint8_t ecuId,
                                 const std::string& additionalData, std::vector<uint8_t>&& data)
 {
@@ -91,18 +104,24 @@ VBF createVbfFromBinary(CarPlatform carPlatform, uint8_t ecuId,
     case CarPlatform::P80:
     case CarPlatform::P2:
     case CarPlatform::P2_250:
-        if(ecuId == 0x7A) {
+        if(ecuId == to_underlying(D2ECUType::ECM_ME)) {
             return createVBFForME7(data);
         }
-        else if(ecuId == 0x6E) {
+        else if(ecuId == to_underlying(D2ECUType::TCM)) {
             return createVBFForTCM(data);
+        }
+        else if(ecuId == to_underlying(D2ECUType::DEM) && toLower(additionalData) == "gen2") {
+            return createVBFForDEMGen2(data);
+        }
+        else if(ecuId == to_underlying(D2ECUType::DEM) && toLower(additionalData) == "gen3") {
+            return createVBFForDEMGen3(data);
         }
         break;
     case common::CarPlatform::P1:
-        if(ecuId == 0x7A) {
+        if(ecuId == to_underlying(D2ECUType::ECM_ME)) {
             return createVBFForME9P1(data);
         }
-        else if(ecuId == 0x6E) {
+        else if(ecuId == to_underlying(D2ECUType::TCM)) {
             return createVBFForTCM(data);
         }
         break;
