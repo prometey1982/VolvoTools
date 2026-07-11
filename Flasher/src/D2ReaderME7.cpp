@@ -3,6 +3,7 @@
 
 #include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
+#include <common/protocols/D2ECUType.hpp>
 #include <common/protocols/D2Message.hpp>
 #include <common/protocols/D2Messages.hpp>
 #include <common/protocols/D2ProtocolCommonSteps.hpp>
@@ -58,7 +59,7 @@ void D2ReaderME7::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& c
                 for (uint32_t i = 0; i < range.size; ++i) {
                     const auto currentPos = range.startAddr + i;
                     const auto msg = common::D2RawMessages::createReadOffsetMsg2(
-                        static_cast<uint8_t>(common::ECUType::ECM_ME), currentPos);
+                        static_cast<uint8_t>(common::D2ECUType::ECM_ME), currentPos);
                     const auto answer = writeMessagesAndReadMessage(channel, msg);
                     for(size_t s = 2; s < answer.data.size(); ++s) {
                         buffer.push_back(answer.data[s]);

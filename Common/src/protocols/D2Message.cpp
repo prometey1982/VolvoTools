@@ -1,5 +1,7 @@
 #include "common/protocols/D2Message.hpp"
 
+#include "common/protocols/D2ECUType.hpp"
+
 #include <algorithm>
 #include <array>
 #include <iterator>
@@ -58,11 +60,11 @@ namespace common {
 {
     if (buffer[0] == 0x01 && buffer[1] == 0x20 && buffer[2] == 0x00 &&
         buffer[3] == 0x05)
-        return static_cast<uint8_t>(ECUType::TCM);
+        return static_cast<uint8_t>(D2ECUType::TCM);
     else if (buffer[0] == 0x01 && buffer[1] == 0x20 && buffer[2] == 0x00 &&
             buffer[3] == 0x21)
-        return static_cast<uint8_t>(ECUType::ECM_ME);
-    return static_cast<uint8_t>(ECUType::CEM);
+        return static_cast<uint8_t>(D2ECUType::ECM_ME);
+    return static_cast<uint8_t>(D2ECUType::CEM);
 }
 
 /*static*/ uint8_t D2Message::getECUType(const std::vector<uint8_t> &buffer)

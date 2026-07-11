@@ -1,5 +1,7 @@
 #include "common/protocols/D2Messages.hpp"
 
+#include "common/protocols/D2ECUType.hpp"
+
 #include <algorithm>
 #include <iterator>
 
@@ -13,7 +15,7 @@ CanFrame makeRawMessage(const CanMessage::DataType& payload)
 /*static*/ D2Message D2Messages::setCurrentTime(uint8_t hours,
                                                 uint8_t minutes) {
   uint32_t value = minutes + hours * 60;
-  return D2Message(static_cast<uint8_t>(common::ECUType::DIM),
+  return D2Message(static_cast<uint8_t>(common::D2ECUType::DIM),
                    {0xB0, 0x07, 0x01, 0xFF},
                    {static_cast<uint8_t>((value >> 8) & 0xFF),
                     static_cast<uint8_t>(value & 0xFF)});
@@ -45,7 +47,7 @@ D2Messages::createReadDataByAddrMsg(uint8_t ecuId, uint32_t addr,
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return D2Message(static_cast<uint8_t>(common::ECUType::TCM),
+  return D2Message(static_cast<uint8_t>(common::D2ECUType::TCM),
                    {0xB4, 0x21, 0x34}, {byte1, byte2, byte3,
                                         byte4, static_cast<uint8_t>(dataSize)});
 }
@@ -81,22 +83,22 @@ D2Messages::createReadDataByAddrMsg(uint8_t ecuId, uint32_t addr,
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
   return D2Message(
-      static_cast<uint8_t>(common::ECUType::ECM_ME),
+      static_cast<uint8_t>(common::D2ECUType::ECM_ME),
       {0xAA, 0x50}, {byte1, byte2, byte3, static_cast<uint8_t>(dataLength)});
 }
 
 const D2Message D2Messages::requestVIN{
-    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFB})};
+    common::D2Message(static_cast<uint8_t>(common::D2ECUType::CEM), {0xB9, 0xFB})};
 const D2Message D2Messages::requestVehicleConfiguration{
-    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xB9, 0xFC})};
+    common::D2Message(static_cast<uint8_t>(common::D2ECUType::CEM), {0xB9, 0xFC})};
 const D2Message D2Messages::requestMemory{common::D2Message(
-    static_cast<uint8_t>(common::ECUType::ECM_ME), {0xA6, 0xF0, 0x00, 0x01})};
+    static_cast<uint8_t>(common::D2ECUType::ECM_ME), {0xA6, 0xF0, 0x00, 0x01})};
 const D2Message D2Messages::unregisterAllMemoryRequest{
-    common::D2Message(static_cast<uint8_t>(common::ECUType::ECM_ME), {0xAA, 0x00})};
+    common::D2Message(static_cast<uint8_t>(common::D2ECUType::ECM_ME), {0xAA, 0x00})};
 const D2Message D2Messages::startTCMAdaptMsg{
-    common::D2Message(static_cast<uint8_t>(common::ECUType::TCM), {0xB2, 0x50})};
+    common::D2Message(static_cast<uint8_t>(common::D2ECUType::TCM), {0xB2, 0x50})};
 const D2Message D2Messages::enableCommunicationMsg{
-    common::D2Message(static_cast<uint8_t>(common::ECUType::CEM), {0xD8})};
+    common::D2Message(static_cast<uint8_t>(common::D2ECUType::CEM), {0xD8})};
 
 /*static*/ CanFrame D2RawMessages::createSetMemoryAddrMsg(uint8_t ecuId,
                                                         uint32_t addr) {

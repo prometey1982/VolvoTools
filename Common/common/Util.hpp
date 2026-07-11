@@ -1,13 +1,14 @@
 #pragma once
 
+#include "DeviceInfo.hpp"
+#include "CarPlatform.hpp"
+#include "ConfigurationInfo.hpp"
+
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
-
-#include "DeviceInfo.hpp"
-#include "CarPlatform.hpp"
-#include "ConfigurationInfo.hpp"
+#include <type_traits>
 
 class ICanChannel;
 
@@ -17,6 +18,12 @@ namespace j2534 {
 } // namespace j2534
 
 namespace common {
+
+    template<typename E>
+    constexpr auto to_underlying(E e) -> typename std::underlying_type<E>::type
+    {
+        return static_cast<typename std::underlying_type<E>::type>(e);
+    }
 
     std::wstring toWstring(const std::string& str);
     std::string toString(const std::wstring& str);

@@ -4,6 +4,7 @@
 
 #include <common/CommonData.hpp>
 #include <common/ICanChannel.hpp>
+#include <common/protocols/D2ECUType.hpp>
 #include <common/protocols/D2Request.hpp>
 #include <common/protocols/D2Message.hpp>
 #include <common/protocols/D2Messages.hpp>
@@ -108,7 +109,7 @@ namespace logger {
             for (size_t i = 0; i < parameters.parameters().size(); ++i) {
                 common::D2Request readMemoryRequest{
                     common::D2Messages::createReadDataByOffsetMsg(
-                    static_cast<uint8_t>(common::ECUType::TCM), parameters.parameters()[i].addr(),
+                    static_cast<uint8_t>(common::D2ECUType::TCM), parameters.parameters()[i].addr(),
                         static_cast<uint8_t>(parameters.parameters()[i].size())) };
 
                 auto readResponse{ readMemoryRequest.process(channel) };
