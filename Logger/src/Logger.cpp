@@ -11,6 +11,7 @@
 #include <common/protocols/UDSRequest.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/Util.hpp>
+#include <common/utility.hpp>
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
@@ -331,11 +332,13 @@ namespace logger {
     std::unique_ptr<LoggerImpl> createLoggerImpl(common::CarPlatform carPlatform, uint32_t cmId, const std::string& cmInfo)
 	{
 		using common::CarPlatform;
-		if (cmId == 0x7A && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P1
+        if (cmId == to_underlying(common::D2ECUType::ECM_ME)
+            && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P1
 			|| carPlatform == CarPlatform::P2 || carPlatform == CarPlatform::P2_250)) {
             return std::make_unique<D2LoggerImpl>();
 		}
-        if (cmId == 0x6E && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
+        if (cmId == to_underlying(common::D2ECUType::TCM)
+            && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
 			|| carPlatform == CarPlatform::P2_250)) {
             if (common::toLower(cmInfo) == "aw55_p2") {
                 return std::make_unique<AW55D2LoggerImpl>();

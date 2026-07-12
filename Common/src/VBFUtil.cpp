@@ -4,6 +4,7 @@
 #include "common/ChecksumHelper.hpp"
 #include "common/VBFParser.hpp"
 #include "common/Util.hpp"
+#include "common/utility.hpp"
 
 #include <intelhex.h>
 

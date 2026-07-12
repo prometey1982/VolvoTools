@@ -15,6 +15,7 @@
 #include <common/VBFUtil.hpp>
 #include <common/SBL.hpp>
 #include <common/Util.hpp>
+#include <common/utility.hpp>
 
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
@@ -734,7 +735,7 @@ void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, 
     const auto vbf = vbfForFlasher(bin);
 	const auto carPlatform = baudrate == 500000 ? common::CarPlatform::P2 : common::CarPlatform::P2_250;
 
-    const uint32_t ecuId = common::to_underlying(common::D2ECUType::ECM_ME);
+    const uint32_t ecuId = to_underlying(common::D2ECUType::ECM_ME);
 	flasher::SBLProviderCommon sblProviderCommon;
     flasher::D2FlasherConfig config{ sblProviderCommon.getSBL(carPlatform, ecuId, ""), vbf };
     flasher::D2Flasher flasher(*j2534, carPlatform, ecuId, std::move(config));

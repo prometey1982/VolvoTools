@@ -10,7 +10,7 @@
 
 #include <common/protocols/D2ECUType.hpp>
 #include <common/CarPlatform.hpp>
-#include <common/Util.hpp>
+#include <common/utility.hpp>
 
 #include <stdexcept>
 
@@ -39,21 +39,21 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     const auto ranges = p.getReadRanges();
 
     if(isD2Platform(platform)) {
-        if (ecuId == common::to_underlying(common::D2ECUType::ECM_ME)) {
+        if (ecuId == to_underlying(common::D2ECUType::ECM_ME)) {
             const auto bootloaderParams = p.getBootloaderParams();
             if(!bootloaderParams) {
                 throw std::runtime_error("ME7 reader requires bootloader");
             }
             return std::make_unique<D2ReaderME7>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
         }
-        else if (ecuId == common::to_underlying(common::D2ECUType::DEM)) {
+        else if (ecuId == to_underlying(common::D2ECUType::DEM)) {
             const auto bootloaderParams = p.getBootloaderParams();
             if(!bootloaderParams) {
                 throw std::runtime_error("DEM reader requires bootloader");
             }
             return std::make_unique<D2ReaderDEM>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
         }
-        else if (ecuId == common::to_underlying(common::D2ECUType::TCM)) {
+        else if (ecuId == to_underlying(common::D2ECUType::TCM)) {
             if (cmInfo == "aw55_p2")
                 return std::make_unique<D2ReaderAW55>(j2534, platform, ecuId, ranges);
             if (cmInfo == "tf80_p2")
