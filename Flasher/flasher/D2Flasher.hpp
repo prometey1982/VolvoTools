@@ -3,7 +3,6 @@
 #include "D2FlasherBase.hpp"
 
 #include <common/GenericProcess.hpp>
-#include <common/CMType.hpp>
 #include <common/VBF.hpp>
 
 #include <vector>

@@ -2,12 +2,14 @@
 #include <common/compression/CompressorFactory.hpp>
 #include <common/encryption/EncryptorFactory.hpp>
 #include <common/encryption/XOREncryptor.hpp>
+#include <common/protocols/D2ECUType.hpp>
 #include <common/protocols/D2Messages.hpp>
 #include <common/protocols/TP20RequestProcessor.hpp>
 #include <common/protocols/TP20Session.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 #include <common/protocols/UDSPinFinder.hpp>
 #include <common/protocols/UDSRequest.hpp>
+#include <common/CanAlarmClock.hpp>
 #include <common/CommonData.hpp>
 #include <common/VBFParser.hpp>
 #include <common/VBFUtil.hpp>
@@ -718,9 +720,8 @@ void UDSFlash(common::CarPlatform carPlatform, uint8_t ecuId,
 		<< std::endl;
 }
 
-common::VBF vbfForFlasher(const std::vector<uint8_t>& input, common::CMType cmType)
+common::VBF vbfForFlasher(const std::vector<uint8_t>& input)
 {
-    (void)cmType;
     return common::VBF({}, { { 0x0, input } });
 }
 
@@ -730,14 +731,10 @@ void D2Flash(const std::string& flashPath, std::unique_ptr<j2534::J2534> j2534, 
 		std::ios_base::binary | std::ios_base::in);
 	std::vector<uint8_t> bin{ std::istreambuf_iterator<char>(input), {} };
 
-    const common::CMType cmType = bin.size() == 2048 * 1024
-                                      ? common::CMType::ECM_ME9_P1
-                                      : common::CMType::ECM_ME7;
-
-    const auto vbf = vbfForFlasher(bin, cmType);
+    const auto vbf = vbfForFlasher(bin);
 	const auto carPlatform = baudrate == 500000 ? common::CarPlatform::P2 : common::CarPlatform::P2_250;
 
-	uint32_t ecuId = 0x7A;
+    const uint32_t ecuId = common::to_underlying(common::D2ECUType::ECM_ME);
 	flasher::SBLProviderCommon sblProviderCommon;
     flasher::D2FlasherConfig config{ sblProviderCommon.getSBL(carPlatform, ecuId, ""), vbf };
     flasher::D2Flasher flasher(*j2534, carPlatform, ecuId, std::move(config));
@@ -943,10 +940,8 @@ int main(int argc, const char* argv[]) {
 						std::make_unique<j2534::J2534>(device.libraryName) };
 					j2534->PassThruOpen(name);
                     if (runMode == RunMode::Wakeup) {
-						// TODO: wake up should be implemented separately.
-						// Need to iterate over D2 and UDS protocols with different BUS speeds for D2 protocol.
-//                        flasher::D2Flasher flasher(std::move(j2534), baudrate, common::CMType::ECM_ME7, {{}, {}});
-//						flasher.canWakeUp(baudrate);
+                        common::CanAlarmClock alarmClock(*j2534);
+                        alarmClock.start();
 					}
 					else if (runMode == RunMode::Pin) {
 						findPin2(*j2534, carPlatform, ecuId, pin, scanPinsUpward);

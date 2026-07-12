@@ -4,7 +4,6 @@
 #include "FlasherConfigs.hpp"
 
 #include <common/GenericProcess.hpp>
-#include <common/CMType.hpp>
 #include <common/VBF.hpp>
 
 namespace common {
