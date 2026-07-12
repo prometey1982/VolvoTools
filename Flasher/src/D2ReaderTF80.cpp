@@ -23,8 +23,16 @@ void D2ReaderTF80::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& 
     for(size_t i = 0; i < _ranges.size(); ++i) {
         auto& buffer = _buffers[i];
         buffer.clear();
-        const auto& range = _ranges[i];
+        auto range = _ranges[i];
         buffer.reserve(range.size);
+
+        // XXX: TF80 0x0 addr read workaround
+        if(range.startAddr == 0) {
+            buffer.push_back(0);
+            incCurrentProgress(1);
+            ++range.startAddr;
+            --range.size;
+        }
 
         for (uint32_t j = 0; j < range.size; ++j) {
             const uint32_t currentAddr = range.startAddr + j;
