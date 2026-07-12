@@ -3,11 +3,14 @@
 #include "flasher/ReaderBase.hpp"
 #include "flasher/D2ReaderAW55.hpp"
 #include "flasher/D2ReaderChecksum.hpp"
+#include "flasher/D2ReaderDEM.hpp"
 #include "flasher/D2ReaderME7.hpp"
 #include "flasher/D2ReaderTF80.hpp"
 #include "flasher/UDSReader.hpp"
 
+#include <common/protocols/D2ECUType.hpp>
 #include <common/CarPlatform.hpp>
+#include <common/Util.hpp>
 
 #include <stdexcept>
 
@@ -35,24 +38,28 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     const auto& cmInfo = p.getCmInfo();
     const auto ranges = p.getReadRanges();
 
-    // D2 ECM
-    if (ecuId == 0x7A && isD2Platform(platform)) {
-        const auto bootloaderParams = p.getBootloaderParams();
-        if(!bootloaderParams) {
-            throw std::runtime_error("ME7 reader requires bootloader");
+    if(isD2Platform(platform)) {
+        if (ecuId == common::to_underlying(common::D2ECUType::ECM_ME)) {
+            const auto bootloaderParams = p.getBootloaderParams();
+            if(!bootloaderParams) {
+                throw std::runtime_error("ME7 reader requires bootloader");
+            }
+            return std::make_unique<D2ReaderME7>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
         }
-        return std::make_unique<D2ReaderME7>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
-    }
+        else if (ecuId == common::to_underlying(common::D2ECUType::DEM)) {
+            const auto bootloaderParams = p.getBootloaderParams();
+            if(!bootloaderParams) {
+                throw std::runtime_error("DEM reader requires bootloader");
+            }
+            return std::make_unique<D2ReaderDEM>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
+        }
+        else if (ecuId == common::to_underlying(common::D2ECUType::TCM)) {
+            if (cmInfo == "aw55_p2")
+                return std::make_unique<D2ReaderAW55>(j2534, platform, ecuId, ranges);
+            if (cmInfo == "tf80_p2")
+                return std::make_unique<D2ReaderTF80>(j2534, platform, ecuId, ranges);
+        }
 
-    // D2 TCM
-    if (ecuId == 0x6E && isD2Platform(platform)) {
-        if (cmInfo == "aw55_p2")
-            return std::make_unique<D2ReaderAW55>(j2534, platform, ecuId, ranges);
-        if (cmInfo == "tf80_p2")
-            return std::make_unique<D2ReaderTF80>(j2534, platform, ecuId, ranges);
-    }
-
-    if (isD2Platform(platform)) {
         return std::make_unique<D2ReaderChecksum>(j2534, platform, ecuId, ranges);
     }
 

@@ -30,6 +30,7 @@ struct D2RawMessages {
   static CanFrame createSetMemoryAddrMsg(uint8_t ecuId, uint32_t offset);
   static CanFrame createCalculateChecksumMsg(uint8_t ecuId, uint32_t offset);
   static CanFrame createReadOffsetMsg2(uint8_t ecuId, uint32_t offset);
+  static CanFrame createReadOffsetMsgDEM(uint8_t ecuId, uint32_t offset);
   static CanFrame createStartPrimaryBootloaderMsg(uint8_t ecuId);
   static CanFrame createWakeUpECUMsg(uint8_t ecuId);
   static CanFrame createJumpToMsg(uint8_t ecuId, uint8_t data1 = 0,

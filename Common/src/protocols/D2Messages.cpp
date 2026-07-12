@@ -127,6 +127,15 @@ D2RawMessages::createCalculateChecksumMsg(uint8_t ecuId, uint32_t addr) {
   return makeRawMessage({ecuId, 0xBC, byte1, byte2, byte3, byte4});
 }
 
+/*static*/ CanFrame D2RawMessages::createReadOffsetMsgDEM(uint8_t ecuId,
+                                                        uint32_t addr) {
+  const uint8_t byte1 = (addr & 0xFF000000) >> 24;
+  const uint8_t byte2 = (addr & 0xFF0000) >> 16;
+  const uint8_t byte3 = (addr & 0xFF00) >> 8;
+  const uint8_t byte4 = (addr & 0xFF);
+  return makeRawMessage({ecuId, 0xB6, byte1, byte2, byte3, byte4});
+}
+
 /*static*/ CanFrame
 D2RawMessages::createStartPrimaryBootloaderMsg(uint8_t ecuId) {
   return makeRawMessage({ecuId, 0xC0});
