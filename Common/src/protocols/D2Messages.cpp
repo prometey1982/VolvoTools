@@ -92,7 +92,7 @@ const D2Message D2Messages::requestVIN{
 const D2Message D2Messages::requestVehicleConfiguration{
     common::D2Message(static_cast<uint8_t>(common::D2ECUType::CEM), {0xB9, 0xFC})};
 const D2Message D2Messages::requestMemory{common::D2Message(
-    static_cast<uint8_t>(common::D2ECUType::ECM_ME), {0xA6, 0xF0, 0x00, 0x01})};
+    static_cast<uint8_t>(common::D2ECUType::ECM_ME), {0xA6, 0xF0, 0x00}, {0x01})};
 const D2Message D2Messages::unregisterAllMemoryRequest{
     common::D2Message(static_cast<uint8_t>(common::D2ECUType::ECM_ME), {0xAA, 0x00})};
 const D2Message D2Messages::startTCMAdaptMsg{
