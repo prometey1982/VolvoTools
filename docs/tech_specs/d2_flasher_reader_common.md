@@ -8,19 +8,19 @@
 
 ### 2.1. Дублирование
 
-| Шаг | D2FlasherBase | D2ReaderChecksum |
-|---|---|---|
-| wakeUp | `D2FlasherImpl::wakeUpChannels()` | `D2ProtocolCommonSteps::wakeUp(channels)` |
-| fallAsleep | `D2FlasherImpl::fallAsleep()` | `D2ProtocolCommonSteps::fallAsleep(channels)` |
-| startPBL | `D2FlasherImpl::startPBL()` | `D2ProtocolCommonSteps::startPBL(channel, ecuId)` |
-| loadSBL | `D2FlasherImpl::loadSBL()` | `D2ProtocolCommonSteps::transferData(...)` |
-| startSBL | `D2FlasherImpl::startSBL()` | `D2ProtocolCommonSteps::startRoutine(...)` |
-| операция | HFSM2 → `eraseCallback` + `writeCallback` | побайтовое чтение |
-| wakeUp | `D2FlasherImpl::wakeUpFinish()` | `D2ProtocolCommonSteps::wakeUp(channels)` |
+| Шаг | D2FlasherBase | D2ReaderChecksum / D2ReaderME7 / D2ReaderDEM |
+|---|---|---|---|
+| wakeUp | `D2FlasherImpl::wakeUpChannels()` | через общий `D2FlasherImpl` |
+| fallAsleep | `D2FlasherImpl::fallAsleep()` | через общий `D2FlasherImpl` |
+| startPBL | `D2FlasherImpl::startPBL()` | через общий `D2FlasherImpl` |
+| loadSBL | `D2FlasherImpl::loadSBL()` | через общий `D2FlasherImpl` |
+| startSBL | `D2FlasherImpl::startSBL()` | через общий `D2FlasherImpl` |
+| операция | HFSM2 → `eraseCallback` + `writeCallback` | HFSM2 → no-op erase + write-читатель |
+| wakeUp | `D2FlasherImpl::wakeUpFinish()` | через общий `D2FlasherImpl` |
 
 **D2FlasherBase** использует HFSM2-автомат (11 состояний). Автомат и `D2FlasherImpl` находятся в одном `.cpp` (`D2FlasherBase.cpp`, ~370 строк).
 
-**D2ReaderChecksum** дублирует последовательность прямыми вызовами `D2ProtocolCommonSteps`, без HFSM2, без обработки ошибок, с ручным `setCurrentState()`.
+**D2ReaderChecksum**, **D2ReaderME7** и **D2ReaderDEM** ранее дублировали последовательность прямыми вызовами `D2ProtocolCommonSteps`, без HFSM2, без обработки ошибок, с ручным `setCurrentState()`.
 
 ### 2.2. Файлы
 
@@ -59,7 +59,7 @@ void D2FlasherBase::startImpl(channels)
 }
 ```
 
-### 3.3. D2ReaderChecksum — тоже использует D2FlasherImpl
+### 3.3. D2ReaderChecksum, D2ReaderME7, D2ReaderDEM — используют D2FlasherImpl
 
 ```cpp
 void D2ReaderChecksum::startImpl(channels)
@@ -92,10 +92,10 @@ void D2ReaderChecksum::startImpl(channels)
 
 | Аспект | Было | Стало |
 |---|---|---|
-| Копий bootloader sequence | 2 (D2FlasherBase + D2ReaderChecksum) | 1 (D2FlasherImpl) |
+| Копий bootloader sequence | 4 (D2FlasherBase + D2ReaderChecksum + D2ReaderME7 + D2ReaderDEM) | 1 (D2FlasherImpl) |
 | HFSM2 | Внутри D2FlasherBase.cpp | В отдельном D2FlasherImpl.cpp |
-| Обработка ошибок D2ReaderChecksum | Нет (прямые вызовы) | HFSM2 planFailed |
-| setCurrentState в D2ReaderChecksum | Ручное управление | Через stateUpdater колбэк |
+| Обработка ошибок у читателей | Нет (прямые вызовы) | HFSM2 planFailed |
+| setCurrentState у читателей | Ручное управление | Через stateUpdater колбэк |
 
 ## 4. Изменяемые файлы
 
@@ -105,6 +105,8 @@ void D2ReaderChecksum::startImpl(channels)
 | 2 | `Flasher/src/D2FlasherImpl.hpp` | Добавлен метод `run()`, шаги публичны |
 | 3 | `Flasher/src/D2FlasherBase.cpp` | D2FlasherImpl + HFSM2 удалены. `startImpl()` → `impl.run()` |
 | 4 | `Flasher/src/D2ReaderChecksum.cpp` | Вместо прямых вызовов → `D2FlasherImpl::run()` |
+| 5 | `Flasher/src/D2ReaderME7.cpp` | Вместо прямых вызовов → `D2FlasherImpl::run()` |
+| 6 | `Flasher/src/D2ReaderDEM.cpp` | Вместо прямых вызовов → `D2FlasherImpl::run()` |
 
 ## 5. Порядок реализации
 
@@ -120,10 +122,12 @@ void D2ReaderChecksum::startImpl(channels)
 5. `impl.run()` вместо `FSM::Instance fsm{ impl }; while(...) { fsm.update(); }`
 6. Собрать
 
-### Шаг 3: Упростить D2ReaderChecksum.cpp
+### Шаг 3: Упростить D2ReaderChecksum, D2ReaderME7, D2ReaderDEM
 
-7. Заменить прямые вызовы на `D2FlasherImpl::run()`
-8. Собрать
+7. Заменить прямые вызовы на `D2FlasherImpl::run()` в D2ReaderChecksum
+8. Заменить на `D2FlasherImpl::run()` в D2ReaderME7
+9. Заменить на `D2FlasherImpl::run()` в D2ReaderDEM
+10. Собрать
 
 ## 6. Критерии готовности
 
@@ -131,7 +135,9 @@ void D2ReaderChecksum::startImpl(channels)
 2. ✓ `D2FlasherImpl::run()` запускает FSM и ждёт Done/Error
 3. ✓ `D2FlasherBase::startImpl()` делегирует `impl.run()`
 4. ✓ `D2ReaderChecksum::startImpl()` использует `D2FlasherImpl` (no-op erase, write-читатель)
-5. ✓ D2ReaderChecksum получает обработку ошибок через HFSM2
-6. ✓ D2ReaderChecksum не содержит прямых вызовов wakeUp/fallAsleep/startPBL/loadSBL/startSBL
-7. ✓ Сборка: 0 ошибок
-8. ✓ Функциональность D2Flash и D2Read сохранена
+5. ✓ `D2ReaderME7::startImpl()` использует `D2FlasherImpl` (no-op erase, write-читатель через createReadOffsetMsg2)
+6. ✓ `D2ReaderDEM::startImpl()` использует `D2FlasherImpl` (no-op erase, write-читатель через createReadOffsetMsgDEM)
+7. ✓ Все читатели получают обработку ошибок через HFSM2
+8. ✓ Читатели не содержат прямых вызовов wakeUp/fallAsleep/startPBL/loadSBL/startSBL
+9. ✓ Сборка: 0 ошибок
+10. ✓ Функциональность D2Flash и D2Read сохранена

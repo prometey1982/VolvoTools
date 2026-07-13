@@ -98,7 +98,6 @@ private:
 PeerRoot<
   Composite<              // Основной план (StartWork)
     struct StartWork,
-    struct WakeUpChannels,
     struct FallAsleep,
     struct StartPBL,
     struct LoadSBL,       // SBL-блок (опционально)
@@ -118,13 +117,14 @@ PeerRoot<
 
 **StartWork** — настраивает план:
 ```
-plan.change<WakeUpChannels, FallAsleep>();
 plan.change<FallAsleep, StartPBL>();
 plan.change<StartPBL, LoadSBL>();
 plan.change<LoadSBL, StartSBL>();
 plan.change<StartSBL, EraseFlash>();
 plan.change<EraseFlash, WriteFlash>();
 ```
+
+**WakeUpChannels** не выделен в отдельное состояние — пробуждение выполняется внутри `run()` перед запуском FSM (см. D2FlasherImpl).
 
 `LoadSBL` и `StartSBL` — no-op если `!isSBLRequired()` (пустой `enter()` → BaseState::update → succeed).
 
@@ -181,7 +181,7 @@ stepCost * 4 + getProgressFromVBF(_bootloader) + getMaximumFlashProgressValue()
 | № | Файл | Описание |
 |---|---|---|
 | 1 | `Flasher/src/D2FlasherImpl.hpp` | Объявление `D2FlasherImpl` |
-| 2 | `Flasher/src/D2FlasherImpl.cpp` | Реализация `D2FlasherImpl` + hFSM2 machine + 11 state-структур + `run()` |
+| 2 | `Flasher/src/D2FlasherImpl.cpp` | Реализация `D2FlasherImpl` + hFSM2 machine + 10 состояний + `run()` |
 
 ### 4.2. Изменяемые
 
@@ -195,6 +195,8 @@ stepCost * 4 + getProgressFromVBF(_bootloader) + getMaximumFlashProgressValue()
 | № | Файл | Изменение |
 |---|---|---|
 | 5 | `Flasher/src/D2ReaderChecksum.cpp` | Создаёт `D2FlasherImpl` с no-op erase, вызывает `impl.run()` |
+| 6 | `Flasher/src/D2ReaderME7.cpp` | Создаёт `D2FlasherImpl` с no-op erase и write-читателем (побайтово через `createReadOffsetMsg2`) |
+| 7 | `Flasher/src/D2ReaderDEM.cpp` | Создаёт `D2FlasherImpl` с no-op erase и write-читателем (побайтово через `createReadOffsetMsgDEM`) |
 
 ## 5. Тестирование
 
@@ -208,7 +210,7 @@ stepCost * 4 + getProgressFromVBF(_bootloader) + getMaximumFlashProgressValue()
 | 2 | Выделить в отдельные `D2FlasherImpl.hpp` / `.cpp` | ✓ |
 | 3 | Переписать `D2FlasherBase::startImpl()` на `impl.run()` | ✓ |
 | 4 | Убрать мёртвый код из hpp | ✓ |
-| 5 | Переиспользовать `D2FlasherImpl` в `D2ReaderChecksum` | ✓ |
+| 5 | Переиспользовать `D2FlasherImpl` в `D2ReaderChecksum`, `D2ReaderME7`, `D2ReaderDEM` | ✓ |
 | 6 | Создать `Flasher/test/` с тестами | ✓ |
 | 7 | Собрать: 0 ошибок | ✓ |
 | 8 | Запустить тесты: 11/11 passed | ✓ |
@@ -217,9 +219,9 @@ stepCost * 4 + getProgressFromVBF(_bootloader) + getMaximumFlashProgressValue()
 
 1. ✓ `D2FlasherBase::startImpl()` не содержит линейного кода с try/catch — через hFSM2
 2. ✓ `FlasherState` обновляется в каждом шаге
-3. ✓ При ошибке: `Finish → WakeUpChannels → SetDIMTime → Error`
-4. ✓ При успехе: `Finish → WakeUpChannels → SetDIMTime → Done`
+3. ✓ При ошибке: `Finish → WakeUpFinish → SetDIMTime → Error`
+4. ✓ При успехе: `Finish → WakeUpFinish → SetDIMTime → Done`
 5. ✓ Прогресс обновляется в wakeUp, fallAsleep, startPBL, loadSBL, writeFlash, setDIMTime
-6. ✓ `D2Flasher` и `D2ReaderChecksum` работают через один hFSM2
+6. ✓ `D2Flasher`, `D2ReaderChecksum`, `D2ReaderME7`, `D2ReaderDEM` работают через один hFSM2
 7. ✓ Сборка: 0 ошибок
 8. ✓ Тест `FlasherTests.exe` проходит 11/11 кейсов

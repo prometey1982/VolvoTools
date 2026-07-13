@@ -75,9 +75,9 @@ startup → common::initLogger("application.log")
 | 9 | **J2534ChannelAdapter — 0 LOG** | ✓ Шаг 8 |
 | 10 | **TP20Session — 0 LOG** | ✓ Шаг 9 |
 | 11 | **Perf-логирование** | ✓ Шаг 10 |
-| 12 | **Crash-хендлер** | ✗ Заблокирован (conan-рецепт) |
-| 13 | **CLOG не используется** | ✓ Шаг 6 |
-| 14 | **Нет -v/--verbose в CLI** | ✓ Шаг 7 |
+| 12 | **Crash-хендлер** | ✗ Заблокирован (conan-рецепт easyloggingpp) |
+| 13 | **CLOG не используется** | ✓ Шаг 6 — используется `LOG_MODULE` |
+| 14 | **Нет -v/--verbose в CLI** | ✓ Шаг 7 — добавлен в оба экзешника |
 | 15 | **JSON-формат** | ✗ Отложено |
 | 16 | **TIMED_SCOPE** | ✗ Отложено (conan-рецепт) |
 

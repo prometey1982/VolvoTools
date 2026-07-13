@@ -15,6 +15,8 @@ CI (`windows-2022`) also builds x86 separately: `cmake --preset conan-default -A
 
 `prepare_build.bat` is a shortcut for the first three steps using two conan profiles.
 
+Tests build: `cmake --build build --config Release` (built if `-DBUILD_TESTS=ON` during configure — OFF by default).
+
 ## Submodules (5)
 
 Must be init'd after clone. All are read-only dependencies:
@@ -44,10 +46,15 @@ Must be init'd after clone. All are read-only dependencies:
 - **Namespaces**: `common::`, `flasher::`, `logger::`, `j2534::`
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root
+- **Tech specs** (9 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`
 - **Transport abstraction spec**: `docs/tech_specs/transport_abstraction.md`
 - **New transport types** (`Common/common/`): `CanFrame.hpp` — CAN message struct, `ICanChannel.hpp` — abstract channel interface, `J2534ChannelAdapter.hpp` — J2534 bridge
 - **Channel safety**: J2534 channels opened in one thread crash when used from another — use `J2534ChannelProvider` (see README note)
 - **Transport abstraction**: `*ProtocolCommonSteps`, flashers, and loggers use `ICanChannel` (send/receive `CanFrame`). J2534 is one adapter (`J2534ChannelAdapter`). Alternative transports (ELM327, ESP32, STM32) just implement `ICanChannel`.
+- **Flasher hierarchy**: `FlasherBase` → `D2FlasherBase`/`UDSFlasher`/`KWPFlasher`. D2 flasher uses an HFSM (`Common/common/hfsm2/machine.hpp`, 17K+ lines, v2.6.0) in `D2FlasherImpl` for state orchestration.
+- **Reader hierarchy**: `ReaderBase` → `D2ReaderTF80`/`D2ReaderME7`/`D2ReaderDEM`/`D2ReaderAW55`/`D2ReaderChecksum`/`UDSReader`. Created via `ReaderFactory`.
+- **Logger architecture**: Dual-threaded — `_loggingThread` reads CAN and pushes `LogRecord` to a deque; `_callbackThread` pops records and dispatches to all registered `LoggerCallback` instances (`FileLogWriter`, `ConsoleLogWriter`).
+- **keys.cpp**: Standalone reference copy of `VolvoGenerateKey()` and `p3_hash()`. The actual application uses duplicated versions in `VolvoFlasher.cpp`.
 
 ## CLI
 
@@ -57,11 +64,13 @@ VolvoFlasher [-d device] [-b baudrate] [-f platform] [-e ecu] [-p pin] <subcomma
   flash  -i <input.bin> [-s <sbl_path>]
   read   -o <output> -s <start_addr> -sz <size>
   pin    [-d]              # -d = scan downward
+  test                     # hardcoded VAG MED91 test
+  wakeup                   # wake up CAN network (no args)
 ```
 
 **VolvoLogger** (no subcommands):
 ```
-VolvoLogger -v <variables> -o <output> [-d device] [-b baudrate] [-f platform] [-e ecu] [-p print_count]
+VolvoLogger --variables <path> -o <output> [-d device] [-b baudrate] [-f platform] [-e ecu] [-p print_count] [--verbose]
 ```
 
 ## Supported platforms
@@ -70,7 +79,11 @@ VolvoLogger -v <variables> -o <output> [-d device] [-b baudrate] [-f platform] [
 
 ## Tests
 
-Only `Registry/RegistryTest/` exists — a standalone console app with custom `CHECK_THROWS_AS` / `CHECK_NO_THROW` macros. No test framework, no CI test step. No tests for Common, Flasher, Logger, or the executables.
+Only `Registry/RegistryTest/` exists — a standalone console app with custom `CHECK_THROWS_AS` / `CHECK_NO_THROW` macros. No test framework, no CI test step.
+
+Additional partial test content (not built by default — requires `-DBUILD_TESTS=ON`):
+- `Common/test/` — `D2MessageTest.cpp`, `D2RequestTest.cpp`
+- `Flasher/test/` — `D2FlasherTest.cpp`, `MockICanChannel.hpp`
 
 ## Dependencies (Conan)
 

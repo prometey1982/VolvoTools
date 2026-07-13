@@ -533,7 +533,7 @@ D2RawMessages → (raw CanFrame, без D2Message)
 | `D2MessageD2RequestRoundtrip` | Создать D2Message → отправить через D2Request с mock-ответом → проверить разобранные данные |
 | `RequestIdEchoConsistency` | Длинный requestId (> 7 байт) — multi-frame запрос → ответ с полным эхом |
 
-### CMakeLists.txt
+### CMakeLists.txt (реализован)
 
 ```cmake
 cmake_minimum_required(VERSION 3.16)
@@ -552,6 +552,7 @@ target_link_libraries(CommonTests Common Boost::unit_test_framework easyloggingp
 target_include_directories(CommonTests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/Flasher/test  # для MockICanChannel
+    ${CMAKE_SOURCE_DIR}/Common
 )
 
 if (WIN32)
@@ -561,5 +562,14 @@ if (WIN32)
     )
 endif()
 
-add_test(NAME D2Common COMMAND CommonTests)
+add_test(NAME D2Common COMMAND CommonTests --log_level=all)
 ```
+
+### Статус реализации тестов
+
+| Тест | Статус |
+|------|--------|
+| D2MessageTest — 18 тестов (конструкторы, single-frame, multi-frame, seriesId, граничные случаи) | ✓ Реализован (`Common/test/D2MessageTest.cpp`) |
+| D2RequestTest — тесты (single/multi-frame ответы, эхо-проверки, ошибки, таймауты) | ✓ Реализован (`Common/test/D2RequestTest.cpp`) |
+| MockICanChannel | ✓ Реализован (`Flasher/test/MockICanChannel.hpp`) |
+| Сборка: cmake --build build --config Release | ✓ 0 ошибок |

@@ -94,9 +94,9 @@ class ICanChannel {
 public:
     virtual ~ICanChannel() = default;
 
-    // === Отправка ===
-    virtual bool send(const CanFrame& frame) = 0;
-    virtual bool send(const std::vector<CanFrame>& frames) = 0;
+    // === Отправка (timeout в миллисекундах, добавлен в restore_d2_transferdata_batching) ===
+    virtual bool send(const CanFrame& frame, unsigned long timeout = 1000) = 0;
+    virtual bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) = 0;
 
     // === Приём (timeout в миллисекундах) ===
     virtual bool receive(CanFrame& frame, unsigned long timeout) = 0;
@@ -396,11 +396,26 @@ bool UDSProtocolCommonSteps::eraseChunk(ICanChannel& channel,
 }
 ```
 
-## 9. Критерии готовности
+## 9. Статус реализации (✓ выполнено)
 
-1. `*ProtocolCommonSteps` заголовки не содержат `#include <j2534/...>`
-2. `UDSRequest`, `D2Request`, `TP20Session` заголовки не содержат `#include <j2534/...>`
-3. `PASSTHRU_MSG` не встречается нигде, кроме `J2534ChannelAdapter.cpp` и `j2534/` (внешняя зависимость)
-4. `BaseMessage` / `CanMessage` / `UDSMessage` / `D2Message` не импортируются из `Common/common/protocols/`, `Flasher/`, `Logger/`. Исключение — `J2534ChannelAdapter` (единственный класс, которому нужен `BaseMessage` и `PASSTHRU_MSG`)
-5. Проект собирается без ошибок: `cmake --build build --config Release`
-6. Функциональность flash/read/pin/log полностью сохранена (сравнение статусов и callback'ов при тестировании с J2534-адаптером)
+Все 6 шагов реализованы. Ключевые изменения внесены:
+
+| № | Шаг | Статус |
+|---|---|---|
+| 1 | `Common/common/CanFrame.hpp` — структура | ✓ |
+| 2 | `Common/common/ICanChannel.hpp` — интерфейс (включая `timeout` в send) | ✓ |
+| 3 | `Common/common/J2534ChannelAdapter.hpp` — объявление | ✓ |
+| 4 | `Common/src/J2534ChannelAdapter.cpp` — конверсия CanFrame ↔ PASSTHRU_MSG | ✓ |
+| 5 | `J2534ChannelProvider` — возвращает `unique_ptr<ICanChannel>` | ✓ |
+| 6–15 | Протокольные шаги, Request'ы, флешеры — переведены на ICanChannel& | ✓ |
+
+**Дополнительно:** `send()` получил параметр `timeout` (по умолчанию 1000 мс) для поддержки пакетной отправки в D2-протоколе (см. `restore_d2_transferdata_batching.md`).
+
+## 10. Критерии готовности (все ✓)
+
+1. ✓ `*ProtocolCommonSteps` заголовки не содержат `#include <j2534/...>`
+2. ✓ `UDSRequest`, `D2Request`, `TP20Session` заголовки не содержат `#include <j2534/...>`
+3. ✓ `PASSTHRU_MSG` не встречается нигде, кроме `J2534ChannelAdapter.cpp` и `j2534/` (внешняя зависимость)
+4. ✓ `BaseMessage` / `CanMessage` / `UDSMessage` / `D2Message` не импортируются из `Common/common/protocols/`, `Flasher/`, `Logger/`. Исключение — `J2534ChannelAdapter` (единственный класс, которому нужен `BaseMessage` и `PASSTHRU_MSG`)
+5. ✓ Проект собирается без ошибок: `cmake --build build --config Release`
+6. ✓ Функциональность flash/read/pin/log полностью сохранена (сравнение статусов и callback'ов при тестировании с J2534-адаптером)

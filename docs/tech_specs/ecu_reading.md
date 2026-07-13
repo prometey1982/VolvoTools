@@ -15,6 +15,8 @@ title: Диаграмма класса читателей
 classDiagram
     FlasherCallbackHolder <|-- ReaderBase
     ReaderBase <|-- D2ReaderChecksum
+    ReaderBase <|-- D2ReaderME7
+    ReaderBase <|-- D2ReaderDEM
     ReaderBase <|-- UDSReader
     ReaderBase <|-- D2ReaderAW55
     ReaderBase <|-- D2ReaderTF80
@@ -125,11 +127,16 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
     const auto& cmInfo = p.getCmInfo();
     const auto ranges = p.getReadRanges();
 
-    if (ecuId == 0x7A && isD2Platform(platform))
+    if (isD2Platform(platform)) {
+        if (ecuId == to_underlying(common::D2ECUType::ECM_ME))
+            return std::make_unique<D2ReaderME7>(j2534, platform, ecuId, ranges, bootloader);
+        if (ecuId == to_underlying(common::D2ECUType::DEM))
+            return std::make_unique<D2ReaderDEM>(j2534, platform, ecuId, ranges, bootloader);
+        if (ecuId == to_underlying(common::D2ECUType::TCM)) {
+            if (cmInfo == "aw55_p2")  return D2ReaderAW55(...);
+            if (cmInfo == "tf80_p2") return D2ReaderTF80(...);
+        }
         return std::make_unique<D2ReaderChecksum>(j2534, platform, ecuId, ranges);
-    if (ecuId == 0x6E && isD2Platform(platform)) {
-        if (cmInfo == "aw55_p2")  return D2ReaderAW55(...);
-        if (cmInfo == "tf80_p2") return D2ReaderTF80(...);
     }
     if (isUDSPlatform(platform)) {
         auto auth = p.getAuthParams();
@@ -140,7 +147,26 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
 }
 ```
 
-### 2.8. CLI — readFlash через ReaderFactory
+**Примечание:** D2ReaderME7 и D2ReaderDEM требуют bootloader (`getBootloaderParams()`), в отличие от D2ReaderChecksum.
+
+### 2.8. D2ReaderME7
+
+Чтение ECM_ME по протоколу D2. Использует `D2FlasherImpl` (общий HFSM2 с D2FlasherBase):
+- Передаёт no-op erase-колбэк
+- В write-колбэке выполняет побайтовое чтение: `createReadOffsetMsg2(addr)` → send/recv → извлечение байта из ответа
+- Требует bootloader (SBL) для входа в режим прошивки
+
+**Файлы:** `Flasher/flasher/D2ReaderME7.hpp`, `Flasher/src/D2ReaderME7.cpp`
+
+### 2.9. D2ReaderDEM
+
+Чтение DEM по протоколу D2. Аналогичен D2ReaderME7:
+- Использует `createReadOffsetMsgDEM` для формирования запросов
+- Требует bootloader
+
+**Файлы:** `Flasher/flasher/D2ReaderDEM.hpp`, `Flasher/src/D2ReaderDEM.cpp`
+
+### 2.10. CLI — readFlash через ReaderFactory
 
 В `VolvoFlasher.cpp` создаётся inline `CLIReaderProvider`, вызывается `ReaderFactory::create()`:
 
@@ -165,37 +191,43 @@ output.write(reader->buffers()[0].data(), ...);
 | 5 | `Flasher/src/ReaderBase.cpp` | Реализация |
 | 6 | `Flasher/flasher/ReaderFactory.hpp` | Фабрика читателей |
 | 7 | `Flasher/src/ReaderFactory.cpp` | Реализация фабрики |
-| 8 | `Flasher/flasher/D2ReaderChecksum.hpp` | D2-чтение через checksum |
-| 9 | `Flasher/src/D2ReaderChecksum.cpp` | Использует D2FlasherImpl |
-| 10 | `Flasher/flasher/UDSReader.hpp` | UDS-читатель через 0x23 |
-| 11 | `Flasher/src/UDSReader.cpp` | Реализация |
-| 12 | `Flasher/flasher/D2ReaderAW55.hpp` | AW55 TCM |
-| 13 | `Flasher/src/D2ReaderAW55.cpp` | Реализация |
-| 14 | `Flasher/flasher/D2ReaderTF80.hpp` | TF80 TCM |
-| 15 | `Flasher/src/D2ReaderTF80.cpp` | Реализация |
+| 8 | `Flasher/flasher/D2ReaderChecksum.hpp` | D2-чтение через checksum (ECU 0x7A по умолчанию) |
+| 9 | `Flasher/src/D2ReaderChecksum.cpp` | Использует D2FlasherImpl, без bootloader |
+| 10 | `Flasher/flasher/D2ReaderME7.hpp` | D2-чтение ECM_ME через createReadOffsetMsg2 |
+| 11 | `Flasher/src/D2ReaderME7.cpp` | Использует D2FlasherImpl, требует bootloader |
+| 12 | `Flasher/flasher/D2ReaderDEM.hpp` | D2-чтение DEM через createReadOffsetMsgDEM |
+| 13 | `Flasher/src/D2ReaderDEM.cpp` | Использует D2FlasherImpl, требует bootloader |
+| 14 | `Flasher/flasher/UDSReader.hpp` | UDS-читатель через 0x23 |
+| 15 | `Flasher/src/UDSReader.cpp` | Реализация |
+| 16 | `Flasher/flasher/D2ReaderAW55.hpp` | AW55 TCM |
+| 17 | `Flasher/src/D2ReaderAW55.cpp` | Реализация |
+| 18 | `Flasher/flasher/D2ReaderTF80.hpp` | TF80 TCM |
+| 19 | `Flasher/src/D2ReaderTF80.cpp` | Реализация |
 
 ### 3.2. Изменённые / удалённые
 
 | № | Файл | Изменение |
 |---|---|---|
-| 16 | `Flasher/src/D2FlasherImpl.hpp` | **Новый** — HFSM2 + D2-шаги (общий для FlasherBase и ReaderChecksum) |
-| 17 | `Flasher/src/D2FlasherImpl.cpp` | **Новый** — реализация |
-| 18 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()` переписан под ReaderFactory |
-| 19 | `Flasher/flasher/D2Reader.hpp` | **Удалён** → заменён на D2ReaderChecksum |
-| 20 | `Flasher/src/D2Reader.cpp` | **Удалён** → заменён на D2ReaderChecksum |
-| 21 | `Flasher/flasher/UDSMemoryReader.hpp` | **Удалён** → заменён на UDSReader |
-| 22 | `Flasher/src/UDSMemoryReader.cpp` | **Удалён** → заменён на UDSReader |
+| 20 | `Flasher/src/D2FlasherImpl.hpp` | **Новый** — HFSM2 + D2-шаги (общий для FlasherBase и читателей) |
+| 21 | `Flasher/src/D2FlasherImpl.cpp` | **Новый** — реализация |
+| 22 | `VolvoFlasher/src/VolvoFlasher.cpp` | `readFlash()` переписан под ReaderFactory |
+| 23 | `Flasher/flasher/D2Reader.hpp` | **Удалён** → заменён на D2ReaderChecksum |
+| 24 | `Flasher/src/D2Reader.cpp` | **Удалён** → заменён на D2ReaderChecksum |
+| 25 | `Flasher/flasher/UDSMemoryReader.hpp` | **Не удалён** — оставлен, но реализация закомментирована (dead code) |
+| 26 | `Flasher/src/UDSMemoryReader.cpp` | **Не удалён** — оставлен, реализация закомментирована (dead code) |
 
 ## 4. D2FlasherImpl — общий HFSM2
 
 `D2FlasherImpl` находится в `Flasher/src/D2FlasherImpl.{hpp,cpp}`. Содержит:
-- HFSM2 автомат (11 состояний: WakeUp → FallAsleep → StartPBL → LoadSBL → StartSBL → Erase → Write → WakeUp → SetDIMTime → Done/Error)
+- HFSM2 автомат (11 состояний: FallAsleep → StartPBL → LoadSBL → StartSBL → Erase → Write → WakeUpFinish → SetDIMTime → Done/Error)
 - `run()` — запускает FSM, ждёт Done/Error
 - Колбэки: `eraseCallback`, `writeCallback`
 
 Используется:
 - `D2FlasherBase` → erase = стирание, write = запись (прошивка)
 - `D2ReaderChecksum` → erase = no-op, write = побайтовое чтение через checksum
+- `D2ReaderME7` → erase = no-op, write = побайтовое чтение через createReadOffsetMsg2
+- `D2ReaderDEM` → erase = no-op, write = побайтовое чтение через createReadOffsetMsgDEM
 
 ## 5. Отложенные компоненты
 
@@ -207,9 +239,11 @@ output.write(reader->buffers()[0].data(), ...);
 
 1. ✓ `ReaderBase` — общий предок с `ReadRanges`, `_buffers`, `FlasherCallbackHolder`
 2. ✓ `D2ReaderChecksum` читает побайтово через checksum, использует D2FlasherImpl
-3. ✓ `UDSReader` читает с UDS-платформ через 0x23 блоками
-4. ✓ `D2ReaderAW55` / `D2ReaderTF80` читают TCM
-5. ✓ `ReaderFactory::create()` диспетчеризует по (platform, ecuId, cmInfo)
-6. ✓ `VolvoFlasher read` использует ReaderFactory
-7. ✓ `UDSMemoryReader` и старый `D2Reader` удалены
-8. ✓ Сборка: `cmake --build build --config Release` — 0 ошибок
+3. ✓ `D2ReaderME7` читает ECM_ME через createReadOffsetMsg2, использует D2FlasherImpl
+4. ✓ `D2ReaderDEM` читает DEM через createReadOffsetMsgDEM, использует D2FlasherImpl
+5. ✓ `UDSReader` читает с UDS-платформ через 0x23 блоками
+6. ✓ `D2ReaderAW55` / `D2ReaderTF80` читают TCM
+7. ✓ `ReaderFactory::create()` диспетчеризует по (platform, ecuId, cmInfo)
+8. ✓ `VolvoFlasher read` использует ReaderFactory
+9. ✓ Старый `D2Reader` удалён; `UDSMemoryReader` оставлен как dead code (закомментирован)
+10. ✓ Сборка: `cmake --build build --config Release` — 0 ошибок
