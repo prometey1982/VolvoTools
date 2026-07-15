@@ -46,14 +46,16 @@ Must be init'd after clone. All are read-only dependencies:
 - **Namespaces**: `common::`, `flasher::`, `logger::`, `j2534::`
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root
-- **Tech specs** (10 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`, `pin_crack.md`
+- **Tech specs** (11 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`, `pin_crack.md`, `can_id_provider.md`
 - **Transport abstraction spec**: `docs/tech_specs/transport_abstraction.md`
 - **New transport types** (`Common/common/`): `CanFrame.hpp` — CAN message struct, `ICanChannel.hpp` — abstract channel interface, `J2534ChannelAdapter.hpp` — J2534 bridge
 - **Channel safety**: J2534 channels opened in one thread crash when used from another — use `J2534ChannelProvider` (see README note)
 - **Transport abstraction**: `*ProtocolCommonSteps`, flashers, and loggers use `ICanChannel` (send/receive `CanFrame`). J2534 is one adapter (`J2534ChannelAdapter`). Alternative transports (ELM327, ESP32, STM32) just implement `ICanChannel`.
+- **CanIdProvider** (`Common/common/CanIdProvider.hpp`): Generates CAN arbitration IDs per protocol — `CanId11bit` (ISO15765, 11-bit, func=`0x7DF`), `CanId29bit` (ISO15765, 29-bit: `0x18DA{ps}F1`/`0x18DB{group}F1`), `CanIdD2` (D2, fixed `0xFFFFE`). Factory `createCanIdProvider()` and helper `createCanIdProviderForEcu()`. Used by `UDSProtocolCommonSteps`, flashers, readers, and `PinCracker`.
 - **Flasher hierarchy**: `FlasherBase` → `D2FlasherBase`/`UDSFlasher`/`KWPFlasher`. D2 flasher uses an HFSM (`Common/common/hfsm2/machine.hpp`, 17K+ lines, v2.6.0) in `D2FlasherImpl` for state orchestration.
 - **Reader hierarchy**: `ReaderBase` → `D2ReaderTF80`/`D2ReaderME7`/`D2ReaderDEM`/`D2ReaderAW55`/`D2ReaderChecksum`/`UDSReader`. Created via `ReaderFactory`.
 - **Logger architecture**: Dual-threaded — `_loggingThread` reads CAN and pushes `LogRecord` to a deque; `_callbackThread` pops records and dispatches to all registered `LoggerCallback` instances (`FileLogWriter`, `ConsoleLogWriter`).
+- **PIN cracker** (`Flasher/flasher/pin/`): `PinCracker` — universal PIN brute-force algorithm (preAuth per-bus → keepAlive → tryPin loop → postAuth per-bus). `PinCrackerSteps` — strategy interface per protocol bus (`UDSPinCrackerSteps` — UDS 0x27 auth, `D2PinCrackerSteps` — D2 bootloader auth, stub). `PinCrackerStorage` — checked-PIN persistence (`NullPinCrackerStorage`, `InMemoryPinCrackerStorage`).
 - **keys.cpp**: Standalone reference copy of `VolvoGenerateKey()` and `p3_hash()`. The actual application uses duplicated versions in `VolvoFlasher.cpp`.
 
 ## CLI

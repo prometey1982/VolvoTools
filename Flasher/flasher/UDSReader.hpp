@@ -2,6 +2,8 @@
 
 #include "ReaderBase.hpp"
 
+#include <common/CanIdProvider.hpp>
+
 namespace flasher {
 
 class UDSReader : public ReaderBase {
@@ -14,7 +16,7 @@ protected:
 
 private:
     uint64_t _pin;
-    uint32_t _canId;
+    std::unique_ptr<common::CanIdProvider> _canIdProvider;
 };
 
 } // namespace flasher

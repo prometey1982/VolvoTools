@@ -2,7 +2,7 @@
 
 #include <common/CarPlatform.hpp>
 #include <common/CommonData.hpp>
-#include <common/ECUInfo.hpp>
+#include <common/CanIdProvider.hpp>
 #include <common/ICanChannel.hpp>
 #include <common/Util.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
@@ -17,28 +17,29 @@ UDSReader::UDSReader(j2534::J2534& j2534, common::CarPlatform carPlatform, uint3
                      ReadRanges ranges, uint64_t pin)
     : ReaderBase{ j2534, carPlatform, ecuId, ranges }
     , _pin{ pin }
+    , _canIdProvider{ common::createCanIdProviderForEcu(carPlatform, ecuId) }
 {
-    const auto ecuInfo{ std::get<1>(common::getEcuInfoByEcuId(carPlatform, ecuId)) };
-    _canId = ecuInfo.canId;
 }
 
 void UDSReader::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     auto& channel = *channels[0];
+    auto funcCanId = _canIdProvider->getFuncCanId();
+    auto physCanId = _canIdProvider->getPhysCanId();
 
     // Wake up
     setCurrentState(FlasherState::WakeUp);
-    common::UDSProtocolCommonSteps::wakeUp(channels);
+    common::UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
 
     // Fall asleep
     setCurrentState(FlasherState::FallAsleep);
-    common::UDSProtocolCommonSteps::fallAsleep(channels);
+    common::UDSProtocolCommonSteps::fallAsleep(channels, funcCanId);
 
     // Authorize if PIN is set
     if (_pin != 0) {
         setCurrentState(FlasherState::Authorize);
         auto pinArray = common::getPinArray(_pin);
-        if (!common::UDSProtocolCommonSteps::authorize(channel, _canId, pinArray)) {
+        if (!common::UDSProtocolCommonSteps::authorize(channel, physCanId, pinArray)) {
             throw std::runtime_error("UDSReader: authorization failed");
         }
     }
@@ -63,7 +64,7 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& cha
                 static_cast<uint8_t>(currentAddr & 0xFF),
                 static_cast<uint8_t>(chunkSize) };
 
-            common::UDSRequest readRequest(_canId, requestData);
+            common::UDSRequest readRequest(physCanId, requestData);
             try {
                 auto response = readRequest.process(channel);
                 if (response.size() > 5) {
@@ -80,7 +81,7 @@ void UDSReader::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& cha
 
     // Wake up after read
     setCurrentState(FlasherState::WakeUp);
-    common::UDSProtocolCommonSteps::wakeUp(channels);
+    common::UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
 
     setCurrentState(FlasherState::Done);
 }

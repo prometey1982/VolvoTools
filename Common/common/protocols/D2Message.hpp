@@ -1,12 +1,13 @@
 #pragma once
 
 #include "common/CanMessage.hpp"
+#include "common/CanIdProvider.hpp"
 
 namespace common {
 
 class D2Message: public CanMessage {
 public:
-  static constexpr uint32_t CanId = 0xFFFFE;
+  static constexpr uint32_t CanId = CanIdD2::D2_CAN_ID;
 
   static uint8_t getECUType(const uint8_t *const buffer);
   static uint8_t getECUType(const std::vector<uint8_t> &buffer);

@@ -10,9 +10,12 @@ namespace common {
 
 	class UDSProtocolCommonSteps {
 	public:
-		static bool fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels);
-		static std::vector<unsigned long> keepAlive(ICanChannel& channel);
-		static void wakeUp(const std::vector<std::unique_ptr<ICanChannel>>& channels);
+		static bool fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+                                uint32_t funcCanId);
+		static std::vector<unsigned long> keepAlive(ICanChannel& channel,
+                                                     uint32_t funcCanId);
+		static void wakeUp(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+                            uint32_t funcCanId);
 		static bool authorize(ICanChannel& channel, uint32_t canId, const std::array<uint8_t, 5>& pin);
         static bool transferData(ICanChannel& channel, uint32_t canId, const VBF& data,
                                  const std::function<void(size_t)>& progressCallback);

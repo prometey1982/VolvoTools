@@ -42,12 +42,13 @@ namespace common {
 
 	}
 
-	bool UDSProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels)
+	bool UDSProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+                                             uint32_t funcCanId)
 	{
         LOG_MODULE(TRACE) << "fallAsleep enter";
 		for (size_t i = 0; i < channels.size(); ++i) {
 			unsigned long msgId;
-			if (!channels[i]->startPeriodicMsg({0x7DF, {0x10, 0x02}}, 5, msgId)) {
+			if (!channels[i]->startPeriodicMsg({funcCanId, {0x10, 0x02}}, 5, msgId)) {
 				return false;
 			}
 			std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -57,23 +58,25 @@ namespace common {
         return true;
 	}
 
-	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(ICanChannel& channel)
+	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(ICanChannel& channel,
+                                                                   uint32_t funcCanId)
 	{
 		std::vector<unsigned long> result;
 		unsigned long msgId;
-		if (channel.startPeriodicMsg({0x7DF, {0x3E, 0x80}}, 1900, msgId)) {
+		if (channel.startPeriodicMsg({funcCanId, {0x3E, 0x80}}, 1900, msgId)) {
 			result.push_back(msgId);
 		}
 		return result;
 	}
 
-	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<ICanChannel>>& channels)
+	void UDSProtocolCommonSteps::wakeUp(const std::vector<std::unique_ptr<ICanChannel>>& channels,
+                                         uint32_t funcCanId)
 	{
         LOG_MODULE(TRACE) << "wakeUp enter";
         for(const auto& idToWakeUp: {0x11, 0x81}) {
             for (size_t i = 0; i < channels.size(); ++i) {
                 unsigned long msgId;
-                if (!channels[i]->startPeriodicMsg({0x7DF, {0x11, static_cast<uint8_t>(idToWakeUp)}}, 20, msgId)) {
+                if (!channels[i]->startPeriodicMsg({funcCanId, {0x11, static_cast<uint8_t>(idToWakeUp)}}, 20, msgId)) {
                     LOG_MODULE(ERROR) << "wakeUp error, failed to start periodic message on channel = " << i;
                     return;
                 }

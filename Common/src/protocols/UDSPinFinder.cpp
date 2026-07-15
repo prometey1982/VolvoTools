@@ -1,4 +1,5 @@
 #include "common/protocols/UDSPinFinder.hpp"
+#include "common/CanIdProvider.hpp"
 
 #include "common/protocols/UDSProtocolCommonSteps.hpp"
 #include "common/ICanChannel.hpp"
@@ -32,18 +33,12 @@ namespace common {
     };
 
     class UDSPinFinderImpl {
-        static uint32_t getCanId(const FinderData& finderData)
-        {
-            const auto ecuInfo{ getEcuInfoByEcuId(finderData.carPlatform, finderData.ecuId) };
-            return std::get<1>(ecuInfo).canId;
-        }
-
     public:
         UDSPinFinderImpl(const std::vector<std::unique_ptr<ICanChannel>>& channels,
             const FinderData& finderData)
             : _channels{ channels }
             , _finderData{ finderData }
-            , _canId{ getCanId(finderData) }
+            , _canIdProvider{ createCanIdProviderForEcu(finderData.carPlatform, finderData.ecuId) }
             , _currentState{ UDSPinFinder::State::Initial }
             , _currentPin{ finderData.startPin }
             , _stop{ false }
@@ -72,7 +67,7 @@ namespace common {
         void fallAsleep()
         {
             setCurrentState(UDSPinFinder::State::FallAsleep);
-            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
+            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels, _canIdProvider->getFuncCanId())) {
                 setFailed();
             }
         }
@@ -81,7 +76,7 @@ namespace common {
         {
             setCurrentState(UDSPinFinder::State::KeepAlive);
             auto& channel{ getChannelByEcuId(_finderData.carPlatform, _finderData.ecuId, _channels) };
-            UDSProtocolCommonSteps::keepAlive(channel);
+            UDSProtocolCommonSteps::keepAlive(channel, _canIdProvider->getFuncCanId());
         }
 
         bool authorize()
@@ -89,7 +84,7 @@ namespace common {
             setCurrentState(UDSPinFinder::State::Work);
             auto& channel{ getChannelByEcuId(_finderData.carPlatform, _finderData.ecuId, _channels) };
 
-            if (!UDSProtocolCommonSteps::authorize(channel, _canId, getPinArray(_currentPin))) {
+            if (!UDSProtocolCommonSteps::authorize(channel, _canIdProvider->getPhysCanId(), getPinArray(_currentPin))) {
                 _currentPin += _finderData.direction == UDSPinFinder::Direction::Up ? 1 : -1;
                 return false;
             }
@@ -102,7 +97,7 @@ namespace common {
         void wakeUp()
         {
             setCurrentState(UDSPinFinder::State::WakeUp);
-            common::UDSProtocolCommonSteps::wakeUp(_channels);
+            common::UDSProtocolCommonSteps::wakeUp(_channels, _canIdProvider->getFuncCanId());
         }
 
         void done()
@@ -164,7 +159,7 @@ namespace common {
     private:
         const std::vector<std::unique_ptr<ICanChannel>>& _channels;
         const FinderData& _finderData;
-        uint32_t _canId;
+        std::unique_ptr<CanIdProvider> _canIdProvider;
         UDSPinFinder::State _currentState;
         mutable std::mutex _mutex;
         uint64_t _currentPin;

@@ -4,6 +4,7 @@
 #include <j2534/J2534Channel.hpp>
 
 #include <common/CommonData.hpp>
+#include <common/CanIdProvider.hpp>
 #include <common/protocols/UDSMessage.hpp>
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 
@@ -23,14 +24,14 @@ namespace flasher {
                        common::CarPlatform carPlatform,
                        uint32_t ecuId,
                        const UDSFlasherConfig& config,
-                       uint32_t canId,
+                       std::unique_ptr<common::CanIdProvider> canIdProvider,
                        const std::function<void(FlasherState)>& stateUpdater,
                        const std::function<void(size_t)>& progressUpdater)
             : _channels{ channels }
             , _carPlatform{ carPlatform }
             , _ecuId{ ecuId }
             , _config{ config }
-            , _canId{ canId }
+            , _canIdProvider{ std::move(canIdProvider) }
             , _isFailed{ false }
             , _stateUpdater{ stateUpdater }
             , _progressUpdater{ progressUpdater }
@@ -45,7 +46,7 @@ namespace flasher {
         void fallAsleep()
         {
             _stateUpdater(FlasherState::FallAsleep);
-            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels)) {
+            if (!common::UDSProtocolCommonSteps::fallAsleep(_channels, _canIdProvider->getFuncCanId())) {
                 setFailed("Fall asleep failed");
             }
         }
@@ -53,14 +54,14 @@ namespace flasher {
         void keepAlive()
         {
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-            common::UDSProtocolCommonSteps::keepAlive(channel);
+            common::UDSProtocolCommonSteps::keepAlive(channel, _canIdProvider->getFuncCanId());
         }
 
         void authorize()
         {
             _stateUpdater(FlasherState::Authorize);
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-            if (!common::UDSProtocolCommonSteps::authorize(channel, _canId, _config.pin)) {
+            if (!common::UDSProtocolCommonSteps::authorize(channel, _canIdProvider->getPhysCanId(), _config.pin)) {
                 setFailed("Authorization failed");
             }
         }
@@ -70,7 +71,7 @@ namespace flasher {
             _stateUpdater(FlasherState::LoadBootloader);
             if (!_config.bootloader.chunks.empty()) {
                 auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-                if (!common::UDSProtocolCommonSteps::transferData(channel, _canId, _config.bootloader,
+                if (!common::UDSProtocolCommonSteps::transferData(channel, _canIdProvider->getPhysCanId(), _config.bootloader,
                                                                                                 _progressUpdater)) {
                     setFailed("Bootloader loading failed");
                 }
@@ -82,7 +83,7 @@ namespace flasher {
             _stateUpdater(FlasherState::StartBootloader);
             if (!_config.bootloader.chunks.empty()) {
                 auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-                if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canId, _config.bootloader.header.call)) {
+                if (!common::UDSProtocolCommonSteps::startRoutine(channel, _canIdProvider->getPhysCanId(), _config.bootloader.header.call)) {
                     setFailed("Bootloader starting failed");
                 }
             }
@@ -93,11 +94,11 @@ namespace flasher {
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
             for(const auto& chunk: _config.flash.chunks) {
                 _stateUpdater(FlasherState::EraseFlash);
-                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canId, chunk)) {
+                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canIdProvider->getPhysCanId(), chunk)) {
                     setFailed("Flash erasing failed");
                 }
                 _stateUpdater(FlasherState::WriteFlash);
-                if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canId, chunk,
+                if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canIdProvider->getPhysCanId(), chunk,
                                                                     _progressUpdater)) {
                     setFailed("Flash writing failed");
                 }
@@ -107,13 +108,13 @@ namespace flasher {
         void checkValidApplication()
         {
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-            common::UDSProtocolCommonSteps::checkValidApplication(channel, _canId);
+            common::UDSProtocolCommonSteps::checkValidApplication(channel, _canIdProvider->getPhysCanId());
         }
 
         void wakeUp()
         {
             _stateUpdater(FlasherState::WakeUp);
-            common::UDSProtocolCommonSteps::wakeUp(_channels);
+            common::UDSProtocolCommonSteps::wakeUp(_channels, _canIdProvider->getFuncCanId());
         }
 
         void closeChannels()
@@ -149,7 +150,7 @@ namespace flasher {
         common::CarPlatform _carPlatform;
         uint32_t _ecuId;
         const UDSFlasherConfig& _config;
-        const uint32_t _canId;
+        std::unique_ptr<common::CanIdProvider> _canIdProvider;
         bool _isFailed;
         std::string _errorMessage;
         const std::function<void(FlasherState)> _stateUpdater;
@@ -316,7 +317,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         const auto ecuInfo{ common::getEcuInfoByEcuId(_carPlatform, _ecuId) };
 
         UDSFlasherImpl impl(channels, _carPlatform, _ecuId, _config,
-            std::get<1>(ecuInfo).canId, [this](FlasherState state) {
+            common::createCanIdProviderForEcu(_carPlatform, _ecuId), [this](FlasherState state) {
             setCurrentState(state);
         },
             [this](size_t progress) {
