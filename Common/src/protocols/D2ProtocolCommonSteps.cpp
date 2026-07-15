@@ -142,13 +142,15 @@ namespace {
     bool D2ProtocolCommonSteps::fallAsleep(const std::vector<std::unique_ptr<ICanChannel>>& channels)
 	{
         LOG_MODULE(TRACE) << "fallAsleep enter";
+        std::vector<unsigned long> msgIds(channels.size());
         for (size_t i = 0; i < channels.size(); ++i) {
-            unsigned long msgId;
-            if (!channels[i]->startPeriodicMsg({D2Message::CanId, {0xFF, 0x86, 0, 0, 0, 0, 0, 0}, true}, 5, msgId)) {
+            if (!channels[i]->startPeriodicMsg({D2Message::CanId, {0xFF, 0x86, 0, 0, 0, 0, 0, 0}, true}, 5, msgIds[i])) {
                 return false;
             }
-            std::this_thread::sleep_for(std::chrono::seconds(3));
-            channels[i]->stopPeriodicMsg(msgId);
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        for (size_t i = 0; i < channels.size(); ++i) {
+            channels[i]->stopPeriodicMsg(msgIds[i]);
         }
         LOG_MODULE(TRACE) << "fallAsleep exit";
         return true;
@@ -247,7 +249,6 @@ namespace {
     void D2ProtocolCommonSteps::setDIMTime(const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         LOG_MODULE(TRACE) << "setDIMTime enter";
-        std::this_thread::sleep_for(std::chrono::seconds(1));
         const auto now{std::chrono::system_clock::now()};
         const auto time_t = std::chrono::system_clock::to_time_t(now);
         struct tm lt;
