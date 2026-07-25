@@ -282,34 +282,65 @@ class KWPPinCrackerSteps final : public PinCrackerSteps {
 };
 ```
 
-### 3.6. D2PinCrackerSteps — реализация для D2 (ТBD)
+### 3.6. D2PinCrackerSteps — реализация для D2
 
 ```cpp
 // Flasher/flasher/pin/D2PinCrackerSteps.hpp
 class D2PinCrackerSteps final : public PinCrackerSteps {
-    // openChannels → CAN 29-bit raw
-    // preAuth → D2ProtocolCommonSteps::startPBL / loadSBL / startSBL
-    // tryPin → запрос seed через D2Messages + VolvoGenerateKey
-    // postAuth → D2ProtocolCommonSteps::wakeUp
+public:
+    D2PinCrackerSteps(std::unique_ptr<common::CanIdProvider> canIdProvider,
+                       uint8_t ecuId);
+    bool preAuth(common::ICanChannel& channel) override;  // D2 wake pattern
+    void postAuth(common::ICanChannel& channel) override; // D2 wake pattern
+    bool tryPin(common::ICanChannel& channel, uint64_t pin) override; // stub
+    // keepAlive — no-op для D2
+    const common::CanIdProvider& getCanIdProvider() const override;
 };
 ```
 
-### 3.7. Фабрика шагов
+**Поведение:**
+- `preAuth()` — D2 wake pattern: отправляет `0xC8` на `funcCanId` (`0xFFFFE`) периодически
+- `postAuth()` — то же самое (пробуждение после цикла)
+- `tryPin()` — **заглушка**. D2 не использует стандартный UDS 0x27 для авторизации. Реализация требует per-ECU тестирования.
+- `startKeepAlive()` — no-op (D2 не использует `0x3E 0x80`)
+
+### 3.7. Фабрика PinCracker
 
 ```cpp
-// Flasher/flasher/pin/PinCrackerStepsFactory.hpp
+// Flasher/flasher/pin/PinCrackerFactory.hpp
 namespace flasher {
 
-std::unique_ptr<PinCrackerSteps> createPinCrackerSteps(
-    CarPlatform platform, uint8_t ecuId);
+std::unique_ptr<PinCracker> createPinCracker(
+    j2534::J2534& j2534,
+    common::CarPlatform carPlatform,
+    uint32_t ecuId,
+    PinCracker::Direction direction,
+    uint64_t startPin,
+    std::function<void(PinCracker::State, uint64_t)> stateCallback,
+    std::shared_ptr<PinCrackerStorage> storage = {});
 
 } // namespace flasher
 ```
 
-Диспетчеризация:
-- `ISO15765` (UDS) → `UDSPinCrackerSteps`
-- `TP20` (K-Line) → `KWPPinCrackerSteps`
-- `CAN` + D2-ECU → `D2PinCrackerSteps`
+**Алгоритм фабрики:**
+
+```
+conf = getConfigurationInfoByCarPlatform(carPlatform)
+[ecuBus, ecuInfo] = getEcuInfoByEcuId(carPlatform, ecuId)
+channels = channelProvider.getAllChannels(ecuId)
+
+for i, bus in conf.busInfo:
+    steps = createPinCrackerStepsForBus(bus, ecuId)
+    // ISO15765 → UDSPinCrackerSteps
+    // CAN 29-bit → D2PinCrackerSteps
+    // Остальные → skip
+    if bus.baudrate == ecuBus.baudrate: ecuBusIndex = i
+    buses.push_back({channels[i], steps})
+
+return PinCracker(buses, ecuBusIndex, ...)
+```
+
+**Helper `createPinCrackerStepsForBus(`BusConfig`, ecuId)`:** создаёт шаги для одной шины, используя `createCanIdProvider(bus)` — см. `can_id_provider.md`.
 
 ### 3.8. PinCrackerStorage — хранилище проверенных ПИН-кодов
 
@@ -477,8 +508,7 @@ cracker2.start();
 | 6 | `Flasher/flasher/pin/PinCrackerStorage.hpp` | Интерфейс хранилища ПИНов |
 | 7 | `Flasher/src/pin/PinCrackerStorage.cpp` | NullPinCrackerStorage + combine |
 | 8 | `Flasher/src/pin/FilePinCrackerStorage.cpp` | Persistent-хранилище (файл) |
-| 9 | `Flasher/flasher/pin/PinCrackerStepsFactory.hpp` | Фабрика шагов |
-| 10 | `Flasher/src/pin/PinCrackerStepsFactory.cpp` | Реализация фабрики |
+| 9 | `Flasher/flasher/pin/PinCrackerFactory.hpp` | Фабрика PinCracker (inline) |
 
 ### 4.2. Изменяемые
 
@@ -511,24 +541,24 @@ cracker2.start();
 ### Шаг 2: UDS-реализация
 
 7. `Flasher/flasher/pin/UDSPinCrackerSteps.hpp` — объявление
-8. `Flasher/src/pin/UDSPinCrackerSteps.cpp` — делегирует UDSProtocolCommonSteps
-9. `Flasher/flasher/pin/PinCrackerStepsFactory.hpp` — фабрика
-10. `Flasher/src/pin/PinCrackerStepsFactory.cpp` — пока только UDS
+8. `Flasher/src/pin/UDSPinCrackerSteps.cpp` — реализация (preAuth=fallAsleep/progSession, tryPin=authorize(0x27))
+9. `Flasher/flasher/pin/D2PinCrackerSteps.hpp` — объявление
+10. `Flasher/src/pin/D2PinCrackerSteps.cpp` — реализация (preAuth=D2 wake, tryPin=stub)
+11. `Flasher/flasher/pin/PinCrackerFactory.hpp` — фабрика (создаёт PinCracker по платформе+ЭБУ)
 
 ### Шаг 3: Перевести VolvoFlasher на PinCracker + UDSPinCrackerSteps
 
-11. `VolvoFlasher.cpp`: `findPin2()` → создаёт `PinCracker` с `UDSPinCrackerSteps`
-12. `findPin()` — либо удалить, либо перевести на тот же механизм
+12. `VolvoFlasher.cpp`: `findPin2()` → создаёт `PinCracker` через `createPinCracker()`
+13. `findPin()` — либо удалить, либо перевести на тот же механизм
 
 ### Шаг 4: Удалить старый код
 
-13. Удалить `UDSPinFinder.hpp` / `.cpp` из `Common/common/protocols/`
-14. Убрать мертвый код из CMakeLists.txt (ссылки на UDSPinFinder)
+14. Удалить `UDSPinFinder.hpp` / `.cpp` из `Common/common/protocols/`
+15. Убрать мертвый код из CMakeLists.txt (ссылки на UDSPinFinder)
 
-### Шаг 5 (опционально): D2/KWP реализации
+### Шаг 5 (опционально): KWP реализация
 
-15. `Flasher/src/pin/KWPPinCrackerSteps.cpp`
-16. `Flasher/src/pin/D2PinCrackerSteps.cpp`
+16. `Flasher/src/pin/KWPPinCrackerSteps.cpp` — для VAG K-Line (TP20)
 17. Обновить фабрику
 
 ## 6. Критерии готовности
@@ -549,6 +579,10 @@ cracker2.start();
 8. `NullPinCrackerStorage` — реализация по умолчанию (no-op, без потери производительности)
 9. `InMemoryPinCrackerStorage` — хранит проверенные ПИНы в памяти (опционально — `FilePinCrackerStorage` для persistence)
 10. `PinCracker::run()` пропускает ПИНы, уже отмеченные в хранилище, и отмечает каждый проверенный
-11. Возможность добавить `D2PinCrackerSteps` / `KWPPinCrackerSteps` без изменения `PinCracker`
-12. Старый `UDSPinFinder` удалён; заглушка `PinCracker.hpp` переписана
-13. Сборка: 0 ошибок
+11. `createPinCracker()` фабрика создаёт `PinCracker` по платформе+ЭБУ:
+    - Открывает все шины через `J2534ChannelProvider`
+    - Для каждой шины создаёт `PinCrackerSteps` по протоколу (UDS/D2)
+    - Находит канал ЭБУ по `baudrate` из конфигурации
+12. Возможность добавить `KWPPinCrackerSteps` без изменения `PinCracker`
+13. Старый `UDSPinFinder` удалён; заглушка `PinCracker.hpp` переписана
+14. Сборка: 0 ошибок
