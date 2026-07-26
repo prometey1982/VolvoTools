@@ -123,7 +123,7 @@ std::vector<unsigned long> UDSPinCrackerSteps::startKeepAlive(common::ICanChanne
     return _keepAliveIds;
 }
 
-void UDSPinCrackerSteps::stopKeepAlive(std::vector<unsigned long>& ids)
+void UDSPinCrackerSteps::stopKeepAlive(const std::vector<unsigned long>& ids)
 {
     (void)ids;
     _keepAliveIds.clear();

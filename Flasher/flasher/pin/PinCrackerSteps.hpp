@@ -20,7 +20,7 @@ public:
     virtual bool tryPin(common::ICanChannel& channel, uint64_t pin) = 0;
 
     virtual std::vector<unsigned long> startKeepAlive(common::ICanChannel& channel) { return {}; }
-    virtual void stopKeepAlive(std::vector<unsigned long>& ids) { (void)ids; }
+    virtual void stopKeepAlive(const std::vector<unsigned long>& ids) { (void)ids; }
 
     virtual uint64_t getMinPin() const { return 0; }
     virtual uint64_t getMaxPin() const { return 0xFFFFFF; }

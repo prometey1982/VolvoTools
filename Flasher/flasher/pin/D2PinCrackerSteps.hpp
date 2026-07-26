@@ -23,7 +23,7 @@ public:
 
     std::vector<unsigned long> startKeepAlive(common::ICanChannel& channel) override;
 
-    void stopKeepAlive(std::vector<unsigned long>& ids) override;
+    void stopKeepAlive(const std::vector<unsigned long>& ids) override;
 
     const common::CanIdProvider& getCanIdProvider() const override { return *_canIdProvider; }
 

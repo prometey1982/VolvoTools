@@ -64,7 +64,7 @@ std::vector<unsigned long> D2PinCrackerSteps::startKeepAlive(common::ICanChannel
     return {};
 }
 
-void D2PinCrackerSteps::stopKeepAlive(std::vector<unsigned long>& ids)
+void D2PinCrackerSteps::stopKeepAlive(const std::vector<unsigned long>& ids)
 {
     (void)ids;
 }
