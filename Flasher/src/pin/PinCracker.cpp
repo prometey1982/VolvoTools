@@ -13,13 +13,13 @@ PinCracker::PinCracker(std::vector<BusContext> buses,
                        Direction direction,
                        uint64_t startPin,
                        std::function<void(State, uint64_t)> stateCallback,
-                       std::shared_ptr<PinCrackerStorage> storage)
+                       PinCrackerStorage& storage)
     : _buses{ std::move(buses) }
     , _ecuBusIndex{ ecuBusIndex }
     , _direction{ direction }
     , _startPin{ startPin }
     , _stateCallback{ std::move(stateCallback) }
-    , _storage{ storage ? storage : std::make_shared<NullPinCrackerStorage>() }
+    , _storage{ storage }
 {
 }
 
@@ -88,7 +88,7 @@ void PinCracker::run()
 
     while ((_direction == Direction::Up ? pin <= endPin : pin >= endPin) && !_stop) {
         // Пропустить уже проверенные
-        while (!_stop && _storage->isChecked(pin)) {
+        while (!_stop && _storage.isChecked(pin)) {
             pin += step;
         }
         if (_stop) break;
@@ -97,11 +97,11 @@ void PinCracker::run()
 
         if (ecuBus.steps->tryPin(*ecuBus.channel, pin)) {
             _foundPin = pin;
-            _storage->markChecked(pin);
+            _storage.markChecked(pin);
             break;
         }
 
-        _storage->markChecked(pin);
+        _storage.markChecked(pin);
         pin += step;
 
         if (retryDelay.count() > 0 && !_stop) {
@@ -117,7 +117,7 @@ void PinCracker::run()
         bus.steps->postAuth(*bus.channel);
     }
 
-    _storage->flush();
+    _storage.flush();
 
     setState(_foundPin ? State::Done : State::Error, _foundPin.value_or(0));
 }

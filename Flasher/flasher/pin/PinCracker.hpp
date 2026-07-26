@@ -40,7 +40,7 @@ public:
                Direction direction,
                uint64_t startPin,
                std::function<void(State, uint64_t)> stateCallback,
-               std::shared_ptr<PinCrackerStorage> storage = {});
+               PinCrackerStorage& storage);
     ~PinCracker();
 
     PinCracker(const PinCracker&) = delete;
@@ -62,7 +62,7 @@ private:
     std::thread _thread;
 
     std::function<void(State, uint64_t)> _stateCallback;
-    std::shared_ptr<PinCrackerStorage> _storage;
+    PinCrackerStorage& _storage;
 
     mutable std::mutex _mutex;
     State _currentState{State::Initial};
