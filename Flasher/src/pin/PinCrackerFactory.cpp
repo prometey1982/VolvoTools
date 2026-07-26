@@ -114,8 +114,44 @@ std::unique_ptr<PinCracker> createDummyCracker(
     std::function<void(PinCracker::State, uint64_t)> stateCallback,
     PinCrackerStorage& storage)
 {
-    return createCrackerImpl(j2534, carPlatform, ecuId, direction, startPin,
-                             stateCallback, storage, createDummyCrackerStepsForBus);
+    const auto conf = common::getConfigurationInfoByCarPlatform(carPlatform);
+    const auto [ecuBusInfo, ecuInfo] = common::getEcuInfoByEcuId(carPlatform, ecuId);
+    (void)ecuInfo;
+
+    std::vector<PinCracker::BusContext> buses;
+    size_t ecuBusIndex = 0;
+    bool foundEcu = false;
+
+    for (size_t i = 0; i < conf.busInfo.size(); ++i) {
+        const auto& bus = conf.busInfo[i];
+
+        auto steps = createDummyCrackerStepsForBus(bus, ecuId, false);
+        if (!steps) {
+            continue;
+        }
+
+        if (bus.baudrate == ecuBusInfo.baudrate && !foundEcu) {
+            ecuBusIndex = buses.size();
+            foundEcu = true;
+        }
+
+        buses.push_back({
+            {},
+            std::move(steps)
+        });
+    }
+
+    if (!foundEcu) {
+        throw std::runtime_error("Could not determine ECU bus channel");
+    }
+
+    return std::make_unique<PinCracker>(
+        std::move(buses),
+        ecuBusIndex,
+        direction,
+        startPin,
+        std::move(stateCallback),
+        storage);
 }
 
 std::unique_ptr<PinCracker> createPinCracker(
