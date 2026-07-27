@@ -25,6 +25,7 @@ PinCracker::PinCracker(std::vector<BusContext> buses,
 
 PinCracker::~PinCracker()
 {
+    _stop = true;
     if (_thread.joinable()) {
         _thread.join();
     }
