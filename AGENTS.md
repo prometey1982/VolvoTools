@@ -46,6 +46,7 @@ Must be init'd after clone. All are read-only dependencies:
 - **Namespaces**: `common::`, `flasher::`, `logger::`, `j2534::`
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root
+- **ProtocolType** (`Common/common/ProtocolType.hpp`): `enum class ProtocolType : uint32_t` — типизированные константы `CAN`, `ISO15765`, `ISO14230`, `ISO9141`, `TP20`. Используется в `BusConfiguration.protocol`, `CanIdProvider`, фабрике каналов вместо `unsigned long` с J2534-константами.
 - **Tech specs** (11 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`, `pin_crack.md`, `can_id_provider.md`
 - **Transport abstraction spec**: `docs/tech_specs/transport_abstraction.md`
 - **New transport types** (`Common/common/`): `CanFrame.hpp` — CAN message struct, `ICanChannel.hpp` — abstract channel interface, `J2534ChannelAdapter.hpp` — J2534 bridge
@@ -55,7 +56,7 @@ Must be init'd after clone. All are read-only dependencies:
 - **Flasher hierarchy**: `FlasherBase` → `D2FlasherBase`/`UDSFlasher`/`KWPFlasher`. D2 flasher uses an HFSM (`Common/common/hfsm2/machine.hpp`, 17K+ lines, v2.6.0) in `D2FlasherImpl` for state orchestration.
 - **Reader hierarchy**: `ReaderBase` → `D2ReaderTF80`/`D2ReaderME7`/`D2ReaderDEM`/`D2ReaderAW55`/`D2ReaderChecksum`/`UDSReader`. Created via `ReaderFactory`.
 - **Logger architecture**: Dual-threaded — `_loggingThread` reads CAN and pushes `LogRecord` to a deque; `_callbackThread` pops records and dispatches to all registered `LoggerCallback` instances (`FileLogWriter`, `ConsoleLogWriter`).
-- **PIN cracker** (`Flasher/flasher/pin/`): `PinCracker` — universal PIN brute-force algorithm (preAuth per-bus → keepAlive → tryPin loop → postAuth per-bus). `PinCrackerSteps` — strategy interface per protocol bus (`UDSPinCrackerSteps` — UDS 0x27 auth, `D2PinCrackerSteps` — D2 bootloader auth, stub). `PinCrackerStorage` — checked-PIN persistence (`NullPinCrackerStorage`, `InMemoryPinCrackerStorage`). `PinCrackerFactory.hpp` — `createPinCracker()` assembles a PinCracker for a given platform+ECU (opens all bus channels, creates per-bus steps, finds ECU channel).
+- **PIN cracker** (`Flasher/flasher/pin/`): `PinCracker` — universal PIN brute-force algorithm (preAuth per-bus → keepAlive → tryPin loop → postAuth per-bus). `PinCrackerSteps` — strategy interface per protocol bus (`UDSPinCrackerSteps` — UDS 0x27 auth, `D2PinCrackerSteps` — D2 bootloader auth, stub). `PinCrackerStorage` — checked-PIN persistence (`NullPinCrackerStorage`, `InMemoryPinCrackerStorage`). `PinCrackerFactory.hpp` — `createPinCracker()` assembles a PinCracker from already-open `ICanChannel` channels (no J2534 dependency). `createDummyCracker()` — same but with empty channels for testing. `DummyPinCrackerSteps` — log-only steps for unit tests.
 - **keys.cpp**: Standalone reference copy of `VolvoGenerateKey()` and `p3_hash()`. The actual application uses duplicated versions in `VolvoFlasher.cpp`.
 
 ## CLI
