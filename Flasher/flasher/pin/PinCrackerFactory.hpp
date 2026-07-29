@@ -3,16 +3,16 @@
 #include "flasher/pin/PinCracker.hpp"
 #include "flasher/pin/PinCrackerStorage.hpp"
 
-
-#include <j2534/J2534.hpp>
+#include <common/CarPlatform.hpp>
+#include <common/ICanChannel.hpp>
 
 #include <functional>
 #include <memory>
+#include <vector>
 
 namespace flasher {
 
 std::unique_ptr<PinCracker> createDummyCracker(
-    j2534::J2534& j2534,
     common::CarPlatform carPlatform,
     uint32_t ecuId,
     PinCracker::Direction direction,
@@ -21,7 +21,7 @@ std::unique_ptr<PinCracker> createDummyCracker(
     PinCrackerStorage& storage);
 
 std::unique_ptr<PinCracker> createPinCracker(
-    j2534::J2534& j2534,
+    std::vector<std::unique_ptr<common::ICanChannel>> channels,
     common::CarPlatform carPlatform,
     uint32_t ecuId,
     PinCracker::Direction direction,
