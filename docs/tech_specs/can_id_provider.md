@@ -106,7 +106,7 @@ private:
 };
 ```
 
-Используется: P3/SPA/Ford_UDS/VAG (там, где data.yaml: `protocolId=ISO15765, canIdBitSize=11`, заполнен `CANIdentifier`).
+Используется: P3/SPA/Ford_UDS/VAG (там, где data.yaml: `protocol=ProtocolType::ISO15765, canIdBitSize=11`, заполнен `CANIdentifier`).
 
 #### 3.3.2. CanId29bit — ISO15765 29-bit
 
@@ -142,7 +142,7 @@ private:
 };
 ```
 
-Используется: P2_UDS, P1_UDS (там, где `protocolId=ISO15765, canIdBitSize=29`, `CANIdentifier` отсутствует).
+Используется: P2_UDS, P1_UDS (там, где `protocol=ProtocolType::ISO15765, canIdBitSize=29`, `CANIdentifier` отсутствует).
 
 Параметры берутся из `data.yaml`:
 - `ps` = `Address` YAML (маппится в `ecuInfo.ecuId` — PS-байт, например `0x50` для CEM)
@@ -163,7 +163,7 @@ public:
 };
 ```
 
-Используется: P80/P1/P2 (там, где `protocolId=CAN, canIdBitSize=29`).
+Используется: P80/P1/P2 (там, где `protocol=ProtocolType::CAN, canIdBitSize=29`).
 
 #### 3.3.4. CanIdTP20 — KWP/TP20 (ISO14230)
 
@@ -186,7 +186,7 @@ public:
 namespace common {
 
 std::unique_ptr<CanIdProvider> createCanIdProvider(
-    unsigned long protocolId,
+    ProtocolType protocol,
     uint32_t canIdBitSize,
     uint32_t ecuId,         // Address из YAML (PS-байт для 29-bit, игнорируется для D2)
     uint32_t canId,         // CANIdentifier из YAML (11-bit, для 29-bit и D2 = 0)
@@ -197,10 +197,10 @@ std::unique_ptr<CanIdProvider> createCanIdProvider(
 ```
 
 Логика фабрики:
-- `protocolId == ISO15765 && canIdBitSize == 11` → `CanId11bit(canId)` (func=`0x7DF`), где `canId` — из `CANIdentifier` YAML
-- `protocolId == ISO15765 && canIdBitSize == 29` → `CanId29bit(ecuId, funcGroup)` (phys=`0x18DA{ecuId}F1`, func=`0x18DB{group}F1`), `canId` игнорируется
-- `protocolId == CAN && canIdBitSize == 29` → `CanIdD2()` (phys=func=`0xFFFFE`), оба ID игнорируются
-- `protocolId == ISO14230 || protocolId == TP20` → `CanIdTP20()` (CAN ID не используется)
+- `protocol == ProtocolType::ISO15765 && canIdBitSize == 11` → `CanId11bit(canId)` (func=`0x7DF`), где `canId` — из `CANIdentifier` YAML
+- `protocol == ProtocolType::ISO15765 && canIdBitSize == 29` → `CanId29bit(ecuId, funcGroup)` (phys=`0x18DA{ecuId}F1`, func=`0x18DB{group}F1`), `canId` игнорируется
+- `protocol == ProtocolType::CAN && canIdBitSize == 29` → `CanIdD2()` (phys=func=`0xFFFFE`), оба ID игнорируются
+- `protocol == ProtocolType::ISO14230 || protocol == ProtocolType::ISO9141` → `CanIdTP20()` (CAN ID не используется)
 
 **Откуда берутся параметры:**
 
@@ -225,7 +225,7 @@ std::unique_ptr<CanIdProvider> createCanIdProvider(
 ```yaml
 busInfo:
   - name: "high_speed"
-    protocolId: 6           # ISO15765
+    protocol: ProtocolType::ISO15765
     baudrate: 500000
     canIdBitSize: 29
     funcGroup: 0x33         # ← новое поле
@@ -299,8 +299,8 @@ UDSProtocolCommonSteps::fallAsleep(channels, canIdProvider->getFuncCanId());
 
 Если на каком-то этапе решено, что оверхед нового класса не оправдан, можно ограничиться двумя функциями-хелперами:
 ```cpp
-uint32_t getFuncCanId(unsigned long protocolId, uint32_t bitSize, uint32_t funcGroup);
-uint32_t getPhysCanId(unsigned long protocolId, uint32_t bitSize, uint32_t ecuCanId);
+uint32_t getFuncCanId(ProtocolType protocol, uint32_t bitSize, uint32_t funcGroup);
+uint32_t getPhysCanId(ProtocolType protocol, uint32_t bitSize, uint32_t ecuCanId);
 ```
 
 Но интерфейс `CanIdProvider` даёт расширяемость для будущих протоколов без изменения сигнатур.
@@ -369,7 +369,7 @@ std::vector<std::pair<std::unique_ptr<ICanChannel>, std::unique_ptr<CanIdProvide
 for (auto& ch : channels) {
     auto busConfig = getBusConfig(ch);   // из data.yaml
     auto provider = createCanIdProvider(
-        busConfig.protocolId,
+        busConfig.protocol,
         busConfig.canIdBitSize,
         0,           // ecuId=0 (bus-only)
         0,           // canId=0 (bus-only)
@@ -384,7 +384,7 @@ for (auto& ch : channels) {
 //    Для D2:          CanIdD2 игнорирует оба параметра
 auto [busInfo, ecuInfo] = getEcuInfoByEcuId(carPlatform, ecuId);
 auto ecuProvider = createCanIdProvider(
-    busInfo.protocolId,
+    busInfo.protocol,
     busInfo.canIdBitSize,
     ecuInfo.ecuId,     // Address из YAML (PS для 29-bit, игнорируется для D2)
     ecuInfo.canId,     // CANIdentifier из YAML (для 11-bit, для 29-bit/D2 = 0)
@@ -524,9 +524,9 @@ private:
 2. `CanId11bit` — phys=ecuCanId, func=`0x7DF`, ext=false
 3. `CanId29bit(ps, funcGroup)` — phys=`0x18DA{ps}F1`, func=`0x18DB{funcGroup}F1`, ext=true
 4. `CanIdD2()` — phys=func=`0xFFFFE`, ext=true
-5. Фабрика `createCanIdProvider(protocolId, bitSize, ecuId, canId, funcGroup)` создаёт правильную реализацию:
-   - `ISO15765 + 11bit` → `CanId11bit(canId)` (из `CANIdentifier` YAML)
-   - `ISO15765 + 29bit` → `CanId29bit(ecuId, funcGroup)` (из `Address` YAML как PS-байт)
+5. Фабрика `createCanIdProvider(protocol, bitSize, ecuId, canId, funcGroup)` создаёт правильную реализацию:
+   - `ProtocolType::ISO15765 + 11bit` → `CanId11bit(canId)` (из `CANIdentifier` YAML)
+   - `ProtocolType::ISO15765 + 29bit` → `CanId29bit(ecuId, funcGroup)` (из `Address` YAML как PS-байт)
    - `CAN + 29bit` → `CanIdD2()` (параметры игнорируются)
 6. `UDSProtocolCommonSteps::fallAsleep`/`keepAlive`/`wakeUp` не содержат хардкода `0x7DF`
 7. `UDSPinCrackerSteps` использует CanIdProvider для получения CAN ID

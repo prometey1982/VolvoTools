@@ -351,12 +351,17 @@ auto cracker = flasher::createPinCracker(
     std::move(channels), carPlatform, ecuId, ...);
 ```
 
+**`DummyPinCrackerSteps`** — реализация `PinCrackerSteps`, которая логирует все вызовы (`preAuth`, `postAuth`, `tryPin`, `keepAlive`), но не отправляет реальных CAN-сообщений. Используется для тестирования `PinCracker` без реального J2534-устройства.
+
+**`createDummyCracker(CarPlatform, ecuId, ...)`:** создаёт `PinCracker` с `DummyPinCrackerSteps` для каждой шины и пустыми каналами (`nullptr`). Параметры J2534 не нужны — только `CarPlatform` и `ecuId` для определения конфигурации шин. Файл: `Flasher/flasher/pin/PinCrackerFactory.hpp`.
+
 **Helper `createPinCrackerStepsForBus(bus, ecuId)`:** создаёт шаги для одной шины, используя `createCanIdProvider(bus)` — см. `can_id_provider.md`.
 
 **Преимущества:**
 - Фабрика не содержит `#include <j2534/...>`
 - Каналы могут быть открыты через любой `ICanChannel`-провайдер (J2534, ELM327, ESP32, STM32)
 - `PinCracker` и фабрика тестируются с `MockICanChannel` без реального J2534-устройства
+- `createDummyCracker` позволяет тестировать алгоритм перебора без подключения к шине
 
 ### 3.8. PinCrackerStorage — хранилище проверенных ПИН-кодов
 
