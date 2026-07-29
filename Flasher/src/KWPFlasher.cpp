@@ -5,12 +5,13 @@
 
 #include <common/protocols/KWPProtocolCommonSteps.hpp>
 #include <common/protocols/TP20RequestProcessor.hpp>
+#include <common/protocols/UDSRequestProcessor.hpp>
 
 #define LOG_MODULE_NAME "flasher"
 #include <common/LogHelper.hpp>
-#include <common/protocols/UDSRequestProcessor.hpp>
-#include <common/ICanChannel.hpp>
 #include <common/CommonData.hpp>
+#include <common/ICanChannel.hpp>
+#include <common/ProtocolType.hpp>
 #include <common/Util.hpp>
 
 #define HFSM2_ENABLE_ALL
@@ -228,11 +229,11 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<KWPFlasherImpl&>>;
 
         std::unique_ptr<common::TP20Session> tp20Session;
         std::unique_ptr<common::RequestProcessorBase> requestProcessor;
-        switch (std::get<0>(ecuInfo).protocolId) {
-        case ISO15765:
+        switch (std::get<0>(ecuInfo).protocol) {
+        case common::ProtocolType::ISO15765:
             requestProcessor = std::make_unique<common::UDSRequestProcessor>(channel, std::get<1>(ecuInfo).canId);
             break;
-        case CAN:
+        case common::ProtocolType::CAN:
             tp20Session = std::make_unique<common::TP20Session>(channel, _carPlatform, _ecuId);
             if (!tp20Session->start()) {
                 throw std::runtime_error("Can't start TP20 session");

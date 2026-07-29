@@ -32,7 +32,7 @@ void CanAlarmClock::start()
 
             D2ProtocolCommonSteps::wakeUp(channels);
 
-            auto udsProvider = createCanIdProvider(ISO15765, 11, 0, 0, 0x33);
+            auto udsProvider = createCanIdProvider(ProtocolType::ISO15765, 11, 0, 0, 0x33);
             auto funcCanId = udsProvider->getFuncCanId();
             UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
             }

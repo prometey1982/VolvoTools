@@ -1,5 +1,6 @@
 #include "common/J2534ChannelProvider.hpp"
 #include "common/J2534ChannelAdapter.hpp"
+#include "common/ProtocolType.hpp"
 
 #include "common/CommonData.hpp"
 #include "common/Util.hpp"
@@ -15,19 +16,19 @@ namespace {
 
 std::unique_ptr<j2534::J2534Channel> createRawChannelByBusConf(j2534::J2534& j2534, BusConfiguration bus, uint32_t canId = 0)
 {
-    if(bus.protocolId == CAN) {
+    if(bus.protocol == ProtocolType::CAN) {
         const unsigned long flags = (bus.canIdBitSize == 29)? CAN_29BIT_ID : 0;
         if(bus.baudrate != 125000) {
-            return openChannel(j2534, bus.protocolId, flags, bus.baudrate);
+            return openChannel(j2534, static_cast<unsigned long>(bus.protocol), flags, bus.baudrate);
         }
         else {
             return openLowSpeedChannel(j2534, flags);
         }
     }
-    else if(bus.protocolId == ISO15765) {
+    else if(bus.protocol == ProtocolType::ISO15765) {
         return openUDSChannel(j2534, bus.baudrate, canId);
     }
-    else if(bus.protocolId == ISO14230) {
+    else if(bus.protocol == ProtocolType::ISO14230) {
         return openTP20Channel(j2534, bus.baudrate, canId);
     }
     throw std::runtime_error("Unsupported protocol");

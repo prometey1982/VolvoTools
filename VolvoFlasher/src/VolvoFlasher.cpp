@@ -11,6 +11,7 @@
 #include <common/protocols/UDSRequest.hpp>
 #include <common/CanAlarmClock.hpp>
 #include <common/CommonData.hpp>
+#include <common/ProtocolType.hpp>
 #include <common/VBFParser.hpp>
 #include <common/VBFUtil.hpp>
 #include <common/SBL.hpp>
@@ -952,7 +953,7 @@ int main(int argc, const char* argv[]) {
 					}
 					else if (runMode == RunMode::Flash) {
                         const auto ecuInfo{ common::getEcuInfoByEcuId(carPlatform, ecuId) };
-						if (std::get<0>(ecuInfo).protocolId == ISO15765) {
+						if (std::get<0>(ecuInfo).protocol == common::ProtocolType::ISO15765) {
                             UDSFlash(carPlatform, ecuId, std::move(j2534), baudrate, pin, flashPath, sblPath);
 						}
 						else {

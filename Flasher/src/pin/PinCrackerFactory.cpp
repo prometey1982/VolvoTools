@@ -21,14 +21,14 @@ std::unique_ptr<PinCrackerSteps> createPinCrackerStepsForBus(
     bool needProgSession)
 {
     auto provider = common::createCanIdProvider(
-        bus.protocolId, bus.canIdBitSize, ecuId, 0, 0x33);
+        bus.protocol, bus.canIdBitSize, ecuId, 0, 0x33);
 
-    if (bus.protocolId == ISO15765) {
+    if (bus.protocol == common::ProtocolType::ISO15765) {
         return std::make_unique<UDSPinCrackerSteps>(
             std::move(provider), needProgSession);
     }
 
-    if (bus.protocolId == CAN && bus.canIdBitSize == 29) {
+    if (bus.protocol == common::ProtocolType::CAN && bus.canIdBitSize == 29) {
         return std::make_unique<D2PinCrackerSteps>(
             std::move(provider), static_cast<uint8_t>(ecuId));
     }
@@ -42,7 +42,7 @@ std::unique_ptr<PinCrackerSteps> createDummyCrackerStepsForBus(
     [[maybe_unused]]bool needProgSession)
 {
     auto provider = common::createCanIdProvider(
-        bus.protocolId, bus.canIdBitSize, ecuId, 0, 0x33);
+        bus.protocol, bus.canIdBitSize, ecuId, 0, 0x33);
 
     return std::make_unique<DummyPinCrackerSteps>(
         std::move(provider), ecuId);

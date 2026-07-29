@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CarPlatform.hpp"
+#include "ProtocolType.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -73,7 +74,7 @@ public:
 };
 
 std::unique_ptr<CanIdProvider> createCanIdProvider(
-    unsigned long protocolId,
+    ProtocolType protocol,
     uint32_t canIdBitSize,
     uint32_t ecuId,
     uint32_t canId,

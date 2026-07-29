@@ -670,15 +670,15 @@ namespace common {
         return ecuInfo;
     }
 
-    static uint32_t getCanProtocol(const std::string& input)
+    static ProtocolType getCanProtocol(const std::string& input)
     {
         if (input == "CAN")
-            return CAN;
+            return ProtocolType::CAN;
         else if (input == "15765-2")
-            return ISO15765;
+            return ProtocolType::ISO15765;
         else if (input == "14230-3")
-            return ISO14230;
-        return CAN;
+            return ProtocolType::ISO14230;
+        return ProtocolType::CAN;
     }
 
     static std::vector<ConfigurationInfo> loadConfigurationImpl(const YAML::Node& node)
@@ -692,7 +692,7 @@ namespace common {
                 BusConfiguration busConf;
                 busConf.baudrate = bus["BaudRate"].as<uint32_t>() * 1000;
                 busConf.canIdBitSize = bus["CANIdBitSize"].as<uint32_t>();
-                busConf.protocolId = getCanProtocol(bus["SWDLProtocol"].as<std::string>());
+                busConf.protocol = getCanProtocol(bus["SWDLProtocol"].as<std::string>());
                 busConf.name = bus["Name"].as<std::string>();
                 const auto& nodes = bus["Node"];
                 if (nodes.IsDefined()) {
