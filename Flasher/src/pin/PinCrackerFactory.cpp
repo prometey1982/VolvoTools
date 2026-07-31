@@ -52,6 +52,7 @@ std::unique_ptr<PinCracker> createDummyCracker(
     std::function<void(PinCracker::State, uint64_t)> stateCallback,
     PinCrackerStorage& storage)
 {
+    carPlatform = common::CarPlatform::P2;
     const auto conf = common::getConfigurationInfoByCarPlatform(carPlatform);
     const auto [ecuBusInfo, ecuInfo] = common::getEcuInfoByEcuId(carPlatform, ecuId);
     (void)ecuInfo;
