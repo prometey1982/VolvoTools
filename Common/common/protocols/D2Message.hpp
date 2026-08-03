@@ -12,7 +12,6 @@ public:
   static uint8_t getECUType(const uint8_t *const buffer);
   static uint8_t getECUType(const std::vector<uint8_t> &buffer);
 
-//  explicit D2Message(const std::vector<uint8_t> &data);
   explicit D2Message(const DataType &data);
   explicit D2Message(DataType &&data);
   D2Message(D2Message&&) noexcept = default;
