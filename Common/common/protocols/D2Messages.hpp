@@ -10,9 +10,9 @@ struct D2Messages {
   static D2Message setCurrentTime(uint8_t hours, uint8_t minutes);
   static D2Message createReadDataByOffsetMsg(uint8_t ecuId, uint32_t offset,
                                              uint8_t size);
+  static D2Message createReadTCMTF80DataByAddr(uint32_t addr, size_t dataSize);
   static D2Message createReadDataByAddrMsg(uint8_t ecuId,
                                            uint32_t addr, uint8_t size);
-  static D2Message createReadTCMTF80DataByAddr(uint32_t addr, size_t dataSize);
   static D2Message createWriteDataByAddrMsg(uint8_t ecuId, uint32_t addr,
                                             uint8_t data);
   static D2Message clearDTCMsgs(uint8_t ecuId);
