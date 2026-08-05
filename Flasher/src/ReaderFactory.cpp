@@ -12,22 +12,11 @@
 #include <common/CarPlatform.hpp>
 #include <common/utility.hpp>
 
+#include "Util.hpp"
+
 #include <stdexcept>
 
 namespace flasher {
-
-bool ReaderFactory::isD2Platform(common::CarPlatform p)
-{
-    return p == common::CarPlatform::P1 || p == common::CarPlatform::P1_UDS
-        || p == common::CarPlatform::P2 || p == common::CarPlatform::P2_250
-        || p == common::CarPlatform::P2_UDS || p == common::CarPlatform::P80;
-}
-
-bool ReaderFactory::isUDSPlatform(common::CarPlatform p)
-{
-    return p == common::CarPlatform::P3 || p == common::CarPlatform::Ford_UDS
-        || p == common::CarPlatform::VAG || p == common::CarPlatform::Haval_UDS;
-}
 
 std::unique_ptr<ReaderBase> ReaderFactory::create(
     j2534::J2534& j2534,

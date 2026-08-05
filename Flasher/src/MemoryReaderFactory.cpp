@@ -10,22 +10,11 @@
 #include <common/CarPlatform.hpp>
 #include <common/utility.hpp>
 
+#include "Util.hpp"
+
 #include <stdexcept>
 
 namespace flasher {
-
-bool MemoryReaderFactory::isD2Platform(common::CarPlatform p)
-{
-    return p == common::CarPlatform::P1 || p == common::CarPlatform::P1_UDS
-        || p == common::CarPlatform::P2 || p == common::CarPlatform::P2_250
-        || p == common::CarPlatform::P2_UDS || p == common::CarPlatform::P80;
-}
-
-bool MemoryReaderFactory::isUDSPlatform(common::CarPlatform p)
-{
-    return p == common::CarPlatform::P3 || p == common::CarPlatform::Ford_UDS
-        || p == common::CarPlatform::VAG || p == common::CarPlatform::Haval_UDS;
-}
 
 std::unique_ptr<ReaderBase> MemoryReaderFactory::create(
     j2534::J2534& j2534,
@@ -54,6 +43,19 @@ std::unique_ptr<ReaderBase> MemoryReaderFactory::create(
     }
 
     throw std::runtime_error("Unsupported platform/ECU for reading");
+}
+
+std::vector<uint32_t> MemoryReaderFactory::getSupportedEcus(common::CarPlatform carPlatform)
+{
+    switch(carPlatform) {
+    case common::CarPlatform::P80:
+        return {0x7A, 0x6E};
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P2_250:
+    case common::CarPlatform::P2_UDS:
+        return {0x7A, 0x6E};
+    }
+    return {};
 }
 
 } // namespace flasher
