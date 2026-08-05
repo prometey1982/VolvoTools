@@ -353,7 +353,7 @@ auto cracker = flasher::createPinCracker(
 
 **`DummyPinCrackerSteps`** — реализация `PinCrackerSteps`, которая логирует все вызовы (`preAuth`, `postAuth`, `tryPin`, `keepAlive`), но не отправляет реальных CAN-сообщений. Используется для тестирования `PinCracker` без реального J2534-устройства.
 
-**`createDummyCracker(CarPlatform, ecuId, ...)`:** создаёт `PinCracker` с `DummyPinCrackerSteps` для каждой шины и пустыми каналами (`nullptr`). Параметры J2534 не нужны — только `CarPlatform` и `ecuId` для определения конфигурации шин. Файл: `Flasher/flasher/pin/PinCrackerFactory.hpp`.
+**`createDummyCracker(CarPlatform, ecuId, ...)`:** создаёт `PinCracker` с `DummyPinCrackerSteps` для каждой шины и пустыми каналами (`nullptr`). Параметры J2534 не нужны — только `CarPlatform` и `ecuId` для определения конфигурации шин. **Примечание:** в текущей реализации `carPlatform` принудительно заменяется на `P2` (для тестов на платформе Volvo P2). Файл: `Flasher/flasher/pin/PinCrackerFactory.hpp`.
 
 **Helper `createPinCrackerStepsForBus(bus, ecuId)`:** создаёт шаги для одной шины, используя `createCanIdProvider(bus)` — см. `can_id_provider.md`.
 

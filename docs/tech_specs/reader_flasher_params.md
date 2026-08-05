@@ -230,8 +230,8 @@ static std::unique_ptr<FlasherBase> create(j2534::J2534&, const FlasherParameter
 | № | Файл | Причина |
 |---|---|---|
 | 32 | `Flasher/flasher/FlasherParameters.hpp` | Struct удалён из FlasherBase.hpp |
-| 33 | `Flasher/flasher/UDSMemoryReader.hpp` | Заменён на `UDSReader` |
-| 34 | `Flasher/src/UDSMemoryReader.cpp` | Заменён на `UDSReader` |
+| 33 | `Flasher/flasher/UDSMemoryReader.hpp` | Заменён на `UDSReader` (затем полностью удалён — чтение памяти делает `UDSReaderMemory` через `MemoryReaderFactory`) |
+| 34 | `Flasher/src/UDSMemoryReader.cpp` | Заменён на `UDSReader` (затем полностью удалён) |
 | 35 | `Flasher/flasher/D2Reader.hpp` | Заменён на `D2ReaderChecksum` |
 | 36 | `Flasher/src/D2Reader.cpp` | Заменён на `D2ReaderChecksum` |
 

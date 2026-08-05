@@ -487,7 +487,7 @@ private:
 - `UDSRequest` / `D2Request` — уже принимают `uint32_t canId` корректно
 - `D2ProtocolCommonSteps` — использует `D2Message::CanId` (0xFFFFE)
 - `D2Message` / `D2Messages` — без изменений
-- `J2534ChannelProvider` — без изменений (он уже создаёт каналы с правильным protocolId)
+- `J2534ChannelProvider` — без изменений (он уже создаёт каналы с правильным `ProtocolType`)
 - `BusConfiguration` / `ECUInfo` — без изменений, `funcGroup` опционален
 
 ## 7. Порядок реализации

@@ -17,14 +17,15 @@ CI (`windows-2022`) also builds x86 separately: `cmake --preset conan-default -A
 
 Tests build: `cmake --build build --config Release` (built if `-DBUILD_TESTS=ON` during configure — OFF by default).
 
-## Submodules (5)
+## Submodules (4)
 
 Must be init'd after clone. All are read-only dependencies:
 - `Registry/` — Windows Registry C++ wrapper
 - `j2534/` — J2534 API wrapper
-- `argparse/` — argparse C++ header library
 - `libintelhex/` — Intel HEX parser
 - `fast-cpp-csv-parser/` — CSV parser
+
+(argparse is now a Conan dependency `argparse/3.2`, not a submodule)
 
 ## Package map
 
@@ -35,10 +36,10 @@ Must be init'd after clone. All are read-only dependencies:
 | Registry | static lib | `Registry/` | (standalone, Windows-only) |
 | Flasher | static lib | `Flasher/` | Common, j2534 |
 | Logger | static lib | `Logger/` | Common, j2534 |
-| argparse | header-only interface | `argparse/` | (standalone) |
+| argparse | header-only (Conan) | — | (standalone) |
 | intelhex | static lib | `libintelhex/` | (standalone) |
-| **VolvoFlasher** | exe | `VolvoFlasher/src/VolvoFlasher.cpp` | Common, j2534, Flasher, argparse |
-| **VolvoLogger** | exe | `VolvoLogger/src/VolvoLogger.cpp` | Logger, Common, j2534, argparse |
+| **VolvoFlasher** | exe | `VolvoFlasher/src/VolvoFlasher.cpp` | Common, j2534, Flasher, argparse::argparse |
+| **VolvoLogger** | exe | `VolvoLogger/src/VolvoLogger.cpp` | Logger, Common, j2534, argparse::argparse |
 
 ## Architecture
 
@@ -55,6 +56,8 @@ Must be init'd after clone. All are read-only dependencies:
 - **CanIdProvider** (`Common/common/CanIdProvider.hpp`): Generates CAN arbitration IDs per protocol — `CanId11bit` (ISO15765, 11-bit, func=`0x7DF`), `CanId29bit` (ISO15765, 29-bit: `0x18DA{ps}F1`/`0x18DB{group}F1`), `CanIdD2` (D2, fixed `0xFFFFE`). Factory `createCanIdProvider()` and helper `createCanIdProviderForEcu()`. Used by `UDSProtocolCommonSteps`, flashers, readers, and `PinCracker`.
 - **Flasher hierarchy**: `FlasherBase` → `D2FlasherBase`/`UDSFlasher`/`KWPFlasher`. D2 flasher uses an HFSM (`Common/common/hfsm2/machine.hpp`, 17K+ lines, v2.6.0) in `D2FlasherImpl` for state orchestration.
 - **Reader hierarchy**: `ReaderBase` → `D2ReaderTF80`/`D2ReaderME7`/`D2ReaderDEM`/`D2ReaderAW55`/`D2ReaderChecksum`/`UDSReader`. Created via `ReaderFactory`.
+- **MemoryReader hierarchy** (чтение памяти без авторизации): `MemoryReaderFactory` → `D2ReaderME7Memory` (D2 через `0xBB`), `UDSReaderMemory` (UDS `0x23` блоками 0x100), `D2ReaderAW55`/`D2ReaderTF80`. `MemoryReaderFactory::getSupportedEcus(platform)` — список читаемых ЭБУ (P80/P2: `{0x7A, 0x6E}`).
+- **Platform helpers**: `isD2Platform()`/`isUDSPlatform()` в `Flasher/src/Util.{hpp,cpp}` (общие для ReaderFactory, MemoryReaderFactory).
 - **Logger architecture**: Dual-threaded — `_loggingThread` reads CAN and pushes `LogRecord` to a deque; `_callbackThread` pops records and dispatches to all registered `LoggerCallback` instances (`FileLogWriter`, `ConsoleLogWriter`).
 - **PIN cracker** (`Flasher/flasher/pin/`): `PinCracker` — universal PIN brute-force algorithm (preAuth per-bus → keepAlive → tryPin loop → postAuth per-bus). `PinCrackerSteps` — strategy interface per protocol bus (`UDSPinCrackerSteps` — UDS 0x27 auth, `D2PinCrackerSteps` — D2 bootloader auth, stub). `PinCrackerStorage` — checked-PIN persistence (`NullPinCrackerStorage`, `InMemoryPinCrackerStorage`). `PinCrackerFactory.hpp` — `createPinCracker()` assembles a PinCracker from already-open `ICanChannel` channels (no J2534 dependency). `createDummyCracker()` — same but with empty channels for testing. `DummyPinCrackerSteps` — log-only steps for unit tests.
 - **keys.cpp**: Standalone reference copy of `VolvoGenerateKey()` and `p3_hash()`. The actual application uses duplicated versions in `VolvoFlasher.cpp`.
@@ -90,7 +93,7 @@ Additional partial test content (not built by default — requires `-DBUILD_TEST
 
 ## Dependencies (Conan)
 
-`boost/1.86.0`, `yaml-cpp/0.6.3`, `easyloggingpp/9.97.1`
+`boost/1.86.0`, `yaml-cpp/0.6.3`, `easyloggingpp/9.97.1`, `argparse/3.2`
 
 ## Misc
 

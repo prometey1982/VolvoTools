@@ -219,7 +219,7 @@ for i = 0; i < dataSize; i += 7:
 | `{0xA6, 0xF0, 0x00, 0x01}` | `{}` | `requestMemory` | Запрос памяти (ECM_ME) |
 | `{0xAA, 0x00}` | `{}` | `unregisterAllMemoryRequest` | Отмена регистрации памяти (ECM_ME) |
 | `{0xA7}` | `{addr[2], addr[1], addr[0], 1, size}` | `readDataByOffset` | Чтение по смещению |
-| `{0xB4, 0x21, 0x34}` | `{addr[3..0], size}` | `readDataByAddr` | Чтение по адресу |
+| `{0xBB}` | `{addr[2..0], size}` | `readDataByAddr` | Чтение по адресу (3-байтный адрес) |
 | `{0xAA, 0x50}` | `{addr[2], addr[1], addr[0], size}` | `registerAddrRange` | Регистрация адресов для чтения |
 | `{0xBA}` | `{addr[2], addr[1], addr[0], data}` | `writeDataByAddr` | Запись байта по адресу |
 | `{0xB0, 0x07, 0x01, 0xFF}` | `{timeHi, timeLo}` | `setCurrentTime` | Установка времени DIM |
