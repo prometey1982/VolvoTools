@@ -740,10 +740,10 @@ namespace common {
 
     void checkD2Error(uint8_t ecuId, const std::vector<uint8_t>& requestId, const uint8_t* data, size_t dataSize)
     {
-        if(dataSize < 7 || data[4] != 0x7F || data[5] != ecuId) {
+        if(dataSize < requestId.size() + 4 || data[2] != 0x7F || data[1] != ecuId) {
             return;
         }
-        throw D2Error(data[6]);
+        throw D2Error(data[3 + requestId.size()]);
     }
 
     CarPlatform parsePlatform(std::string input)
