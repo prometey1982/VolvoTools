@@ -29,7 +29,7 @@ void D2ReaderME7Memory::startImpl(std::vector<std::unique_ptr<common::ICanChanne
 
         for (uint32_t j = 0; j < range.size; j += memoryChunk) {
             const uint32_t currentAddr{ range.startAddr + j };
-            const auto currentChunkSize{ std::min(range.size - j, memoryChunk) };
+            const auto currentChunkSize{ std::min(static_cast<uint32_t>(range.size) - j, memoryChunk) };
             common::D2Request readRequest{
                 common::D2Messages::createReadDataByAddrMsg(
                     ecuId, currentAddr, currentChunkSize) };
