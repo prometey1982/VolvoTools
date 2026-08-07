@@ -1,42 +1,15 @@
 #include "flasher/pin/UDSPinCrackerSteps.hpp"
 
-#include "common/ICanChannel.hpp"
-#include "common/Util.hpp"
 #include "common/protocols/UDSRequest.hpp"
 #include "common/protocols/UDSError.hpp"
+#include "common/ICanChannel.hpp"
+#include "common/KeyGenerators.hpp"
+#include "common/Util.hpp"
 
 #include <array>
 #include <thread>
 
 namespace flasher {
-
-namespace {
-
-uint32_t generateKeyImpl(uint32_t hash, uint32_t input)
-{
-    for (size_t i = 0; i < 32; ++i) {
-        const bool is_bit_set = (hash ^ input) & 1;
-        input >>= 1;
-        hash >>= 1;
-        if (is_bit_set)
-            hash = (hash | 0x800000) ^ 0x109028;
-    }
-    return hash;
-}
-
-uint32_t generateKey(const std::array<uint8_t, 5>& pin_array, const std::array<uint8_t, 3>& seed_array)
-{
-    const uint32_t high_part = pin_array[4] << 24 | pin_array[3] << 16 | pin_array[2] << 8 | pin_array[1];
-    const uint32_t low_part = pin_array[0] << 24 | seed_array[2] << 16 | seed_array[1] << 8 | seed_array[0];
-    unsigned int hash = 0xC541A9;
-    hash = generateKeyImpl(hash, low_part);
-    hash = generateKeyImpl(hash, high_part);
-    uint32_t result = ((hash & 0xF00000) >> 12) | hash & 0xF000 | (uint8_t)(16 * hash)
-        | ((hash & 0xFF0) << 12) | ((hash & 0xF0000) >> 16);
-    return result;
-}
-
-} // anonymous namespace
 
 bool UDSPinCrackerSteps::preAuth(common::ICanChannel& channel)
 {
@@ -88,7 +61,7 @@ bool UDSPinCrackerSteps::tryPin(common::ICanChannel& channel, uint64_t pin)
                 return false;
 
             std::array<uint8_t, 3> seed = {seedResponse[2], seedResponse[3], seedResponse[4]};
-            uint32_t key = generateKey(pinArray, seed);
+            uint32_t key = common::generateKeyVolvoFord(pinArray, seed);
 
             channel.clearRx();
             common::UDSRequest keyRequest(physCanId, {0x27, 0x02,
