@@ -10,6 +10,9 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 #include <numeric>
 
 namespace {
@@ -21,7 +24,7 @@ namespace {
             throw std::runtime_error("write msgs error");
         }
         common::CanFrame response;
-        if (!channel.receive(response, 3000)) {
+        if (!channel.receive(response, 100)) {
             throw std::runtime_error("Failed to receive message");
         }
         return response;
@@ -49,21 +52,33 @@ void D2ReaderME7::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& c
         },
         [](common::ICanChannel&, uint8_t) {},  // erase — no-op
         [this](common::ICanChannel& channel, uint8_t ecuId) {
-            // write callback = byte-by-byte read for all ranges
             for (size_t r = 0; r < _ranges.size(); ++r) {
                 auto& buffer = _buffers[r];
                 buffer.clear();
                 const auto& range = _ranges[r];
                 buffer.reserve(range.size);
 
-                for (uint32_t i = 0; i < range.size; ++i) {
+                size_t chunkSize{ 0 };
+                size_t errorCount{ 0 };
+                for (uint32_t i = 0; i < range.size; i += chunkSize) {
+                    chunkSize = 0;
                     const auto currentPos = range.startAddr + i;
                     const auto msg = common::D2RawMessages::createReadOffsetMsg2(
                         static_cast<uint8_t>(common::D2ECUType::ECM_ME), currentPos);
-                    const auto answer = writeMessagesAndReadMessage(channel, msg);
-                    for(size_t s = 2; s < answer.data.size(); ++s) {
-                        buffer.push_back(answer.data[s]);
-                        incCurrentProgress(1);
+                    try {
+                        const auto answer = writeMessagesAndReadMessage(channel, msg);
+                        for(size_t s = 2; s < answer.data.size(); ++s) {
+                            buffer.push_back(answer.data[s]);
+                            incCurrentProgress(1);
+                            ++chunkSize;
+                        }
+                        errorCount = 0;
+                    }
+                    catch(const std::exception& ex) {
+                        LOG_MODULE(ERROR) << ex.what();
+                        if(errorCount++ >= 10) {
+                            throw;
+                        }
                     }
                 }
             }

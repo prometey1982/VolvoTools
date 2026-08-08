@@ -51,7 +51,15 @@ size_t D2FlasherImpl::getMaximumFlashProgressValue() const
 void D2FlasherImpl::fallAsleep()
 {
     _stateUpdater(FlasherState::FallAsleep);
-    if (!common::D2ProtocolCommonSteps::fallAsleep(_channels)) {
+    try {
+        if (!common::D2ProtocolCommonSteps::fallAsleep(_channels)) {
+            setFailed("Fall asleep failed");
+        }
+    }
+    catch(const std::exception& ex) {
+        setFailed(ex.what());
+    }
+    catch(...) {
         setFailed("Fall asleep failed");
     }
 }
@@ -59,8 +67,16 @@ void D2FlasherImpl::fallAsleep()
 void D2FlasherImpl::startPBL()
 {
     _stateUpdater(FlasherState::OpenChannels);
-    auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-    if (!common::D2ProtocolCommonSteps::startPBL(channel, _ecuId)) {
+    try {
+        auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
+        if (!common::D2ProtocolCommonSteps::startPBL(channel, _ecuId)) {
+            setFailed("Start PBL failed");
+        }
+    }
+    catch(const std::exception& ex) {
+        setFailed(ex.what());
+    }
+    catch(...) {
         setFailed("Start PBL failed");
     }
 }
@@ -71,9 +87,17 @@ void D2FlasherImpl::loadSBL()
         return;
     }
     _stateUpdater(FlasherState::LoadBootloader);
-    auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-    if (!common::D2ProtocolCommonSteps::transferData(channel, _ecuId,
-                                                      _bootloader, _progressUpdater)) {
+    try {
+        auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
+        if (!common::D2ProtocolCommonSteps::transferData(channel, _ecuId,
+                                                          _bootloader, _progressUpdater)) {
+            setFailed("SBL loading failed");
+        }
+    }
+    catch(const std::exception& ex) {
+        setFailed(ex.what());
+    }
+    catch(...) {
         setFailed("SBL loading failed");
     }
 }
@@ -84,9 +108,17 @@ void D2FlasherImpl::startSBL()
         return;
     }
     _stateUpdater(FlasherState::StartBootloader);
-    auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-    if (!common::D2ProtocolCommonSteps::startRoutine(channel, _ecuId,
-                                                      _bootloader.header.call)) {
+    try {
+        auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
+        if (!common::D2ProtocolCommonSteps::startRoutine(channel, _ecuId,
+                                                          _bootloader.header.call)) {
+            setFailed("SBL start failed");
+        }
+    }
+    catch(const std::exception& ex) {
+        setFailed(ex.what());
+    }
+    catch(...) {
         setFailed("SBL start failed");
     }
 }
@@ -118,12 +150,22 @@ void D2FlasherImpl::writeFlash()
 void D2FlasherImpl::wakeUpFinish()
 {
     _stateUpdater(FlasherState::WakeUp);
-    common::D2ProtocolCommonSteps::wakeUp(_channels);
+    try {
+        common::D2ProtocolCommonSteps::wakeUp(_channels);
+    }
+    catch(const std::exception& ex) {
+        LOG_MODULE(ERROR) << ex.what();
+    }
 }
 
 void D2FlasherImpl::setDIMTime()
 {
-    common::D2ProtocolCommonSteps::setDIMTime(_channels);
+    try {
+        common::D2ProtocolCommonSteps::setDIMTime(_channels);
+    }
+    catch(const std::exception& ex) {
+        LOG_MODULE(ERROR) << ex.what();
+    }
 }
 
 void D2FlasherImpl::done()

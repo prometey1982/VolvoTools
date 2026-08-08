@@ -29,14 +29,14 @@ namespace {
     bool writeMessagesAndCheckAnswer(ICanChannel& channel,
                                      const CanFrame& message,
                                      const std::vector<uint8_t>& toCheck,
-                                     size_t count = 10)
+                                     size_t count = 5)
     {
         if (!channel.send(message)) {
             throw std::runtime_error("write msgs error");
         }
         for (size_t i = 0; i < count; ++i) {
             CanFrame received;
-            if (!channel.receive(received, 3000)) {
+            if (!channel.receive(received, 1000)) {
                 continue;
             }
             if (received.data.size() < 1 + toCheck.size()) {
@@ -93,7 +93,7 @@ namespace {
         const auto addrBytes = toVector(writeOffset);
         const auto msg = makeBootloaderFrame(ecuId, {0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3]});
         for (int i = 0; i < 10; ++i) {
-            if (writeMessagesAndCheckAnswer(channel, msg, { 0x9C }))
+            if (writeMessagesAndCheckAnswer(channel, msg, { 0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3] }))
                 return;
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
@@ -185,26 +185,27 @@ namespace {
         for(const auto& chunk: data.chunks) {
             auto batches = createWriteDataFrames(ecuId, chunk.data, 0, chunk.data.size());
 
-        writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
-        for (const auto& batch : batches) {
-            channel.clearRx();
-            if (!channel.send(batch, 50000)) {
-                throw std::runtime_error("write msgs error");
+            writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
+            for (const auto& batch : batches) {
+                channel.clearRx();
+                if (!channel.send(batch, 50000)) {
+                    throw std::runtime_error("write msgs error");
+                }
+                progressCallback(6 * batch.size());
             }
-            progressCallback(6 * batch.size());
+            writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
+            uint32_t endOffset =  chunk.writeOffset + chunk.data.size();
+            uint8_t checksum = calculateCheckSum(chunk.data, 0, chunk.data.size());
+            if (!writeMessagesAndCheckAnswer(
+                    channel,
+                    makeBootloaderFrame(ecuId, {0xB4, static_cast<uint8_t>((endOffset >> 24) & 0xFF),
+                                                  static_cast<uint8_t>((endOffset >> 16) & 0xFF),
+                                                  static_cast<uint8_t>((endOffset >> 8) & 0xFF),
+                                                  static_cast<uint8_t>(endOffset & 0xFF)}),
+                    { 0xB1, checksum }))
+                throw std::runtime_error("Failed. Checksums are not equal.");
         }
-        writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
-        uint32_t endOffset =  chunk.writeOffset + chunk.data.size();
-        uint8_t checksum = calculateCheckSum(chunk.data, 0, chunk.data.size());
-        if (!writeMessagesAndCheckAnswer(
-                channel,
-                makeBootloaderFrame(ecuId, {0xB4, static_cast<uint8_t>((endOffset >> 24) & 0xFF),
-                                              static_cast<uint8_t>((endOffset >> 16) & 0xFF),
-                                              static_cast<uint8_t>((endOffset >> 8) & 0xFF),
-                                              static_cast<uint8_t>(endOffset & 0xFF)}),
-                { 0xB1, checksum }))
-            throw std::runtime_error("Failed. Checksums are not equal.");
-        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         LOG_MODULE(TRACE) << "transferData exit";
         return true;
     }
@@ -249,6 +250,7 @@ namespace {
     void D2ProtocolCommonSteps::setDIMTime(const std::vector<std::unique_ptr<ICanChannel>>& channels)
     {
         LOG_MODULE(TRACE) << "setDIMTime enter";
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         const auto now{std::chrono::system_clock::now()};
         const auto time_t = std::chrono::system_clock::to_time_t(now);
         struct tm lt;
