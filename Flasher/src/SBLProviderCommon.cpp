@@ -8,6 +8,15 @@
 
 namespace flasher {
 
+namespace {
+
+common::VBFChunk makeChunk(const std::vector<uint8_t>& data, uint32_t offset)
+{
+    return common::VBFChunk(offset, data, common::crc16(data.data(), data.size()));
+}
+
+}
+
 common::VBF SBLProviderCommon::getSBL(common::CarPlatform carPlatform, uint32_t ecuId,
                                       const std::string& additionalInfo) const
 {
@@ -21,7 +30,9 @@ common::VBF SBLProviderCommon::getSBL(common::CarPlatform carPlatform, uint32_t 
                 return parser.parse(common::SBLData::P1_ME9_SBL);
             }
             else {
-                return parser.parse(common::SBLData::P2_ME7_SBL);
+                return common::VBF(
+                    common::VBFHeader{ .call = 0x31C000 },
+                    { makeChunk(common::SBLData::P2_ME7_DATA, 0x31C000) });
             }
         }
         break;
