@@ -88,14 +88,19 @@ VBF createVBFForTCM(std::vector<uint8_t>& data)
 
 VBF createVBFForDEMGen2(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x6000, 0x2000),
-                 createChunk(data, 0x10000, 0x30000)}};
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x6000, 0x2000 }, { 0x10000, 0x10000 }, { 0x20000, 0x10000 }, {0x30000, 0x10000} } },
+        { createChunk(data, 0x6000, 0x2000),
+          createChunk(data, 0x10000, 0x30000)}};
 }
 
 VBF createVBFForDEMGen3(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x4000, 0x2000),
-                 createChunk(data, 0x18000, 0x38000)}};
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x4000, 0x2000, }, { 0x18000, 0x2000 }, { 0x20000, 0x10000 },
+                                 { 0x30000, 0x10000 }, { 0x40000, 0x10000 } } },
+        { createChunk(data, 0x4000, 0x2000),
+          createChunk(data, 0x18000, 0x38000) } };
 }
 
 VBF createVbfFromBinary(CarPlatform carPlatform, uint8_t ecuId,

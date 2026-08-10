@@ -213,14 +213,27 @@ namespace {
     bool D2ProtocolCommonSteps::eraseFlash(ICanChannel& channel, uint8_t ecuId, const VBF& data)
     {
         LOG_MODULE(TRACE) << "eraseFlash enter";
-        for (const auto& chunk : data.chunks) {
-            writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);
+        const auto eraseChunk = [&channel, &ecuId](uint32_t addr) {
+            LOG_MODULE(TRACE) << "erase chunk at addr: " << std::hex << addr;
+            writeDataOffsetAndCheckAnswer(channel, ecuId, addr);
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             if (!writeMessagesAndCheckAnswer(
                     channel,
                     makeBootloaderFrame(ecuId, {0xF8}),
                     {{ 0xF9, 0x0 }, { 0xF9, 0x2 }}, 30))
                 throw std::runtime_error("Can't erase memory");
+        };
+        if(!data.header.eraseBlocks.empty()) {
+            LOG_MODULE(TRACE) << "eraseFlash from erase blocks";
+            for(const auto& eraseBlock: data.header.eraseBlocks) {
+                eraseChunk(eraseBlock.startAddr);
+            }
+        }
+        else {
+            LOG_MODULE(TRACE) << "eraseFlash from erase chunks";
+            for (const auto& chunk : data.chunks) {
+                eraseChunk(chunk.writeOffset);
+            }
         }
         LOG_MODULE(TRACE) << "eraseFlash exit";
         return true;
