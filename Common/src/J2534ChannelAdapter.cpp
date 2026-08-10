@@ -20,7 +20,8 @@ void canFrameToPassthruMsg(const common::CanFrame& frame,
     msg.TxFlags = txFlags | (frame.isExtendedId ? CAN_29BIT_ID : 0);
     msg.Timestamp = 0;
     msg.ExtraDataIndex = 0;
-    msg.DataSize = static_cast<unsigned long>(frame.data.size() + 4);
+    // WORKAROUND: DiCE hangsup if DataSize < 12 bytes
+    msg.DataSize = 4ul + std::max(static_cast<unsigned long>(frame.data.size()), 8ul);
     msg.Data[0] = (frame.id >> 24) & 0xFF;
     msg.Data[1] = (frame.id >> 16) & 0xFF;
     msg.Data[2] = (frame.id >> 8) & 0xFF;

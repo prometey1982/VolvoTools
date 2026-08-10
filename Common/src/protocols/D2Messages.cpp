@@ -7,9 +7,8 @@
 
 namespace common {
 
-CanFrame makeRawMessage(CanMessage::DataType payload)
+CanFrame makeRawMessage(const CanMessage::DataType& payload)
 {
-    payload.resize(8);
     return { D2Message::CanId, payload, true };
 }
 
