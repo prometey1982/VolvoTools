@@ -38,7 +38,7 @@ D2ReaderChecksum::D2ReaderChecksum(j2534::J2534& j2534, common::CarPlatform carP
 {
 }
 
-void D2ReaderChecksum::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2ReaderChecksum::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), common::VBF(),
         [this](FlasherState state) {

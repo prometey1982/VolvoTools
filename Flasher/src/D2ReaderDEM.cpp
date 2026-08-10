@@ -38,7 +38,7 @@ D2ReaderDEM::D2ReaderDEM(j2534::J2534& j2534, common::CarPlatform carPlatform, u
 {
 }
 
-void D2ReaderDEM::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2ReaderDEM::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), _bootloader,
         [this](FlasherState state) {

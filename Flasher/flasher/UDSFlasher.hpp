@@ -16,7 +16,7 @@ namespace flasher {
         ~UDSFlasher();
 
     private:
-        void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
+        void startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
 
         const UDSFlasherConfig _config;
     };

@@ -36,7 +36,7 @@ public:
     void start();
 
 protected:
-    virtual void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) = 0;
+    virtual void startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels) = 0;
 
     void setCurrentState(FlasherState state);
     void incCurrentProgress(size_t delta);

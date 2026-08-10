@@ -16,7 +16,7 @@ UDSReaderMemory::UDSReaderMemory(j2534::J2534& j2534, common::CarPlatform carPla
 {
 }
 
-void UDSReaderMemory::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void UDSReaderMemory::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     auto& channel = *channels[0];
     auto funcCanId = _canIdProvider->getFuncCanId();

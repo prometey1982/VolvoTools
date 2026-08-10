@@ -7,9 +7,10 @@
 
 namespace common {
 
-CanFrame makeRawMessage(const CanMessage::DataType& payload)
+CanFrame makeRawMessage(CanMessage::DataType payload)
 {
-  return { D2Message::CanId, payload, true };
+    payload.resize(8);
+    return { D2Message::CanId, payload, true };
 }
 
 /*static*/ D2Message D2Messages::setCurrentTime(uint8_t hours,
@@ -111,7 +112,7 @@ D2RawMessages::createCalculateChecksumMsg(uint8_t ecuId, uint32_t addr) {
   const uint8_t byte2 = (addr & 0xFF0000) >> 16;
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
-  return makeRawMessage({ecuId, 0xBC, byte1, byte2, byte3, byte4, 0x0, 0x0});
+  return makeRawMessage({ecuId, 0xBC, byte1, byte2, byte3, byte4});
 }
 
 /*static*/ CanFrame D2RawMessages::createReadOffsetMsgDEM(uint8_t ecuId,

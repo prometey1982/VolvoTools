@@ -14,7 +14,7 @@ D2ReaderME7Memory::D2ReaderME7Memory(j2534::J2534& j2534, common::CarPlatform ca
 {
 }
 
-void D2ReaderME7Memory::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2ReaderME7Memory::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, channels) };
     const uint8_t ecuId{ static_cast<uint8_t>(_ecuId) };

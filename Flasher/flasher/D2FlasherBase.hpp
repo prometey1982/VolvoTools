@@ -19,7 +19,7 @@ public:
     ~D2FlasherBase();
 
 protected:
-    void startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels) override final;
+    void startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels) override final;
 
     virtual size_t getMaximumFlashProgress() const = 0;
     virtual bool isBootloaderRequired() const = 0;

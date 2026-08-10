@@ -30,7 +30,7 @@ D2FlasherBase::~D2FlasherBase()
 {
 }
 
-void D2FlasherBase::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2FlasherBase::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     std::this_thread::sleep_for(std::chrono::seconds(1));
 

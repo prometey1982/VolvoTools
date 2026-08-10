@@ -312,7 +312,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     {
     }
 
-    void UDSFlasher::startImpl(std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+    void UDSFlasher::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
     {
         const auto ecuInfo{ common::getEcuInfoByEcuId(_carPlatform, _ecuId) };
 

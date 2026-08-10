@@ -4,6 +4,9 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 #include <numeric>
 
 namespace flasher {
@@ -50,6 +53,7 @@ void ReaderBase::start()
 {
     _readerThread = std::thread([this]() {
         try {
+            LOG_SCOPE_DURATION(ReaderBase_start);
             auto channels{ _channelProvider.getAllChannels(_ecuId) };
             startImpl(channels);
         }
