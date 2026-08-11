@@ -103,7 +103,7 @@ namespace logger {
                     static_cast<uint8_t>(common::D2ECUType::TCM), parameters.parameters()[i].addr(),
                         static_cast<uint8_t>(parameters.parameters()[i].size())) };
 
-                auto readResponse{ readMemoryRequest.process(channel) };
+                const auto readResponse{ readMemoryRequest.process(channel) };
                 result[i] = common::encodeBigEndian(readResponse);
             }
             return result;
@@ -130,8 +130,7 @@ namespace logger {
                         parameters.parameters()[i].addr(),
                         parameters.parameters()[i].size()) };
 
-                auto readResponse{ readMemoryRequest.process(channel, 200, 3) };
-                readResponse.erase(readResponse.begin(), readResponse.begin() + 4);
+                const auto readResponse{ readMemoryRequest.process(channel, 200, 3) };
                 result[i] = common::encodeLittleEndian(readResponse);
             }
             return result;

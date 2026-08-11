@@ -37,8 +37,8 @@ D2Messages::createReadDataByOffsetMsg(uint8_t ecuId, uint32_t addr,
   const uint8_t byte3 = (addr & 0xFF00) >> 8;
   const uint8_t byte4 = (addr & 0xFF);
   return D2Message(static_cast<uint8_t>(common::D2ECUType::TCM),
-                   {0xB4, 0x21, 0x34}, {byte1, byte2, byte3,
-                                        byte4, static_cast<uint8_t>(dataSize)});
+                   {0xB4, 0x21, 0x34, byte1, byte2, byte3,
+                    byte4}, {static_cast<uint8_t>(dataSize)});
 }
 
 /*static*/ D2Message

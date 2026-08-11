@@ -1,5 +1,6 @@
 #include "common/protocols/D2Request.hpp"
 
+#include "common/protocols/D2Error.hpp"
 #include "common/CanFrame.hpp"
 #include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
@@ -9,36 +10,44 @@
 
 
 #include <algorithm>
+#include <chrono>
 #include <stdexcept>
-#include <iterator>
 #include <thread>
+
+namespace {
+
+// Каждый фрейм серии несёт не более 7 байт полезных данных.
+constexpr size_t maxResponseSize = 64 * 1024;
+constexpr size_t maxFrameCount = maxResponseSize / 7 + 4;
+
+void validateRequestId(const std::vector<uint8_t>& requestId)
+{
+    if (requestId.empty()) {
+        throw std::invalid_argument("D2Request: empty requestId");
+    }
+}
+
+} // namespace
 
 namespace common {
 
-D2Request::D2Request(uint8_t ecuId, const std::vector<uint8_t>& data)
-    : _message{ ecuId, data }
-{
-}
-
-D2Request::D2Request(uint8_t ecuId, std::vector<uint8_t>&& data)
+D2Request::D2Request(uint8_t ecuId, std::vector<uint8_t> data)
     : _message{ ecuId, std::move(data) }
 {
+    validateRequestId(_message.getRequestId());
 }
 
-D2Request::D2Request(D2Message&& message)
+D2Request::D2Request(D2Message message)
     : _message{ std::move(message) }
 {
+    validateRequestId(_message.getRequestId());
 }
 
-D2Request::D2Request(const D2Message& message)
-    : _message{ message }
-{
-}
-
-std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, size_t sendMessagesDelay)
+std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, size_t sendMessagesDelay) const
 {
     const uint8_t ecuId = _message.getEcuId();
-    const auto requestId = _message.getRequestId();
+    const auto& requestId = _message.getRequestId();
+    const size_t requestIdSize = requestId.size();
 
     for (const auto& frame : _message.getFrames()) {
         if (!channel.send(frame, timeout)) {
@@ -50,55 +59,130 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
         }
     }
 
-    bool firstMessage = true;
-    bool inSeries = false;
-    const auto restRequestSize{requestId.size() - 1};
+    enum class ParseState { WaitFirst, WaitSeries };
+
+    // Весь ответ копится в result как поток данных: frame[1..] первого кадра +
+    // data-байты кадров серии. Эхо-префикс удаляется в конце одним erase.
+    //   нормальный ответ: [0]=ecuId, [1]=requestId[0]+0x40, [2..requestIdSize]=requestId[1..]
+    //                      эхо = requestIdSize + 1 байт, может выходить за первый кадр
+    //   ошибка:           [0]=ecuId, [1]=0x7F, [2..requestIdSize+1]=requestId[0..],
+    //                      [requestIdSize+2]=код ошибки (throw D2Error)
+    ParseState state = ParseState::WaitFirst;
+    bool isError = false;
+    size_t echoRegionSize = 0;
+    bool echoComplete = false;
+    uint8_t expectedSeriesId = 0x09;
+    size_t frameCount = 0;
     std::vector<uint8_t> result;
+
     while (true) {
         CanFrame response;
         if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
-            LOG_MODULE(ERROR) << "failed to receive response";
+            LOG_MODULE(ERROR) << "Failed to receive response";
             throw std::runtime_error("Failed to receive response");
         }
+        if (++frameCount > maxFrameCount) {
+            LOG_MODULE(ERROR) << "Too many frames in D2 response";
+            throw std::runtime_error("Too many frames in D2 response");
+        }
         if (response.data.empty()) {
+            LOG_MODULE(ERROR) << "Empty response received:" << dumpArray(response.data);
             continue;
         }
-        size_t dataOffset = 0;
-        if (firstMessage) {
-            checkD2Error(ecuId, requestId, response.data.data(), response.data.size());
-            dataOffset = 3;
-            if (response.data.size() < dataOffset + restRequestSize + 1) {
+
+        const uint8_t header = response.data[0];
+        bool endSeries = false;
+        size_t frameDataSize = 0;
+
+        if (state == ParseState::WaitFirst) {
+            // Классификация первого фрейма: кадр без бита «первого», слишком
+            // короткий или с несовпавшим маркером — чужой трафик, пропускаем.
+            if (!(header & 0x80) || response.data.size() < 3 ||
+                response.data[1] != ecuId ||
+                (response.data[2] != 0x7F && response.data[2] != requestId[0] + 0x40)) {
                 continue;
             }
-            const auto acceptMessage{(response.data[1] == ecuId) && (response.data[2] == requestId[0] + 0x40)};
-            if (!acceptMessage || !std::equal(requestId.begin() + 1, requestId.end(), response.data.begin() + dataOffset)) {
-                continue;
+            // Заголовок первого фрейма: 0x88..0x8F (серия) / 0xC8..0xCF (single-frame).
+            if ((header & 0x0F) < 0x08) {
+                LOG_MODULE(ERROR) << "Invalid header of first D2 response frame";
+                throw std::runtime_error("Invalid header of first D2 response frame");
             }
-            inSeries = !(response.data[0] & 0x40);
-            firstMessage = false;
-            dataOffset += restRequestSize;
+            isError = (response.data[2] == 0x7F);
+            echoRegionSize = isError ? requestIdSize + 3 : requestIdSize + 1;
+            echoComplete = false;
+            expectedSeriesId = 0x09;
+            state = ParseState::WaitSeries;
+            endSeries = (header & 0x40) != 0;   // single-frame ответ
+            frameDataSize = response.data.size() - 1;
         }
-        else if (inSeries) {
-            if (response.data.size() < 1) {
-                continue;
+        else if (header & 0x40) {
+            // Последний фрейм серии: 0x48..0x4F, длина данных = header - 0x48.
+            if (header < 0x48 || header > 0x4F) {
+                LOG_MODULE(ERROR) << "Wrong data length in series";
+                throw std::runtime_error("Wrong data length in series");
             }
-            dataOffset = 1;
-            const uint8_t header{response.data[0]};
-            if (header & 0x40) {
-                if (header < 0x48) {
-                    LOG_MODULE(ERROR) << "Wrong data length in series";
-                    throw std::runtime_error("Wrong data length in series");
+            frameDataSize = header - 0x48;
+            if (response.data.size() < 1 + frameDataSize) {
+                LOG_MODULE(ERROR) << "Wrong data length in series";
+                throw std::runtime_error("Wrong data length in series");
+            }
+            endSeries = true;
+        }
+        else {
+            // Серийный кадр: seriesId обязан идти по порядку 0x09→0x0A→…→0x0F→0x08→…
+            if (header != expectedSeriesId) {
+                LOG_MODULE(ERROR) << "Unexpected seriesId in D2 response";
+                throw std::runtime_error("Unexpected seriesId in D2 response");
+            }
+            expectedSeriesId = 0x08 + ((header - 0x08 + 1) & 0x07);
+            frameDataSize = response.data.size() - 1;
+        }
+
+        // Общий шаг: копим данные кадра в поток и валидируем эхо-префикс.
+        const size_t before = result.size();
+        result.insert(result.end(), response.data.cbegin() + 1,
+                      response.data.cbegin() + 1 + frameDataSize);
+        if (result.size() > maxResponseSize) {
+            LOG_MODULE(ERROR) << "D2 response too large";
+            throw std::runtime_error("D2 response too large");
+        }
+        if (!echoComplete && !isError) {
+            const size_t end = std::min(result.size(), echoRegionSize);
+            size_t pos = before;
+            for (; pos < end; ++pos) {
+                const uint8_t expected = (pos == 0) ? ecuId
+                                          : (pos == 1) ? requestId[0] + 0x40
+                                          : requestId[pos - 1];
+                if (result[pos] != expected) {
+                    break;
                 }
-                response.data.resize(1 + header - 0x48);
-                inSeries = false;
+            }
+            if (pos < end) {
+                // Эхо не совпало — чужой трафик: сброс и ждём новый первый кадр.
+                LOG_MODULE(DEBUG) << "D2 response echo mismatch, waiting for new first frame";
+                state = ParseState::WaitFirst;
+                result.clear();
+                continue;
+            }
+            if (result.size() >= echoRegionSize) {
+                echoComplete = true;
             }
         }
-        result.reserve(result.size() + response.data.size() - dataOffset);
-        std::copy(response.data.cbegin() + dataOffset, response.data.cend(), std::back_inserter(result));
-        if (!inSeries) {
+        if (isError && result.size() >= echoRegionSize) {
+            // Регион ошибки собран полностью — последний байт это код ошибки.
+            throw D2Error(result[echoRegionSize - 1]);
+        }
+
+        if (endSeries) {
+            if (!echoComplete) {
+                LOG_MODULE(ERROR) << "D2 response ended before requestId echo completed";
+                throw std::runtime_error("D2 response ended before requestId echo completed");
+            }
             break;
         }
     }
+
+    result.erase(result.begin(), result.begin() + echoRegionSize);
     return result;
 }
 

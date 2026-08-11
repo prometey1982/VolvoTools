@@ -80,10 +80,10 @@ D2Message::D2Message(DataType &&data)
 {
 }
 
-D2Message::D2Message(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t>& params)
-    : CanMessage{CanId, std::move(createPayload(requestId, params))}
+D2Message::D2Message(uint8_t ecuId, std::vector<uint8_t> requestId, const std::vector<uint8_t>& params)
+    : CanMessage{CanId, createPayload(requestId, params)}
     , _ecuId{ecuId}
-    , _requestId{requestId}
+    , _requestId{ std::move(requestId) }
 {
 }
 

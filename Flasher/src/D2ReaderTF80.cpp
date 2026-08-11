@@ -48,12 +48,14 @@ void D2ReaderTF80::startImpl(const std::vector<std::unique_ptr<common::ICanChann
                     currentAddr, requestSize) };
             try {
                 auto response = readRequest.process(channel, 200, 3);
-                constexpr size_t additionalShift{ 4 };
-                if (response.size() > additionalShift) {
-                    proccessedBytes =  std::min(requestSize, response.size() - additionalShift);
-                    buffer.insert(buffer.end(), response.begin() + additionalShift,
-                                  response.begin() + additionalShift + proccessedBytes);
+                if (response.empty()) {
+                    LOG_MODULE(ERROR) << "Empty TF80 read response";
+                    throw std::runtime_error("Empty TF80 read response");
                 }
+                const size_t bytesToInsert = std::min(requestSize, response.size());
+                buffer.insert(buffer.end(), response.cbegin(),
+                              response.cbegin() + bytesToInsert);
+                proccessedBytes = bytesToInsert;
                 incCurrentProgress(proccessedBytes);
                 errorCount = 0;
             }

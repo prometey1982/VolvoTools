@@ -26,9 +26,9 @@ public:
         receiveQueue.pop();
         return true;
     }
-    bool receive(std::vector<CanFrame>& frames, unsigned long) override {
+    bool receive(std::vector<CanFrame>& frames, size_t messagesCount, unsigned long) override {
         if (receiveQueue.empty()) return false;
-        while (!receiveQueue.empty()) {
+        while (!receiveQueue.empty() && frames.size() < messagesCount) {
             frames.push_back(receiveQueue.front());
             receiveQueue.pop();
         }
@@ -67,7 +67,7 @@ public:
     bool send(const CanFrame& frame, unsigned long timeout = 1000) override { return _mock.send(frame, timeout); }
     bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) override { return _mock.send(frames, timeout); }
     bool receive(CanFrame& frame, unsigned long timeout) override { return _mock.receive(frame, timeout); }
-    bool receive(std::vector<CanFrame>& frames, unsigned long timeout) override { return _mock.receive(frames, timeout); }
+    bool receive(std::vector<CanFrame>& frames, size_t messagesCount, unsigned long timeout) override { return _mock.receive(frames, messagesCount, timeout); }
     void clearRx() override { _mock.clearRx(); }
     void clearTx() override { _mock.clearTx(); }
     bool startPeriodicMsg(const CanFrame& frame, unsigned long interval, unsigned long& msgId) override {

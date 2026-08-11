@@ -95,7 +95,6 @@ namespace common {
 
     void checkTP20Error(uint8_t requestId, const uint8_t* data, size_t dataSize);
     void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize);
-    void checkD2Error(uint8_t ecuId, const std::vector<uint8_t>& requestId, const uint8_t* data, size_t dataSize);
 
     CarPlatform parseCarPlatform(std::string input);
 

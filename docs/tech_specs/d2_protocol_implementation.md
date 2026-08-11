@@ -133,49 +133,75 @@ for i = 0; i < dataSize; i += 7:
 
 ## Формат ответа (Response)
 
-Парсинг ответа ЭБУ: `D2Request::process` в `Common/src/protocols/D2Request.cpp:34-97`
+Парсинг ответа ЭБУ: `D2Request::process` в `Common/src/protocols/D2Request.cpp` (state machine: `WaitFirst` → `WaitSeries`)
+
+### Поток данных ответа
+
+Ответ трактуется как **поток данных** = data-байты первого фрейма (`[1..7]`) + data-байты всех кадров серии. Позиции в потоке:
+
+```
+[0] = ecuId                    (должен совпадать с запрошенным)
+[1] = requestId[0] + 0x40      (должен совпадать)
+[2..requestId.size()] = requestId[1..]  (должен совпадать)
+[requestId.size()+1..] = полезные данные ответа
+```
+
+Эхо requestId занимает `requestId.size() + 1` байт потока и **может выходить за пределы первого CAN-фрейма** — при длинном requestId оно продолжается в следующих кадрах серии (разбор накапливает и валидирует эхо, не начиная копирование данных, пока оно не завершено).
+
+**Реальный потребитель длинного эха:** чтение памяти TF80 (`D2Messages::createReadTCMTF80DataByAddr`) — requestId `{0xB4, 0x21, 0x34, addr(4)}` (8 байт, `size` — в params), эхо ответа = 9 байт (два CAN-фрейма). По этому же паттерну построен `createReadDataByAddrMsg` (ME7, `{0xBB, addr(3), size}`) — адрес и размер входят в requestId, полное эхо срезается парсером, payload = чистые данные. `createReadDataByOffsetMsg` (AW55) не менялся: requestId `{0xA7}`, адрес/размер в payload.
 
 ### Первый фрейм
 
 ```
 [0] = header
-[1] = ecuId                    (должен совпадать с запрошенным)
-[2] = requestId[0] + 0x40      (должен совпадать)
-[3..2+restRequestSize] = requestId[1..] (должен совпадать)
-[3+restRequestSize..] = полезные данные ответа
+[1..7] = первые байты потока данных
 ```
 
-где `restRequestSize = requestId.size() - 1`.
-
-`inSeries = !(header[0] & 0x40)` — если бит 0x40 = 0, ожидается серия.
+Валидация первого фрейма:
+- `header & 0x80` обязателен — без бита кадр не является первым (серийная/чужая посылка → skip).
+- `data[1] == ecuId`, `data[2]` == `requestId[0] + 0x40` (или `0x7F` — см. формат ошибки) — иначе чужой трафик → skip.
+- После совпавшего маркера header должен быть `0x88..0x8F` (старт серии) или `0xC8..0xCF` (single-frame), иначе → ошибка.
+- `inSeries = !(header[0] & 0x40)` — если бит 0x40 = 0, ожидается серия; single-frame ответ обязан содержать полное эхо в одном кадре, иначе → ошибка.
 
 ### Продолжения (серийные фреймы)
 
 ```
 [0] = заголовок
-    бит 0x40 = 0 → продолжение серии (collect data from [1..7])
-    бит 0x40 = 1, header >= 0x48 → последний фрейм
-    бит 0x40 = 1, header < 0x48 → ошибка "Wrong data length in series"
+    бит 0x40 = 0 → продолжение серии; seriesId обязан идти по порядку
+                   0x09→0x0A→…→0x0F→0x08→… (иначе → ошибка); данные [1..7]
+    бит 0x40 = 1, header 0x48..0x4F → последний фрейм (длина данных = header - 0x48)
+    бит 0x40 = 1, header < 0x48 или > 0x4F → ошибка "Wrong data length in series"
 [1..7] = данные
 ```
 
-### Сборка результата
+Если последний фрейм приходит до завершения эха → ошибка "D2 response ended before requestId echo completed".
 
-- Первый фрейм: dataOffset = `3 + restRequestSize` (пропуск заголовка, ecuId, requestId[0]+0x40, rest requestId)
-- Продолжения: dataOffset = 1 (пропуск заголовка)
-- Копирование: `result += frame[dataOffset..]`
+### Ограничения (защита от зацикливания/переполнения)
+
+- `maxResponseSize = 64 КБ`, `maxFrameCount = maxResponseSize / 7 + 4` — превышение → `std::runtime_error` (серия без финального кадра или мусорный трафик не зацикливают `process`).
+- Пустой `requestId` → `std::invalid_argument` в конструкторах `D2Request` (ограничения на длину нет — эхо собирается по кадрам).
+
+### Семантика ошибок
+
+- **skip (continue)**: пустой кадр, кадр < 3 байт, несовпавший маркер/эхо, кадр без бита `0x80` до маркер-проверки — фильтрация чужого трафика.
+- **throw**: нарушения протокола после совпавшего маркера (header/seriesId/длина, эхо не завершено к концу серии), превышение лимитов, таймаут.
+- **CAN ID ответа не валидируется**: реальные ответы D2 приходят с CAN ID ≠ 0xFFFFE (своим ID ЭБУ), J2534 PASS_FILTER канала всепроходной (маска `{0x00,0x00,0x00,0x01}`, `Common/src/Util.cpp:250-252`) — фильтрация только протокольная.
 
 ## Формат ошибки
 
-`checkD2Error` в `Common/src/Util.cpp:741-747`
+Детекция встроена в `D2Request::process` (проверка маркера `0x7F` на позиции `data[2]` первого фрейма):
 
 ```
-[4] = 0x7F  (маркер отрицательного ответа)
-[5] = ecuId
-[6] = код ошибки → выбрасывается D2Error
+[0] = header (0x80 — первый фрейм, как в обычном ответе)
+[1] = ecuId                     (должен совпадать)
+[2] = 0x7F                      (маркер отрицательного ответа вместо requestId[0]+0x40)
+[3..2+requestId.size()] = полное эхо requestId
+[3+requestId.size()] = код ошибки → выбрасывается D2Error
 ```
 
-Формат ошибки **фиксированный** (позиции 4,5,6 не зависят от длины requestId). Ошибка проверяется на первом фрейме ответа до разбора данных.
+Для длинного requestId регион ошибки (`requestId.size() + 3` байт потока) тоже может выходить за первый кадр — разбор накапливает его по кадрам серии, код ошибки — последний байт региона. Эхо ошибки не валидируется (только маркер `data[2] == 0x7F` и `data[1] == ecuId`).
+
+> ⚠️ Формат помечен как «требует проверки на железе» (ground truth отсутствует): позиции `0x7F`/ecuId/кода выбраны по внутренней консистентности реализации с обычным фреймом. При обнаружении реального отрицательного ответа ЭБУ — сверить и поправить impl/спеку/тест согласованно.
 
 ## Raw-формат (однофреймовые команды)
 
@@ -302,7 +328,7 @@ D2RawMessages → (raw CanFrame, без D2Message)
 ### Ответственность
 
 - **D2Message**: сериализует логические данные (ecuId + requestId + params) в `std::vector<CanFrame>` через `getFrames()`. Генерирует фреймы с правильными префиксами и seriesId с разбивкой на single/multi-frame.
-- **D2Request**: отправляет `D2Message::getFrames()` через `ICanChannel::send()`, принимает ответ(ы), валидирует эхо (`ecuId`, `requestId[0] + 0x40`), детектирует ошибки через `checkD2Error`, собирает multi-frame ответ.
+- **D2Request**: отправляет `D2Message::getFrames()` через `ICanChannel::send()`, принимает ответ(ы), накапливает и валидирует эхо (`ecuId`, `requestId[0] + 0x40`, `requestId[1..]` — возможно, по нескольким кадрам серии), детектирует ошибки (маркер `0x7F`), собирает multi-frame ответ.
 - **D2ProtocolCommonSteps**: оркестрирует bootloader-последовательности. Использует `makeBootloaderFrame` для raw-команд и `D2Messages::setCurrentTime` для D2-команд.
 - **D2RawMessages**: фабрика bootloader-команд (возвращает готовый `CanFrame` с `[0]=ecuId, [1]=command`).
 
@@ -330,16 +356,16 @@ D2RawMessages → (raw CanFrame, без D2Message)
 
 ### Обработка ошибок в raw-фреймах (не будет исправляться)
 
-`D2ProtocolCommonSteps` использует `writeMessagesAndCheckAnswer` для raw-команд. Функция проверяет ответ побайтово (`response[1..] == toCheck`) и не вызывает `checkD2Error`.
+`D2ProtocolCommonSteps` использует `writeMessagesAndCheckAnswer` для raw-команд. Функция проверяет ответ побайтово (`response[1..] == toCheck`) и не обрабатывает D2-формат ошибки.
 
-**Причина:** bootloader-протокол имеет собственный формат ответа (echo-подтверждение команды), отличный от D2-формата ошибки (0x7F на позиции 4). `checkD2Error` предназначен только для D2-протокола (диагностические запросы через `D2Request::process`).
+**Причина:** bootloader-протокол имеет собственный формат ответа (echo-подтверждение команды), отличный от D2-формата ошибки (0x7F вместо requestId[0]+0x40 на позиции 2). Детекция D2-ошибки встроена только в `D2Request::process` (диагностические запросы).
 
 ### Отправка D2-запросов без D2Message/D2Request (исправлено)
 
 Ранее ряд D2-команд (диагностические, не bootloader) отправлялись как сырые CAN-фреймы, минуя `D2Message` и `D2Request`:
 - **Нет формирования префикса** `[0]` — вместо `0xC8/0x88 + len` в первый байт клался случайный байт
 - **Нет разбивки на multi-frame** — данные > 7 байт обрезались
-- **Нет обработки ответа** через `checkD2Error` и проверки эха
+- **Нет обработки ответа** (D2-ошибка, проверка эха)
 
 **Исправлено:** `setDIMTime` — через `D2Messages::setCurrentTime`, D2ReaderChecksum — через `D2Message::makeD2RawMessage`, D2ReaderME7 — через `D2Messages::createReadOffsetMsg2`. Logger и D2Request — исправлен баг `{begin(), end()}`.
 
@@ -363,7 +389,7 @@ D2RawMessages → (raw CanFrame, без D2Message)
 | Формат | Многофреймовый, префиксы/seriesId, эхо requestId | Однофреймовый: `[0]=ecuId, [1]=command, [2..7]=params` |
 | Multi-frame | Да (через seriesId) | Нет |
 | Эхо requestId | Да (`requestId[0] + 0x40`) | Нет (проверка: `response[1..] == toCheck`) |
-| Ошибки | `checkD2Error` (0x7F на позиции 4) | Нет отдельного обработчика |
+| Ошибки | `D2Request::process` (0x7F на позиции 2) | Нет отдельного обработчика |
 | Где используется | `D2Request`, `D2Messages`, D2Reader*, Logger | `D2ProtocolCommonSteps` (startPBL, eraseFlash, writeData, и т.д.) |
 | Класс для сборки | `D2Message` (структурированный / `getFrames()`) | `makeBootloaderFrame` (helper в .cpp) или `D2RawMessages` |
 
@@ -492,8 +518,7 @@ D2RawMessages → (raw CanFrame, без D2Message)
 |------|----------|
 | `MultiFrameResponse2Frames` | Ответ из 2 фреймов → сборка корректна |
 | `MultiFrameResponse3Frames` | Ответ из 3 фреймов |
-| `MultiFrameResponseMany` | Ответ из 9+ фреймов |
-| `MultiFrameSeriesId` | Серийные фреймы с корректными seriesId |
+| `MultiFrameSeriesWrapAround` | Серия > 8 кадров (wrap seriesId `0x0F→0x08→0x09`) |
 
 #### 3. Эхо-проверка
 
@@ -502,14 +527,19 @@ D2RawMessages → (raw CanFrame, без D2Message)
 | `EchoWrongEcuId` | `response[1] != ecuId` → continue (пропуск) |
 | `EchoWrongRequestId` | `response[2] != requestId[0] + 0x40` → continue |
 | `EchoRestMismatch` | `response[3..] != requestId[1..]` → continue |
+| `LongRequestIdEchoSpansFrames` | Эхо requestId (9 байт) выходит за первый кадр — накапливается по серии |
+| `LongRequestIdEchoBoundary` | Эхо заканчивается ровно на границе кадра |
+| `SingleFrameResponseShortEchoThrows` | single-frame ответ без полного эха → `runtime_error` |
+| `SeriesEndsBeforeEchoComplete` | Последний фрейм до завершения эха → `runtime_error` |
 
 #### 4. Обработка ошибок D2
 
 | Тест | Описание |
 |------|----------|
-| `ErrorResponse` | `[4]=0x7F, [5]=ecuId, [6]=errorCode` → `D2Error` |
-| `ErrorWrongEcuId` | `[5] != ecuId` → не ошибка, continue |
-| `ErrorNo7F` | `[4] != 0x7F` → не ошибка |
+| `ErrorResponse` | `[1]=ecuId, [2]=0x7F, [3..]=эхо requestId, [3+size]=code` → `D2Error` |
+| `ErrorWrongEcuId` | `[1] != ecuId` → не ошибка, continue |
+| `ErrorNo7F` | `[2] != 0x7F` → не ошибка |
+| `ErrorResponseLongRequestId` | Код ошибки во втором кадре серии (длинное эхо) → `D2Error` |
 
 #### 5. Таймауты и пустые ответы
 
@@ -517,7 +547,7 @@ D2RawMessages → (raw CanFrame, без D2Message)
 |------|----------|
 | `ReceiveTimeout` | `receive()` → false → `runtime_error` |
 | `EmptyFrameSkip` | `response.data.empty()` → skip, continue |
-| `ShortFrameSkip` | `response.data.size() < dataOffset + restRequestSize + 1` → skip |
+| `ShortFrameSkip` | Кадр < 3 байт (нельзя проверить маркер) → skip |
 
 #### 6. Параметры таймаута
 

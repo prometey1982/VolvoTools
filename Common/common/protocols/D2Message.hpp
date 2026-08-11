@@ -16,7 +16,7 @@ public:
   explicit D2Message(DataType &&data);
   D2Message(D2Message&&) noexcept = default;
   D2Message(const D2Message&) noexcept = default;
-  D2Message(uint8_t ecuId, const std::vector<uint8_t>& requestId, const std::vector<uint8_t>& params = {});
+  D2Message(uint8_t ecuId, std::vector<uint8_t> requestId, const std::vector<uint8_t>& params = {});
 
   uint8_t getEcuId() const;
   const std::vector<uint8_t>& getRequestId() const;

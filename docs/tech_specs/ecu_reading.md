@@ -110,6 +110,10 @@ protected:
 
 Специализированный читатель для АКПП TF-80SC. Использует `D2Messages::createReadTCMTF80DataByAddr()`.
 
+Чтение идёт чанками по 132 байта. **requestId = `{0xB4, 0x21, 0x34, addr(4)}` (8 байт)** — запрос двухкадровый, эхо ответа (9 байт) выходит за первый CAN-фрейм и накапливается разбором `D2Request::process` по кадрам серии (см. `d2_protocol_implementation.md`, «Формат ответа»). Полное эхо валидируется и срезается парсером — payload ответа = чистые данные, ручной сдвиг (`additionalShift = 4`) не требуется (удалён).
+
+Защита цикла чтения: пустой ответ → `std::runtime_error` (иначе `j += 0` → бесконечный цикл); вставляемые байты ограничены `min(requestSize, response.size())`.
+
 **Файлы:** `Flasher/flasher/D2ReaderTF80.hpp`, `Flasher/src/D2ReaderTF80.cpp`
 
 ### 2.7. ReaderFactory

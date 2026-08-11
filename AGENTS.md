@@ -11,6 +11,21 @@ cmake --preset conan-default
 cmake --build build --config Release
 ```
 
+## LSP / clangd (opencode)
+
+Основная сборка — VS-генератор, поэтому `CMAKE_EXPORT_COMPILE_COMMANDS` там не работает. Для clangd используется отдельное Ninja-дерево `build-lsp/` (см. `.clangd` → `CompilationDatabase: build-lsp`). Пересоздание базы (при изменении структуры CMake или после `conan install`):
+
+```powershell
+# 1. Патченый Conan toolchain (без GENERATOR_PLATFORM/TOOLSET — Ninja их не поддерживает)
+Get-Content build/generators/conan_toolchain.cmake | Where-Object { $_ -notmatch "GENERATOR_(PLATFORM|TOOLSET)" } | Set-Content build/generators/lsp_toolchain.cmake -Encoding UTF8
+
+# 2. Конфигурация Ninja-дерева под vcvars32 (x86, как Conan-профиль)
+Remove-Item -Recurse -Force build-lsp -ErrorAction SilentlyContinue
+cmd /c '"C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars32.bat" >nul 2>&1 && cmake -S . -B build-lsp -G Ninja -DCMAKE_TOOLCHAIN_FILE=C:/misc/programming/Flasher/VolvoTools/build/generators/lsp_toolchain.cmake -DCMAKE_MAKE_PROGRAM=C:/Users/artem/AppData/Local/Microsoft/WinGet/Packages/Ninja-build.Ninja_Microsoft.Winget.Source_8wekyb3d8bbwe/ninja.exe -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON'
+```
+
+После `conan install` файл `build/generators/lsp_toolchain.cmake` может пропасть — пересоздать по шагу 1.
+
 CI (`windows-2022`) also builds x86 separately: `cmake --preset conan-default -A Win32`.
 
 `prepare_build.bat` is a shortcut for the first three steps using two conan profiles.
@@ -48,7 +63,8 @@ Must be init'd after clone. All are read-only dependencies:
 - **Config data**: `Common/common/data.yaml` (~5k lines) — ECU parameters per platform, loaded at runtime
 - **Crypto keys**: `keys.cpp` at repo root
 - **ProtocolType** (`Common/common/ProtocolType.hpp`): `enum class ProtocolType : uint32_t` — типизированные константы `CAN`, `ISO15765`, `ISO14230`, `ISO9141`, `TP20`. Используется в `BusConfiguration.protocol`, `CanIdProvider`, фабрике каналов вместо `unsigned long` с J2534-константами.
-- **Tech specs** (11 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`, `pin_crack.md`, `can_id_provider.md`
+- **Tech specs** (12 docs in `docs/tech_specs/`): `transport_abstraction.md`, `d2_protocol_implementation.md`, `d2flasher_hfsm.md`, `d2_flasher_reader_common.md`, `ecu_reading.md`, `ISOTP.md`, `reader_flasher_params.md`, `restore_d2_transferdata_batching.md`, `code_logging_extension.md`, `pin_crack.md`, `can_id_provider.md`, `d2_request_parser_hardening.md`
+- **D2Request parser**: `docs/tech_specs/d2_request_parser_hardening.md` — защитный разбор ответов D2 (state machine в `D2Request::process`: валидация seriesId/заголовков, лимиты серии, семантика skip/throw, формат ошибки)
 - **Transport abstraction spec**: `docs/tech_specs/transport_abstraction.md`
 - **New transport types** (`Common/common/`): `CanFrame.hpp` — CAN message struct, `ICanChannel.hpp` — abstract channel interface, `J2534ChannelAdapter.hpp` — J2534 bridge
 - **Channel safety**: J2534 channels opened in one thread crash when used from another — use `J2534ChannelProvider` (see README note)
