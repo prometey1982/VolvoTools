@@ -61,12 +61,11 @@ void D2ReaderME7::startImpl(const std::vector<std::unique_ptr<common::ICanChanne
 
 void D2ReaderME7::readStep(common::ICanChannel &channel, uint8_t ecuId)
 {
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    channel.clearRx();
+    channel.clearTx();
     for (size_t r = 0; r < _ranges.size(); ++r) {
             auto& buffer = _buffers[r];
             buffer.clear();
-            channel.clearRx();
-            channel.clearTx();
             const auto& range = _ranges[r];
             buffer.reserve(range.size);
 
@@ -95,6 +94,5 @@ void D2ReaderME7::readStep(common::ICanChannel &channel, uint8_t ecuId)
             }
     }
 }
-
 
 } // namespace flasher

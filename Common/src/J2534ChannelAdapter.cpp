@@ -102,8 +102,8 @@ bool J2534ChannelAdapter::receive(CanFrame& frame, unsigned long timeout) {
     return true;
 }
 
-bool J2534ChannelAdapter::receive(std::vector<CanFrame>& frames, unsigned long timeout) {
-    std::vector<PASSTHRU_MSG> msgs(16);
+bool J2534ChannelAdapter::receive(std::vector<CanFrame>& frames, size_t messagesCount, unsigned long timeout) {
+    std::vector<PASSTHRU_MSG> msgs(messagesCount);
     auto rc = _channel->readMsgs(msgs, timeout);
     if (rc != STATUS_NOERROR || msgs.empty()) {
         if (rc != STATUS_NOERROR) {

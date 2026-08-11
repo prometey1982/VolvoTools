@@ -10,22 +10,27 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 #include <numeric>
 
 namespace {
 
-    common::CanFrame writeMessagesAndReadMessage(common::ICanChannel& channel,
-                                          const common::CanFrame& msg) {
-        channel.clearRx();
-        if (!channel.send(msg)) {
-            throw std::runtime_error("write msgs error");
-        }
-        common::CanFrame response;
-        if (!channel.receive(response, 3000)) {
-            throw std::runtime_error("Failed to receive message");
-        }
-        return response;
+std::vector<common::CanFrame> writeMessagesAndReadMessages(common::ICanChannel& channel,
+                                                           const common::CanFrame& msg,
+                                                           size_t numberOfMessages)
+{
+    if (!channel.send(msg)) {
+        throw std::runtime_error("write msgs error");
     }
+    std::vector<common::CanFrame> response;
+    response.reserve(numberOfMessages);
+    if (!channel.receive(response, numberOfMessages, 10000)) {
+        throw std::runtime_error("Failed to receive message");
+    }
+    return response;
+}
 
 } // namespace anonymous
 
@@ -49,28 +54,52 @@ void D2ReaderDEM::startImpl(const std::vector<std::unique_ptr<common::ICanChanne
         },
         [](common::ICanChannel&, uint8_t) {},  // erase — no-op
         [this](common::ICanChannel& channel, uint8_t ecuId) {
-            // write callback = byte-by-byte read for all ranges
-            for (size_t r = 0; r < _ranges.size(); ++r) {
-                auto& buffer = _buffers[r];
-                buffer.clear();
-                const auto& range = _ranges[r];
-                buffer.reserve(range.size);
-
-                for (uint32_t i = 0; i < range.size; ++i) {
-                    const auto currentPos = range.startAddr + i;
-                    const auto msg = common::D2RawMessages::createReadOffsetMsgDEM(
-                        static_cast<uint8_t>(common::D2ECUType::DEM), currentPos);
-                    const auto answer = writeMessagesAndReadMessage(channel, msg);
-                    for(size_t s = 2; s < answer.data.size(); ++s) {
-                        buffer.push_back(answer.data[s]);
-                        incCurrentProgress(1);
-                    }
-                }
-            }
+            readStep(channel, ecuId);
         });
 
     impl.setMaximumFlashProgressValue(getMaximumProgress());
     impl.run();
+}
+
+void D2ReaderDEM::readStep(common::ICanChannel &channel, uint8_t ecuId)
+{
+    channel.clearRx();
+    channel.clearTx();
+    for (size_t r = 0; r < _ranges.size(); ++r) {
+            auto& buffer = _buffers[r];
+            buffer.clear();
+            const auto& range = _ranges[r];
+            buffer.reserve(range.size);
+
+            size_t chunkSize{ 2048 };
+            constexpr size_t payloadSize{ 6 };
+            size_t errorCount{ 0 };
+            for (uint32_t i = 0; i < range.size; i += chunkSize) {
+                chunkSize = std::min(chunkSize, range.size - i);
+                const auto currentPos = range.startAddr + i;
+                const auto numberOfMessages = chunkSize / payloadSize + (chunkSize % payloadSize > 0 ? 1 : 0);
+                const auto msg = common::D2RawMessages::createReadOffsetMsgDEM(
+                    static_cast<uint8_t>(common::D2ECUType::DEM), currentPos);
+                try {
+                    const auto answer{ writeMessagesAndReadMessages(channel, msg, numberOfMessages) };
+                    size_t bytesProcessed{ 0 };
+                    for(const auto& response: answer) {
+                        for(size_t s = 2; s < response.data.size() && bytesProcessed < chunkSize; ++s) {
+                            buffer.push_back(response.data[s]);
+                            incCurrentProgress(1);
+                            ++bytesProcessed;
+                        }
+                    }
+                    errorCount = 0;
+                }
+                catch(const std::exception& ex) {
+                    LOG_MODULE(ERROR) << ex.what();
+                    if(errorCount++ >= 10) {
+                        throw;
+                    }
+                }
+            }
+    }
 }
 
 } // namespace flasher

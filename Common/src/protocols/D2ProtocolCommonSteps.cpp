@@ -208,8 +208,7 @@ namespace {
                                                   static_cast<uint8_t>(endOffset & 0xFF)}),
                     { 0xB1, checksum }))
                 throw std::runtime_error("Failed. Checksums are not equal.");
-        }
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
         LOG_MODULE(TRACE) << "transferData exit";
         return true;
     }
@@ -220,7 +219,6 @@ namespace {
         const auto eraseChunk = [&channel, &ecuId](uint32_t addr) {
             LOG_MODULE(TRACE) << "erase chunk at addr: " << std::hex << addr;
             writeDataOffsetAndCheckAnswer(channel, ecuId, addr);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
             if (!writeMessagesAndCheckAnswer(
                     channel,
                     makeBootloaderFrame(ecuId, {0xF8}),

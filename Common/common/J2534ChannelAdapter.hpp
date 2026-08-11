@@ -19,7 +19,7 @@ public:
     bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) override;
 
     bool receive(CanFrame& frame, unsigned long timeout) override;
-    bool receive(std::vector<CanFrame>& frames, unsigned long timeout) override;
+    bool receive(std::vector<CanFrame>& frames, size_t messagesCount, unsigned long timeout) override;
 
     void clearRx() override;
     void clearTx() override;

@@ -14,7 +14,7 @@ public:
     virtual bool send(const std::vector<CanFrame>& frames, unsigned long timeout = 1000) = 0;
 
     virtual bool receive(CanFrame& frame, unsigned long timeout) = 0;
-    virtual bool receive(std::vector<CanFrame>& frames, unsigned long timeout) = 0;
+    virtual bool receive(std::vector<CanFrame>& frames, size_t messagesCount, unsigned long timeout) = 0;
 
     virtual void clearRx() = 0;
     virtual void clearTx() = 0;

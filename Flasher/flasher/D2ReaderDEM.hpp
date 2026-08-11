@@ -15,6 +15,9 @@ protected:
     void startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;
 
 private:
+    void readStep(common::ICanChannel &channel, uint8_t ecuId);
+
+private:
     common::VBF _bootloader;
 };
 
