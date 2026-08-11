@@ -52,7 +52,6 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
 
     bool firstMessage = true;
     bool inSeries = false;
-    uint8_t seriesId = 0x09;
     const auto restRequestSize{requestId.size() - 1};
     std::vector<uint8_t> result;
     while (true) {
@@ -90,6 +89,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
                     LOG_MODULE(ERROR) << "Wrong data length in series";
                     throw std::runtime_error("Wrong data length in series");
                 }
+                response.data.resize(1 + header - 0x48);
                 inSeries = false;
             }
         }
