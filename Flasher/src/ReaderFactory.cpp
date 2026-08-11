@@ -3,7 +3,8 @@
 #include "flasher/ReaderBase.hpp"
 #include "flasher/D2ReaderAW55.hpp"
 #include "flasher/D2ReaderChecksum.hpp"
-#include "flasher/D2ReaderDEM.hpp"
+#include "flasher/D2ReaderDEMGen2.hpp"
+#include "flasher/D2ReaderDEMGen3.hpp"
 #include "flasher/D2ReaderME7.hpp"
 #include "flasher/D2ReaderTF80.hpp"
 #include "flasher/UDSReader.hpp"
@@ -40,7 +41,12 @@ std::unique_ptr<ReaderBase> ReaderFactory::create(
             if(!bootloaderParams) {
                 throw std::runtime_error("DEM reader requires bootloader");
             }
-            return std::make_unique<D2ReaderDEM>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
+            if(cmInfo == "gen2") {
+                return std::make_unique<D2ReaderDEMGen2>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
+            }
+            else if(cmInfo == "gen3") {
+                return std::make_unique<D2ReaderDEMGen3>(j2534, platform, ecuId, ranges, bootloaderParams->bootloader);
+            }
         }
         else if (ecuId == to_underlying(common::D2ECUType::TCM)) {
             if (cmInfo == "aw55_p2")

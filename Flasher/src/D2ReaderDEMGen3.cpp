@@ -1,4 +1,4 @@
-#include "flasher/D2ReaderDEM.hpp"
+#include "flasher/D2ReaderDEMGen3.hpp"
 #include "D2FlasherImpl.hpp"
 
 #include <common/ICanChannel.hpp>
@@ -36,14 +36,14 @@ std::vector<common::CanFrame> writeMessagesAndReadMessages(common::ICanChannel& 
 
 namespace flasher {
 
-D2ReaderDEM::D2ReaderDEM(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
-                         ReadRanges ranges, common::VBF bootloader)
+D2ReaderDEMGen3::D2ReaderDEMGen3(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+                                 ReadRanges ranges, common::VBF bootloader)
     : ReaderBase{ j2534, carPlatform, ecuId, std::move(ranges) }
     , _bootloader{ std::move(bootloader) }
 {
 }
 
-void D2ReaderDEM::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2ReaderDEMGen3::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), _bootloader,
         [this](FlasherState state) {
@@ -61,7 +61,7 @@ void D2ReaderDEM::startImpl(const std::vector<std::unique_ptr<common::ICanChanne
     impl.run();
 }
 
-void D2ReaderDEM::readStep(common::ICanChannel &channel, uint8_t ecuId)
+void D2ReaderDEMGen3::readStep(common::ICanChannel &channel, uint8_t ecuId)
 {
     channel.clearRx();
     channel.clearTx();

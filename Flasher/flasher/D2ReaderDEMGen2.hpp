@@ -6,10 +6,10 @@
 
 namespace flasher {
 
-class D2ReaderDEM : public ReaderBase {
+class D2ReaderDEMGen2 : public ReaderBase {
 public:
-    D2ReaderDEM(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
-                ReadRanges ranges, common::VBF bootloader);
+    D2ReaderDEMGen2(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+                    ReadRanges ranges, common::VBF bootloader);
 
 protected:
     void startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels) override;

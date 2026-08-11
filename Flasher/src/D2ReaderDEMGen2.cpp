@@ -1,4 +1,4 @@
-#include "flasher/D2ReaderME7.hpp"
+#include "flasher/D2ReaderDEMGen2.hpp"
 #include "D2FlasherImpl.hpp"
 
 #include <common/ICanChannel.hpp>
@@ -18,7 +18,7 @@
 namespace {
 
 common::CanFrame writeMessagesAndReadMessage(common::ICanChannel& channel,
-                                      const common::CanFrame& msg)
+                                             const common::CanFrame& msg)
 {
     if (!channel.send(msg)) {
         throw std::runtime_error("write msgs error");
@@ -34,14 +34,14 @@ common::CanFrame writeMessagesAndReadMessage(common::ICanChannel& channel,
 
 namespace flasher {
 
-D2ReaderME7::D2ReaderME7(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
+D2ReaderDEMGen2::D2ReaderDEMGen2(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
                          ReadRanges ranges, common::VBF bootloader)
     : ReaderBase{ j2534, carPlatform, ecuId, std::move(ranges) }
     , _bootloader{ std::move(bootloader) }
 {
 }
 
-void D2ReaderME7::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
+void D2ReaderDEMGen2::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
     D2FlasherImpl impl(channels, _carPlatform, static_cast<uint8_t>(_ecuId), _bootloader,
         [this](FlasherState state) {
@@ -59,7 +59,7 @@ void D2ReaderME7::startImpl(const std::vector<std::unique_ptr<common::ICanChanne
     impl.run();
 }
 
-void D2ReaderME7::readStep(common::ICanChannel &channel, uint8_t ecuId)
+void D2ReaderDEMGen2::readStep(common::ICanChannel &channel, uint8_t ecuId)
 {
     channel.clearRx();
     channel.clearTx();
@@ -74,7 +74,7 @@ void D2ReaderME7::readStep(common::ICanChannel &channel, uint8_t ecuId)
         for (uint32_t i = 0; i < range.size; i += chunkSize) {
             chunkSize = 0;
             const auto currentPos = range.startAddr + i;
-            const auto msg = common::D2RawMessages::createReadOffsetMsg2(
+            const auto msg = common::D2RawMessages::createReadOffsetMsgDEM(
                 static_cast<uint8_t>(common::D2ECUType::ECM_ME), currentPos);
             try {
                 const auto answer = writeMessagesAndReadMessage(channel, msg);
