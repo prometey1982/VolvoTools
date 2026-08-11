@@ -26,16 +26,6 @@
 
 namespace logger {
 
-    template<typename T>
-    std::string dumpArray(const T& vec)
-    {
-        std::stringstream ss;
-        for(const auto& i: vec) {
-            ss << std::hex << int(i) << " ";
-        }
-        return ss.str();
-    }
-
 	class LoggerImpl {
 	public:
         LoggerImpl() {}

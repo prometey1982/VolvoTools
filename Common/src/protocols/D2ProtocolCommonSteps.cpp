@@ -50,6 +50,7 @@ namespace {
                 }
             }
             if (success) {
+                LOG_MODULE(TRACE) << "received correct answer id: " << std::hex << received.id << ", data: " << dumpArray(received.data);
                 return true;
             }
         }
@@ -90,6 +91,7 @@ namespace {
 
     void writeDataOffsetAndCheckAnswer(ICanChannel& channel, uint8_t ecuId, uint32_t writeOffset)
     {
+        LOG_MODULE(TRACE) << "move to addr: " << std::hex << writeOffset;
         const auto addrBytes = toVector(writeOffset);
         const auto msg = makeBootloaderFrame(ecuId, {0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3]});
         for (int i = 0; i < 10; ++i) {
@@ -98,6 +100,7 @@ namespace {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         throw std::runtime_error("CM didn't response with correct answer");
+        LOG_MODULE(TRACE) << "move to addr complete";
     }
 
     uint8_t calculateCheckSum(const std::vector<uint8_t> &bin, size_t beginOffset,
@@ -183,6 +186,7 @@ namespace {
 	{
         LOG_MODULE(TRACE) << "transferData enter";
         for(const auto& chunk: data.chunks) {
+            LOG_MODULE(TRACE) << "write chunk " << std::hex << chunk.writeOffset;
             auto batches = createWriteDataFrames(ecuId, chunk.data, 0, chunk.data.size());
 
             writeDataOffsetAndCheckAnswer(channel, ecuId, chunk.writeOffset);

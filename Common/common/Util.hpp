@@ -6,9 +6,11 @@
 
 #include <memory>
 #include <string>
+#include <sstream>
 #include <utility>
 #include <vector>
 #include <type_traits>
+#include <ios>
 
 class ICanChannel;
 
@@ -102,5 +104,15 @@ namespace common {
     void initLogger(const std::string& logFilename, bool enableConsole = false, bool debugMode = false);
 
     uint16_t crc16(const uint8_t* data_p, size_t length);
+
+    template<typename T>
+    std::string dumpArray(const T& vec)
+    {
+        std::stringstream ss;
+        for(const auto& i: vec) {
+            ss << std::hex << int(i) << " ";
+        }
+        return ss.str();
+    }
 
 } // namespace common
