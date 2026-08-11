@@ -32,6 +32,8 @@ public:
     size_t getMaximumProgress() const;
 
     const std::vector<std::vector<uint8_t>>& buffers() const { return _buffers; }
+    const ReadRanges& readRanges() const { return _ranges; }
+    uint32_t ecuId() const { return _ecuId; }
 
     void start();
 
