@@ -6,6 +6,9 @@
 #include <common/Util.hpp>
 #include <j2534/J2534.hpp>
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 namespace flasher {
 
 D2ReaderTF80::D2ReaderTF80(j2534::J2534& j2534, common::CarPlatform carPlatform, uint32_t ecuId,
@@ -16,9 +19,7 @@ D2ReaderTF80::D2ReaderTF80(j2534::J2534& j2534, common::CarPlatform carPlatform,
 
 void D2ReaderTF80::startImpl(const std::vector<std::unique_ptr<common::ICanChannel>>& channels)
 {
-    auto& channel = *channels[0];
-    const uint8_t ecuId = static_cast<uint8_t>(_ecuId);
-
+    auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, channels) };
     setCurrentState(FlasherState::ReadFlash);
     for(size_t i = 0; i < _ranges.size(); ++i) {
         auto& buffer = _buffers[i];
@@ -34,16 +35,34 @@ void D2ReaderTF80::startImpl(const std::vector<std::unique_ptr<common::ICanChann
             --range.size;
         }
 
-        for (uint32_t j = 0; j < range.size; ++j) {
+        constexpr size_t chunkSize{ 132 };
+        constexpr size_t maxErrorCount{ 10 };
+        size_t errorCount{ 0 };
+        size_t proccessedBytes{ 0 };
+        for (uint32_t j = 0; j < range.size; j += proccessedBytes) {
             const uint32_t currentAddr = range.startAddr + j;
+            const size_t requestSize = std::min(chunkSize, range.size - j);
+            proccessedBytes = 0;
             common::D2Request readRequest{
                 common::D2Messages::createReadTCMTF80DataByAddr(
-                    currentAddr, 1) };
-            auto response = readRequest.process(channel, 200, 3);
-            if (response.size() > 4) {
-                buffer.push_back(response[4]);
+                    currentAddr, requestSize) };
+            try {
+                auto response = readRequest.process(channel, 200, 3);
+                constexpr size_t additionalShift{ 4 };
+                if (response.size() > additionalShift) {
+                    proccessedBytes =  std::min(requestSize, response.size() - additionalShift);
+                    buffer.insert(buffer.end(), response.begin() + additionalShift,
+                                  response.begin() + additionalShift + proccessedBytes);
+                }
+                incCurrentProgress(proccessedBytes);
+                errorCount = 0;
             }
-            incCurrentProgress(1);
+            catch(const std::exception& ex) {
+                LOG_MODULE(ERROR) << ex.what();
+                if(errorCount++ >= maxErrorCount) {
+                    throw;
+                }
+            }
         }
     }
 

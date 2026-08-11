@@ -4,6 +4,10 @@
 #include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
+
 #include <algorithm>
 #include <stdexcept>
 #include <iterator>
@@ -38,6 +42,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
 
     for (const auto& frame : _message.getFrames()) {
         if (!channel.send(frame, timeout)) {
+            LOG_MODULE(ERROR) << "Failed to send CAN message";
             throw std::runtime_error("Failed to send CAN message");
         }
         if (sendMessagesDelay > 0) {
@@ -53,6 +58,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
     while (true) {
         CanFrame response;
         if (!channel.receive(response, static_cast<unsigned long>(timeout))) {
+            LOG_MODULE(ERROR) << "failed to receive response";
             throw std::runtime_error("Failed to receive response");
         }
         if (response.data.empty()) {
@@ -81,6 +87,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
             const uint8_t header{response.data[0]};
             if (header & 0x40) {
                 if (header < 0x48) {
+                    LOG_MODULE(ERROR) << "Wrong data length in series";
                     throw std::runtime_error("Wrong data length in series");
                 }
                 inSeries = false;
