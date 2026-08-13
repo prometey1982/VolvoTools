@@ -31,6 +31,11 @@ uint32_t generateKeyVolvoFord(const std::array<uint8_t, 5>& pin_array, const std
     return result;
 }
 
+uint32_t generateKeyVolvoHaldex23(uint32_t input)
+{
+    return (input + 0x576F78) & 0xFFFFFF;
+}
+
 uint32_t generateKeyVAG(uint32_t seed)
 {
     for (uint8_t i = 0; i < 5; i++) {
