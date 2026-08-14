@@ -65,8 +65,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
     // data-байты кадров серии. Эхо-префикс удаляется в конце одним erase.
     //   нормальный ответ: [0]=ecuId, [1]=requestId[0]+0x40, [2..requestIdSize]=requestId[1..]
     //                      эхо = requestIdSize + 1 байт, может выходить за первый кадр
-    //   ошибка:           [0]=ecuId, [1]=0x7F, [2..requestIdSize+1]=requestId[0..],
-    //                      [requestIdSize+2]=код ошибки (throw D2Error)
+    //   ошибка:           [0]=ecuId, [1]=0x7F, [2]=requestId[0], [3]=код ошибки (throw D2Error)
     ParseState state = ParseState::WaitFirst;
     bool isError = false;
     size_t echoRegionSize = 0;
@@ -108,7 +107,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
                 throw std::runtime_error("Invalid header of first D2 response frame");
             }
             isError = (response.data[2] == 0x7F);
-            echoRegionSize = isError ? requestIdSize + 3 : requestIdSize + 1;
+            echoRegionSize = requestIdSize + 1;
             echoComplete = false;
             expectedSeriesId = 0x09;
             state = ParseState::WaitSeries;
@@ -168,10 +167,10 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
                 echoComplete = true;
             }
         }
-        if (isError && result.size() >= echoRegionSize) {
+        if (isError) {
             LOG_MODULE(ERROR) << "D2 respond with error: " << dumpArray(result);
             // Регион ошибки собран полностью — последний байт это код ошибки.
-            throw D2Error(result[echoRegionSize - 1]);
+            throw D2Error(result[3]);
         }
 
         if (endSeries) {

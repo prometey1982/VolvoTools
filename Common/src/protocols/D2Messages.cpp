@@ -47,7 +47,7 @@ D2Messages::createReadDataByAddrMsg(uint8_t ecuId, uint32_t addr,
   const uint8_t byte1 = (addr & 0xFF0000) >> 16;
   const uint8_t byte2 = (addr & 0xFF00) >> 8;
   const uint8_t byte3 = (addr & 0xFF);
-  return D2Message(ecuId, {0xBB}, {byte1, byte2, byte3, size});
+  return D2Message(ecuId, {0xBB, byte1, byte2, byte3, size});
 }
 
 /*static*/ D2Message D2Messages::createWriteDataByAddrMsg(uint8_t ecuId,
