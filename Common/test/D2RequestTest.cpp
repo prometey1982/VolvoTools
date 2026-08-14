@@ -45,8 +45,8 @@ static CanFrame makeSeriesFrame(uint8_t header, const std::vector<uint8_t>& data
     return {0xFFFFE, std::move(payload), true};
 }
 
-// Формат ошибки (framed): [0]=header, [1]=ecuId, [2]=0x7F,
-// [3..2+size]=полное эхо requestId, [3+size]=код ошибки.
+// Формат ошибки: [0]=header, [1]=ecuId, [2]=0x7F (маркер),
+// [3]=requestId[0] (эхо номера сервиса), [4]=код ошибки.
 static CanFrame makeErrorResponse(uint8_t ecuId,
                                   const std::vector<uint8_t>& requestId,
                                   uint8_t errorCode)
@@ -55,7 +55,7 @@ static CanFrame makeErrorResponse(uint8_t ecuId,
     payload.push_back(0xCF);
     payload.push_back(ecuId);
     payload.push_back(0x7F);
-    payload.insert(payload.end(), requestId.begin(), requestId.end());
+    payload.push_back(requestId[0]);
     payload.push_back(errorCode);
     return {0xFFFFE, std::move(payload), true};
 }
@@ -517,14 +517,9 @@ BOOST_AUTO_TEST_CASE(ErrorResponseLongRequestId)
 {
     MockICanChannel mock;
     const std::vector<uint8_t> requestId = {0xB9, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-    std::vector<uint8_t> stream;
-    stream.push_back(0x50);
-    stream.push_back(0x7F);
-    stream.insert(stream.end(), requestId.begin(), requestId.end());
-    stream.push_back(0x22);
-    for (auto& frame : makeFramedStream(stream)) {
-        mock.receiveQueue.push(std::move(frame));
-    }
+    // Ошибка не содержит полного эха requestId — только номер сервиса
+    // (requestId[0]) и код ошибки сразу после него.
+    mock.receiveQueue.push(makeErrorResponse(0x50, requestId, 0x22));
 
     D2Request req{0x50, requestId};
     try {
@@ -532,6 +527,22 @@ BOOST_AUTO_TEST_CASE(ErrorResponseLongRequestId)
         BOOST_FAIL("Expected D2Error");
     } catch (const D2Error& e) {
         BOOST_CHECK_EQUAL(e.getErrorCode(), 0x22);
+    }
+}
+
+BOOST_AUTO_TEST_CASE(ErrorResponseWithoutCode)
+{
+    MockICanChannel mock;
+    // Кадр ошибки без байта кода: [header][ecuId][0x7F][requestId[0]] → код = 0.
+    std::vector<uint8_t> shortError = {0xCF, 0x50, 0x7F, 0xB9};
+    mock.receiveQueue.push(CanFrame{0xFFFFE, shortError, true});
+
+    D2Request req{0x50, {0xB9, 0xFB}};
+    try {
+        req.process(mock, 1000);
+        BOOST_FAIL("Expected D2Error");
+    } catch (const D2Error& e) {
+        BOOST_CHECK_EQUAL(e.getErrorCode(), 0);
     }
 }
 

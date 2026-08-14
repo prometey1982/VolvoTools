@@ -96,7 +96,7 @@ process(channel, timeout, sendMessagesDelay)
 | 7 | **Расхождение формата ошибки** между impl `checkD2Error`, спекой и тестом `makeErrorResponse`; `checkD2Error` не детектировал ошибку при requestId > 4 байт. **Решено: `checkD2Error` удалён, детекция встроена в разбор** | `Util.cpp:741-747` (удалён), спека:168-178, тест:48-55 | ✓* |
 | 8 | **CAN ID кадра не проверяется** (страховка поверх J2534 PASS_FILTER) — **проверка добавлена, затем отменена**: реальные ответы D2 приходят с CAN ID ≠ 0xFFFFE (своим ID ЭБУ), проверка блокировала весь трафик; мок с id 0xFFFFE давал ложную зелёность тестов. Фильтрация — только протокольная (маркер/эхо/seriesId) | `D2Request.cpp` (чек удалён) | ✓ |
 
-\* — выбран impl-формат (framed, полное эхо requestId), спека и тест-хелпер приведены к нему; **проверка на железе всё ещё требуется** (см. Шаг 7).
+\* — impl-формат уточнён по железу (см. Шаг 7): реальный ответ ошибки — маркер `0x7F` + эхо номера сервиса `requestId[0]`, регион 3 байта `[ecuId, 0x7F, requestId[0]]`, код — `result[3]`; framed-формат с полным эхом отвергнут.
 
 ---
 
@@ -176,7 +176,7 @@ enum class ParseState { WaitFirst, WaitSeries };
 
 ParseState state = ParseState::WaitFirst;
 bool isError = false;
-size_t echoRegionSize = 0;      // size+1 для обычного ответа, size+3 для ошибки
+size_t echoRegionSize = 0;      // size+1 для обычного ответа, 3 для ошибки ([ecuId, 0x7F, requestId[0]])
 bool echoComplete = false;
 uint8_t expectedSeriesId = 0x09;
 size_t frameCount = 0;
@@ -202,7 +202,7 @@ while (true) {
     // валидация эхо-префикса [before, min(size, echoRegionSize)):
     //   рассинхрон → сброс в WaitFirst, result.clear(), continue
     //   region завершён → echoComplete = true
-    // isError && region завершён → throw D2Error(result[echoRegionSize - 1])
+    // isError && собран регион [ecuId, 0x7F, requestId[0]] → throw D2Error(result[3]) (код; нет байта → 0)
     if (endSeries) { if (!echoComplete) throw; break; }
 }
 result.erase(begin, begin + echoRegionSize);   // срезать эхо
@@ -211,25 +211,24 @@ return result;                                  // move, без копий
 
 - Мёртвая проверка `size() < 1` удаляется.
 - Ошибки приём/разбор логируются через `LOG_MODULE(ERROR)`.
-- `checkD2Error` удалён из `Common/src/Util.{hpp,cpp}` — детекция D2-ошибки (маркер `0x7F`) встроена в разбор, что позволило поддерживать фрейм ошибки длиной `size + 3` байт, выходящий за первый кадр.
+- `checkD2Error` удалён из `Common/src/Util.{hpp,cpp}` — детекция D2-ошибки (маркер `0x7F`) встроена в разбор; регион ошибки = 3 байта `[ecuId, 0x7F, requestId[0]]` (эхо номера сервиса восстановлено, полного эха requestId нет — см. Шаг 7), `D2Error` бросается сразу после первого кадра.
 - Итоговая стоимость против версии с `consumeData`: один `memmove` эхо-префикса (единицы байт) на весь запрос вместо ведения offset-границы в каждом кадре — плоский цикл без лямбды.
 
 **Критерий:** цикл читается как state machine без флагов; успешные сценарии (single, серия 2/3/N кадров, эхо с rest) ведут себя как раньше; длинное эхо собирается по кадрам серии.
 
 ---
 
-### Шаг 7 (✓ выполнен, *проверка на железе — TODO*): Формат ошибки — синхронизация impl/спека/тест
+### Шаг 7 (✓ выполнен): Формат ошибки — уточнён по железу, регион 3 байта (эхо номера сервиса)
 
-**Файлы:** `Common/src/Util.cpp` (удалён `checkD2Error`), `Common/test/D2RequestTest.cpp:48-55`, `docs/tech_specs/d2_protocol_implementation.md:168-178`
+**Файлы:** `Common/src/Util.cpp` (удалён `checkD2Error`), `Common/src/protocols/D2Request.cpp`, `Common/test/D2RequestTest.cpp:48-55`, `docs/tech_specs/d2_protocol_implementation.md:190-204`
 
-1. Собрать ground truth:
-   - поискать реальные логи/фикстуры с отрицательными ответами D2 (паттерн `0x7F`) в репо — **не найдено**;
-   - формат помечен как «требует проверки на железе» (ЭБУ D2, запрос с заведомой ошибкой).
-2. Единый формат выбран по внутренней консистентности impl: **(framed)** `[0]=header, [1]=ecuId, [2]=0x7F, [3..2+size]=полное эхо requestId, [3+size]=код` (регион `size + 3` байт потока).
-3. `checkD2Error` (однофреймовый контракт, guard `dataSize >= size + 4` — не детектировал ошибку при `size > 4`) **удалён** из `Util.{hpp,cpp}`; детекция встроена в `D2Request::process` — маркер `0x7F` на `data[2]`, регион накапливается по кадрам серии, код — последний байт региона.
-4. Тесты `ErrorResponse` / `ErrorWrongEcuIdInError` / `ErrorResponseCorrectCode` реально проходят; добавлен `ErrorResponseLongRequestId` (код во втором кадре серии).
+1. Ground truth получен по результатам debug-run (`f2dfb04` + последующие правки): реальный отрицательный ответ D2 — маркер `0x7F` на `data[2]` первого фрейма, после него эхом идёт номер сервиса `requestId[0]`, затем код ошибки. **Полного эха requestId в ответе нет** (только номер сервиса). Ранее предполагавшийся framed-формат (`size + 3` байта региона, код — последний байт) не подтвердился: при длинном requestId разбор ждал несуществующий регион → таймаут вместо `D2Error`.
+2. Итоговый формат: `[0]=header, [1]=ecuId, [2]=0x7F, [3]=requestId[0], [4]=код` — регион ошибки = 3 байта потока `[ecuId, 0x7F, requestId[0]]` (проверка номера сервиса восстановлена), `echoRegionSize = isError ? 3 : requestIdSize + 1`.
+3. `checkD2Error` (однофреймовый контракт, guard `dataSize >= size + 4` — не детектировал ошибку при `size > 4`) **удалён** из `Util.{hpp,cpp}`; детекция встроена в `D2Request::process` — маркер `0x7F` на `data[2]`.
+4. Throw: `if (isError && result.size() >= echoRegionSize) throw D2Error(result.size() > echoRegionSize ? result[echoRegionSize] : 0)` — как только собран регион (сразу после первого кадра). Код исключения = `result[3]` (код ошибки ЭБУ после эха номера сервиса); если байт кода отсутствует (кадр без кода) → `D2Error(0)`. Guard'ы `result.size() >= 3` / `> 3` исключают OOB на коротких кадрах; зависимость от длины requestId отсутствует.
+5. Тесты `ErrorResponse` / `ErrorWrongEcuIdInError` / `ErrorResponseCorrectCode` / `ErrorResponseLongRequestId` и хелпер `makeErrorResponse` приведены к новому формату (эхо только номера сервиса, код = `result[3]`); добавлен `ErrorResponseWithoutCode` (кадр ошибки без байта кода → `D2Error(0)`).
 
-**Критерий:** impl, спека и тесты описывают один формат; тест `ErrorResponse` бросает `D2Error` с корректным кодом (в т.ч. при длинном requestId).
+**Критерий:** детекция ошибки и `D2Error` работают при любой длине requestId и на коротких кадрах — без таймаута и OOB; спека (`d2_protocol_implementation.md` «Формат ошибки») синхронизирована с impl.
 
 ---
 
@@ -251,10 +250,11 @@ return result;                                  // move, без копий
 | 8 | Эхо заканчивается ровно на границе кадра | данные собраны полностью |
 | 9 | single-frame ответ без полного эха | `std::runtime_error` |
 | 10 | Серия закончилась до завершения эха | `std::runtime_error` |
-| 11 | Ошибка с длинным requestId (код во 2-м кадре) | `D2Error` с корректным кодом |
+| 11 | Ошибка с длинным requestId — эхо только номера сервиса, регион 3 байта | `D2Error` с корректным кодом |
 | 12 | Ответ с CAN ID ≠ 0xFFFFE (валидный маркер) | данные разобраны (ID не проверяется) |
 | 13 | Первый фрейм с `header & 0x80 == 0` после совпавшего маркера | `std::runtime_error` |
 | 14 | `ErrorResponse` (после Шага 7) | `D2Error` с корректным кодом |
+| 15 | Ошибка без байта кода (короткий кадр `[ecuId][0x7F][requestId[0]]`) | `D2Error` с кодом 0 |
 
 **Критерий:** все кейсы таблицы покрыты и зелёные при `-DBUILD_TESTS=ON`.
 
@@ -294,7 +294,7 @@ return result;                                  // move, без копий
 4. ✓ Неправильный seriesId / потерянный / дублированный кадр → `std::runtime_error`
 5. ✓ Первый фрейм без `0x80` или вне `0x88..0x8F`/`0xC8..0xCF` после совпадения маркера → `std::runtime_error`
 6. ✓ Кадр < 3 байт и несовпавший маркер/эхо → continue (фильтрация трафика сохранена); CAN ID ответа не проверяется (реальные ответы ≠ 0xFFFFE)
-7. ✓ Формат ошибки: детекция встроена в разбор; `ErrorResponse` бросает `D2Error` в т.ч. при длинном requestId (*проверка на железе — TODO*)
+7. ✓ Формат ошибки уточнён по железу: регион 3 байта `[ecuId, 0x7F, requestId[0]]`, `D2Error(result[3])` бросается сразу после первого кадра — без таймаута и OOB при любой длине requestId
 8. ✓ Серия > 8 кадров (wrap seriesId) парсится корректно
 9. ✓ Тесты Шага 8 покрывают все кейсы; старые тесты зелёные (`-DBUILD_TESTS=ON`)
 10. ✓ Успешные сценарии: single-frame, multi-frame 2/3/N кадров — поведение идентично текущему
@@ -304,10 +304,10 @@ return result;                                  // move, без копий
 ## 7. Примечания по реализации
 
 1. **Валидация requestId** (пустой) выполняется во всех 4 конструкторах `D2Request`, а не в `process()` — это покрывает все пути создания запроса и гарантирует fail-fast до отправки. Ограничение длины ≤ 5 **снято**: эхо накапливается по кадрам серии.
-2. **Формат ошибки**: выбран framed-формат (по внутренней консистентности с обычным фреймом): `[0]=header, [1]=ecuId, [2]=0x7F, [3..2+size]=полное эхо requestId, [3+size]=код`. `checkD2Error` удалён (однофреймовый контракт, guard `dataSize >= size + 4` не детектировал ошибку при `size > 4`); детекция встроена в `D2Request::process` (регион `size + 3` байт, код — последний байт). Спека и тест-хелпер `makeErrorResponse` приведены к нему. Ground truth на железе отсутствует — требуется проверка реальным отрицательным ответом ЭБУ.
+2. **Формат ошибки** (уточнён по железу, debug-run): реальный отрицательный ответ — маркер `0x7F` на `data[2]` первого фрейма + эхо номера сервиса `requestId[0]` + код ошибки; полного эха requestId нет. Framed-формат (`size + 3` байта, код в конце региона) отвергнут — старый разбор ждал несуществующий регион и уходил в таймаут при длинном requestId. Итог: `echoRegionSize = isError ? 3 : requestIdSize + 1`, `throw D2Error(result.size() > echoRegionSize ? result[echoRegionSize] : 0)` (код = `result[3]`, при отсутствии байта кода → 0). `checkD2Error` удалён; спека и тесты приведены к impl (хелпер `makeErrorResponse` + тесты `ErrorResponse*`, добавлен `ErrorResponseWithoutCode`).
 3. **MockICanChannel.hpp** приведён к текущему интерфейсу `ICanChannel` (добавлена 3-параметрическая `receive(vector&, size_t, unsigned long)`) — без этого тесты не компилировались (проект тестов не собирался с момента введения батч-receive).
 4. **Тест MultiFrameResponse2Frames**: исправлен header последнего фрейма `0x49` → `0x4A` (0x49 заявляет 1 байт данных при 2 переданных — несоответствие в старом тесте, который не исполнялся).
-5. **Тест LongRequestIdEcho** заменён на `LongRequestIdEchoSpansFrames` (9 байт, эхо в двух кадрах), `LongRequestIdEchoBoundary` (граница кадра), `FiveByteRequestIdWorks` (граничный случай) и `ErrorResponseLongRequestId` (код ошибки во втором кадре).
+5. **Тест LongRequestIdEcho** заменён на `LongRequestIdEchoSpansFrames` (9 байт, эхо в двух кадрах), `LongRequestIdEchoBoundary` (граница кадра), `FiveByteRequestIdWorks` (граничный случай) и `ErrorResponseLongRequestId` (ошибка при длинном requestId: эхо только номера сервиса, код = `result[3]`).
 6. **Упрощение разбора (финальная итерация)**: лямбда `consumeData` с арифметикой границы «эхо/payload» удалена — весь поток ответа копится в `result`, эхо-префикс валидируется инкрементально и срезается одним `result.erase` перед возвратом (move, без копий). Один общий блок «append + валидация + лимит» вместо трёх вызовов; завершение серии объединено через флаг `endSeries`. Поведение не изменилось: 62 теста CommonTests + 11 FlasherTests зелёные.
 7. **CAN ID ответа не проверяется** (итог): чек `response.id != D2Message::CanId` (0xFFFFE), добавленный в рамках харденинга, **отменён по результатам железа** — ответы D2 приходят с CAN ID ≠ 0xFFFFE (своим ID ЭБУ), чек блокировал реальный трафик (таймаут). Тесты не ловили проблему, т.к. mock отдавал кадры с id 0xFFFFE. J2534 PASS_FILTER канала всепроходной (`Util.cpp:250-252`), фильтрация — только протокольная (header/маркер/эхо/seriesId). Тест `WrongCanIdSkip` переписан в `DifferentResponseIdAccepted`. Пустой кадр логируется `LOG_MODULE(ERROR)` с дампом (по решению — не понижать до DEBUG).
-7. **Длинное эхо в бою**: `D2Messages::createReadTCMTF80DataByAddr` переведён на requestId `{0xB4, 0x21, 0x34, addr(4)}` (8 байт, двухкадровый запрос, `size` — в params) — эхо ответа (9 байт) собирается разбором по кадрам серии; ручные сдвиги в `D2ReaderTF80` (`additionalShift = 4`) и TF80-логировании (`erase(4)`) удалены. В `D2ReaderTF80` добавлены защитные правки: пустой ответ → `std::runtime_error` (иначе `j += 0` — бесконечный цикл), вставка ограничена `min(requestSize, response.size())`. **TODO на железе:** подтвердить, что TF80 ЭБУ действительно эхом возвращает полный requestId (addr).
+7. **Длинное эхо в бою**: `D2Messages::createReadTCMTF80DataByAddr` переведён на requestId `{0xB4, 0x21, 0x34, addr(4)}` (8 байт, двухкадровый запрос, `size` — в params) — эхо ответа (9 байт) собирается разбором по кадрам серии; ручные сдвиги в `D2ReaderTF80` (`additionalShift = 4`) и TF80-логировании (`erase(4)`) удалены. В `D2ReaderTF80` добавлены защитные правки: пустой ответ → `std::runtime_error` (иначе `j += 0` — бесконечный цикл), вставка ограничена `min(requestSize, response.size())`. **Проверено на железе:** TF80 действительно эхом возвращает полный requestId (addr) — чтение памяти и прошивки TF80 выполнено успешно.
