@@ -169,6 +169,7 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
             }
         }
         if (isError && result.size() >= echoRegionSize) {
+            LOG_MODULE(ERROR) << "D2 respond with error: " << dumpArray(result);
             // Регион ошибки собран полностью — последний байт это код ошибки.
             throw D2Error(result[echoRegionSize - 1]);
         }
