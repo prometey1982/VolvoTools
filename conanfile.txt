@@ -3,6 +3,7 @@ boost/1.86.0
 yaml-cpp/0.6.3
 easyloggingpp/9.97.1
 argparse/3.2
+fast-cpp-csv-parser/20191004
 
 [generators]
 CMakeDeps

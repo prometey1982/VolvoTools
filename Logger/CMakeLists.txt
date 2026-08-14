@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 project(Logger VERSION 1.0.0 LANGUAGES CXX)
 
+find_package(fast-cpp-csv-parser REQUIRED)
+
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
 
 set(SOURCE
@@ -24,4 +26,4 @@ endif()
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-target_link_libraries(${PROJECT_NAME} Common j2534)
+target_link_libraries(${PROJECT_NAME} Common j2534 fast-cpp-csv-parser::fast-cpp-csv-parser)
