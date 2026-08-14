@@ -35,6 +35,9 @@ std::unique_ptr<ReaderBase> MemoryReaderFactory::create(
             if (cmInfo == "tf80_p2")
                 return std::make_unique<D2ReaderTF80>(j2534, platform, ecuId, ranges);
         }
+        else if (ecuId == to_underlying(common::D2ECUType::DEM)) {
+            return std::make_unique<D2ReaderME7Memory>(j2534, platform, ecuId, ranges);
+        }
     }
 
     // UDS
@@ -53,7 +56,7 @@ std::vector<uint32_t> MemoryReaderFactory::getSupportedEcus(common::CarPlatform 
     case common::CarPlatform::P2:
     case common::CarPlatform::P2_250:
     case common::CarPlatform::P2_UDS:
-        return {0x7A, 0x6E};
+        return {0x7A, 0x6E, 0x1A};
     }
     return {};
 }
