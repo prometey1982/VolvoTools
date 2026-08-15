@@ -117,7 +117,7 @@ std::unique_ptr<PinCracker> createPinCracker(
     for (size_t i = 0; i < channels.size() && i < conf.busInfo.size(); ++i) {
         const auto& bus = conf.busInfo[i];
 
-        auto steps = createPinCrackerStepsForBus(bus, ecuId, false);
+        auto steps = createPinCrackerStepsForBus(bus, ecuId, true);
         if (!steps) {
             continue;
         }

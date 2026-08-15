@@ -10,7 +10,7 @@ namespace flasher {
 class UDSPinCrackerSteps final : public PinCrackerSteps {
 public:
     UDSPinCrackerSteps(std::unique_ptr<common::CanIdProvider> canIdProvider,
-                       bool needProgSession = false)
+                       bool needProgSession)
         : _canIdProvider{ std::move(canIdProvider) }
         , _needProgSession{ needProgSession }
     {}
