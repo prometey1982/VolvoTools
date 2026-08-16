@@ -5,6 +5,8 @@
 #include "common/CanIdProvider.hpp"
 #include "common/ICanChannel.hpp"
 
+#include <array>
+
 namespace flasher {
 
 class D2PinCrackerSteps final : public PinCrackerSteps {
@@ -23,9 +25,15 @@ public:
 
     std::vector<unsigned long> startKeepAlive(common::ICanChannel& channel) override;
 
-    void stopKeepAlive(const std::vector<unsigned long>& ids) override;
+    void stopKeepAlive(common::ICanChannel& channel, const std::vector<unsigned long>& ids) override;
 
     const common::CanIdProvider& getCanIdProvider() const override { return *_canIdProvider; }
+
+private:
+    void fallAsleep(common::ICanChannel& channel, uint32_t funcCanId);
+    std::vector<unsigned long> keepAlive(common::ICanChannel& channel, uint32_t funcCanId);
+    std::array<uint8_t, 3> requestSeed(common::ICanChannel& channel, uint32_t funcCanId);
+    bool authorize(common::ICanChannel& channel, uint32_t funcCanId, uint32_t key);
 
 private:
     std::unique_ptr<common::CanIdProvider> _canIdProvider;

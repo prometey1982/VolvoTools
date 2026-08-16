@@ -3,6 +3,9 @@
 #include "common/ICanChannel.hpp"
 #include "common/Util.hpp"
 
+#define LOG_MODULE_NAME "flasher"
+#include <common/LogHelper.hpp>
+
 #include <chrono>
 #include <thread>
 
@@ -45,7 +48,15 @@ std::optional<uint64_t> PinCracker::getFoundPin() const
 
 bool PinCracker::start()
 {
-    _thread = std::thread([this] { run(); });
+    _thread = std::thread([this] {
+        try {
+            run();
+        }
+        catch(std::exception& ex) {
+            LOG(ERROR) << ex.what();
+            setState(State::Error, 0);
+        }
+    });
     return true;
 }
 
@@ -54,18 +65,19 @@ void PinCracker::stop()
     _stop = true;
 }
 
+void PinCracker::setState(State newState, uint64_t pin)
+{
+    {
+        std::unique_lock<std::mutex> lock{ _mutex };
+        _currentState = newState;
+    }
+    if (_stateCallback) {
+        _stateCallback(newState, pin);
+    }
+};
+
 void PinCracker::run()
 {
-    auto setState = [this](State newState, uint64_t pin = 0) {
-        {
-            std::unique_lock<std::mutex> lock{ _mutex };
-            _currentState = newState;
-        }
-        if (_stateCallback) {
-            _stateCallback(newState, pin);
-        }
-    };
-
     // preAuth на всех шинах (каждая шина — своим протоколом)
     setState(State::PreAuth);
     for (auto& bus : _buses) {
@@ -79,38 +91,43 @@ void PinCracker::run()
     auto& ecuBus = _buses[_ecuBusIndex];
     auto keepAliveIds = ecuBus.steps->startKeepAlive(*ecuBus.channel);
 
-    // Цикл перебора ПИНов
-    auto endPin = (_direction == Direction::Up)
-        ? ecuBus.steps->getMaxPin()
-        : ecuBus.steps->getMinPin();
-    auto step = (_direction == Direction::Up) ? 1 : -1;
-    auto pin = _startPin;
-    auto retryDelay = ecuBus.steps->getRetryDelay();
+    try {
+        // Цикл перебора ПИНов
+        auto endPin = (_direction == Direction::Up)
+            ? ecuBus.steps->getMaxPin()
+            : ecuBus.steps->getMinPin();
+        auto step = (_direction == Direction::Up) ? 1 : -1;
+        auto pin = _startPin;
+        auto retryDelay = ecuBus.steps->getRetryDelay();
 
-    while ((_direction == Direction::Up ? pin <= endPin : pin >= endPin) && !_stop) {
-        // Пропустить уже проверенные
-        while (!_stop && _storage.isChecked(pin)) {
-            pin += step;
-        }
-        if (_stop) break;
+        while ((_direction == Direction::Up ? pin <= endPin : pin >= endPin) && !_stop) {
+            // Пропустить уже проверенные
+            while (!_stop && _storage.isChecked(pin)) {
+                pin += step;
+            }
+            if (_stop) break;
 
-        setState(State::Work, pin);
+            setState(State::Work, pin);
 
-        if (ecuBus.steps->tryPin(*ecuBus.channel, pin)) {
-            _foundPin = pin;
+            if (ecuBus.steps->tryPin(*ecuBus.channel, pin)) {
+                _foundPin = pin;
+                _storage.markChecked(pin);
+                break;
+            }
+
             _storage.markChecked(pin);
-            break;
-        }
+            pin += step;
 
-        _storage.markChecked(pin);
-        pin += step;
-
-        if (retryDelay.count() > 0 && !_stop) {
-            std::this_thread::sleep_for(retryDelay);
+            if (retryDelay.count() > 0 && !_stop) {
+                std::this_thread::sleep_for(retryDelay);
+            }
         }
     }
+    catch(const std::exception& ex) {
+        LOG(ERROR) << ex.what();
+    }
 
-    ecuBus.steps->stopKeepAlive(keepAliveIds);
+    ecuBus.steps->stopKeepAlive(*ecuBus.channel, keepAliveIds);
 
     // postAuth на всех шинах
     setState(State::PostAuth);

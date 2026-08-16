@@ -45,12 +45,12 @@ public:
 private:
     static uint32_t buildPhysCanId(uint32_t ps, uint32_t sa)
     {
-        return 0x18DA00F1 | ((ps & 0xFF) << 8);
+        return 0x18DA0000 | ((ps & 0xFF) << 8) | sa;
     }
 
     static uint32_t buildFuncCanId(uint32_t group, uint32_t sa)
     {
-        return 0x18DB00F1 | ((group & 0xFF) << 8);
+        return 0x18DB0000 | ((group & 0xFF) << 8) | sa;
     }
 
     uint32_t _physCanId;

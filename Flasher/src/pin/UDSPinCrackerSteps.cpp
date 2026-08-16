@@ -17,7 +17,7 @@ bool UDSPinCrackerSteps::preAuth(common::ICanChannel& channel)
 
     if (_needProgSession) {
         unsigned long msgId;
-        if (!channel.startPeriodicMsg({funcCanId, {0x10, 0x81}}, 5, msgId)) {
+        if (!channel.startPeriodicMsg({funcCanId, {0x2, 0x10, 0x81}}, 5, msgId)) {
             return false;
         }
         std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -54,7 +54,7 @@ bool UDSPinCrackerSteps::tryPin(common::ICanChannel& channel, uint64_t pin)
     for (size_t i = 0; i < 5; ++i) {
         try {
             channel.clearRx();
-            common::UDSRequest seedRequest(physCanId, {0x27, 0x01});
+            common::UDSRequest seedRequest(physCanId, {0x2, 0x27, 0x01});
             const auto seedResponse = seedRequest.process(channel);
 
             if (seedResponse.size() < 5)
@@ -88,18 +88,19 @@ bool UDSPinCrackerSteps::tryPin(common::ICanChannel& channel, uint64_t pin)
 std::vector<unsigned long> UDSPinCrackerSteps::startKeepAlive(common::ICanChannel& channel)
 {
     auto funcCanId = _canIdProvider->getFuncCanId();
-    _keepAliveIds.clear();
+    std::vector<unsigned long> result;
     unsigned long msgId;
     if (channel.startPeriodicMsg({funcCanId, {0x3E, 0x80}}, 1900, msgId)) {
-        _keepAliveIds.push_back(msgId);
+        result.push_back(msgId);
     }
-    return _keepAliveIds;
+    return result;
 }
 
-void UDSPinCrackerSteps::stopKeepAlive(const std::vector<unsigned long>& ids)
+void UDSPinCrackerSteps::stopKeepAlive(common::ICanChannel& channel, const std::vector<unsigned long>& ids)
 {
-    (void)ids;
-    _keepAliveIds.clear();
+    for(const auto&id: ids) {
+        channel.stopPeriodicMsg(id);
+    }
 }
 
 } // namespace flasher

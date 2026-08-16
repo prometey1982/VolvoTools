@@ -23,7 +23,7 @@ public:
 
     std::vector<unsigned long> startKeepAlive(common::ICanChannel& channel) override;
 
-    void stopKeepAlive(const std::vector<unsigned long>& ids) override;
+    void stopKeepAlive(common::ICanChannel& channel, const std::vector<unsigned long>& ids) override;
 
     virtual std::chrono::milliseconds getRetryDelay() const { return std::chrono::milliseconds{10}; }
 

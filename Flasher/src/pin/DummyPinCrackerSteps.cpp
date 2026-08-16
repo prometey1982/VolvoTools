@@ -26,7 +26,7 @@ std::vector<unsigned long> DummyPinCrackerSteps::startKeepAlive([[maybe_unused]]
     return {};
 }
 
-void DummyPinCrackerSteps::stopKeepAlive([[maybe_unused]]const std::vector<unsigned long>& ids)
+void DummyPinCrackerSteps::stopKeepAlive([[maybe_unused]]common::ICanChannel& channel, [[maybe_unused]]const std::vector<unsigned long>& ids)
 {
 }
 

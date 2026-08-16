@@ -21,7 +21,7 @@ std::unique_ptr<CanIdProvider> createCanIdProvider(
     }
 
     if (protocol == ProtocolType::CAN && canIdBitSize == 29) {
-        return std::make_unique<CanIdD2>();
+        return std::make_unique<CanId29bit>(ecuId, funcGroup);
     }
 
     if (protocol == ProtocolType::ISO14230 || protocol == ProtocolType::ISO9141) {

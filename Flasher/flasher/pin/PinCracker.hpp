@@ -53,6 +53,7 @@ public:
     void stop();
 
 private:
+    void setState(State newState, uint64_t pin = 0);
     void run();
 
     std::vector<BusContext> _buses;
