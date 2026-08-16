@@ -14,3 +14,4 @@ cmake_layout
 
 [options]
 easyloggingpp/*:enable_default_logfile=False
+easyloggingpp/*:enable_performance_tracking=True
