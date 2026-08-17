@@ -250,6 +250,9 @@ namespace common {
         PASSTHRU_MSG msgFilter =
             makePassThruMsg(ProtocolID, Flags, { 0x00, 0x00, 0x00, 0x01 });
         channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
+        msgFilter =
+            makePassThruMsg(ProtocolID, Flags, { 0x18, 0xDA, 0x00, 0x00 });
+        channel->startMsgFilter(PASS_FILTER, &msgFilter, &msgFilter, nullptr, msgId);
 
         if (AdditionalConfiguration && ProtocolID == CAN_XON_XOFF) {
             startXonXoffMessageFiltering(*channel, Flags);

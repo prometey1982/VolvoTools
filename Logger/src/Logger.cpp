@@ -83,9 +83,13 @@ namespace logger {
 		}
 	};
 
-    class DEMD2LoggerImpl : public LoggerImpl {
+    class D2BBLoggerImpl : public LoggerImpl {
     public:
-        DEMD2LoggerImpl() : LoggerImpl() {}
+        D2BBLoggerImpl(uint32_t ecuId)
+            : LoggerImpl()
+            , _ecuId(ecuId)
+        {
+        }
 
     private:
         virtual void registerParameters(common::ICanChannel&, const LogParameters&) override
@@ -100,7 +104,7 @@ namespace logger {
             for (size_t i = 0; i < parameters.parameters().size(); ++i) {
                 common::D2Request readMemoryRequest{
                     common::D2Messages::createReadDataByAddrMsg(
-                    static_cast<uint8_t>(common::D2ECUType::DEM), parameters.parameters()[i].addr(),
+                    static_cast<uint8_t>(_ecuId), parameters.parameters()[i].addr(),
                         static_cast<uint8_t>(parameters.parameters()[i].size())) };
 
                 const auto readResponse{ readMemoryRequest.process(channel) };
@@ -108,6 +112,8 @@ namespace logger {
             }
             return result;
         }
+
+        uint32_t _ecuId;
     };
 
     class AW55D2LoggerImpl : public LoggerImpl {
@@ -366,7 +372,7 @@ namespace logger {
         if (cmId == to_underlying(common::D2ECUType::DEM)
             && (carPlatform == CarPlatform::P80 || carPlatform == CarPlatform::P2
                 || carPlatform == CarPlatform::P2_250)) {
-            return std::make_unique<DEMD2LoggerImpl>();
+            return std::make_unique<D2BBLoggerImpl>(cmId);
         }
         const common::ECUInfo ecuInfo{ std::get<1>(common::getEcuInfoByEcuId(carPlatform, cmId)) };
         if (carPlatform == CarPlatform::P3 || carPlatform == CarPlatform::Ford_UDS || carPlatform == CarPlatform::VAG) {
