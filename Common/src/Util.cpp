@@ -47,12 +47,8 @@ namespace common {
     uint32_t encodeBigEndian(const std::vector<uint8_t>& data) {
         uint32_t result{};
         auto it = data.cbegin();
-        for(size_t i = 0; i < 4; ++i) {
+        for(size_t i = 0; i < 4 && it != data.cend(); ++i, ++it) {
             result += (*it) << (i * 8);
-            ++it;
-            if(it == data.cend()) {
-                break;
-            }
         }
         return result;
     }
@@ -60,12 +56,8 @@ namespace common {
     uint32_t encodeLittleEndian(const std::vector<uint8_t>& data) {
         uint32_t result{};
         auto it = data.crbegin();
-        for(size_t i = 0; i < 4; ++i) {
+        for(size_t i = 0; i < 4 && it != data.crend(); ++i, ++it) {
             result += ((*it) << (i * 8));
-            ++it;
-            if(it == data.crend()) {
-                break;
-            }
         }
         return result;
     }
