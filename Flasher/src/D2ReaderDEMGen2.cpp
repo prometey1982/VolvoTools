@@ -75,7 +75,7 @@ void D2ReaderDEMGen2::readStep(common::ICanChannel &channel, uint8_t ecuId)
             chunkSize = 0;
             const auto currentPos = range.startAddr + i;
             const auto msg = common::D2RawMessages::createReadOffsetMsgDEM(
-                static_cast<uint8_t>(common::D2ECUType::ECM_ME), currentPos);
+                static_cast<uint8_t>(common::D2ECUType::DEM), currentPos);
             try {
                 const auto answer = writeMessagesAndReadMessage(channel, msg);
                 for(size_t s = 2; s < answer.data.size() && i + chunkSize < range.size; ++s) {
