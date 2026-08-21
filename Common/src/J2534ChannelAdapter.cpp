@@ -14,14 +14,16 @@ void canFrameToPassthruMsg(const common::CanFrame& frame,
                             unsigned long protocolId,
                             unsigned long txFlags,
                             PASSTHRU_MSG& msg) {
+    const bool isUds = (protocolId == ISO15765 || protocolId == ISO15765_PS);
     std::memset(&msg, 0, sizeof(msg));
     msg.ProtocolID = protocolId;
     msg.RxStatus = 0;
-    msg.TxFlags = txFlags | (frame.isExtendedId ? CAN_29BIT_ID : 0);
+    msg.TxFlags = txFlags | (frame.isExtendedId ? CAN_29BIT_ID : 0) | (isUds ? ISO15765_FRAME_PAD : 0);
     msg.Timestamp = 0;
     msg.ExtraDataIndex = 0;
     // WORKAROUND: DiCE hangsup if DataSize < 12 bytes
-    msg.DataSize = 4ul + std::max(static_cast<unsigned long>(frame.data.size()), 8ul);
+    // Don't check for 8 bytes size for UDS protocol
+    msg.DataSize = 4ul + std::max(static_cast<unsigned long>(frame.data.size()), isUds ? 0ul : 8ul);
     msg.Data[0] = (frame.id >> 24) & 0xFF;
     msg.Data[1] = (frame.id >> 16) & 0xFF;
     msg.Data[2] = (frame.id >> 8) & 0xFF;
@@ -64,6 +66,7 @@ J2534ChannelAdapter::~J2534ChannelAdapter() = default;
 
 bool J2534ChannelAdapter::send(const CanFrame& frame, unsigned long timeout) {
     PASSTHRU_MSG msg;
+
     canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
     unsigned long numMsgs = 1;
     auto rc = _channel->writeMsgs({ msg }, numMsgs, timeout);

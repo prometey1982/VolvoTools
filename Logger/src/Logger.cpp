@@ -249,7 +249,7 @@ namespace logger {
                 common::UDSRequest requestDid{_canId, { 0x22, static_cast<uint8_t>(did >> 8), static_cast<uint8_t>(did) }};
                 const auto data{requestDid.process(channel)};
                 size_t paramIndex = 0;
-                for(size_t i = 7; i < data.size(); ++i) {
+                for(size_t i = 3; i < data.size(); ++i) {
                     const size_t initialParamIndex{didRequest.paramIndexes[paramIndex]};
                     const auto& param = parameters.parameters()[initialParamIndex];
                     value += data[i] << ((param.size() - paramOffset - 1) * 8);
