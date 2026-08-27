@@ -29,7 +29,7 @@ namespace logger {
 		void registerCallback(LoggerCallback& callback);
 		void unregisterCallback(LoggerCallback& callback);
 
-		void start(unsigned long baudrate, const LogParameters& parameters);
+		void start(const LogParameters& parameters);
 		void stop();
 
 	private:

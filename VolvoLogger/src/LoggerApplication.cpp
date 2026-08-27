@@ -12,8 +12,7 @@ namespace logger {
   return s_app;
 }
 
-void LoggerApplication::start(unsigned long baudrate,
-                              j2534::J2534 &j2534,
+void LoggerApplication::start(j2534::J2534 &j2534,
                               const LogParameters &params,
                               const common::CarPlatform carPlatform,
                               uint32_t cmId,
@@ -22,7 +21,7 @@ void LoggerApplication::start(unsigned long baudrate,
   for (const auto &callback : callbacks) {
     _logger->registerCallback(*callback);
   }
-  _logger->start(baudrate, params);
+  _logger->start(params);
 }
 
 void LoggerApplication::stop() {

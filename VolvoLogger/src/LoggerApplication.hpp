@@ -19,7 +19,7 @@ class LoggerApplication final {
 public:
   static LoggerApplication &instance();
 
-  void start(unsigned long baudrate, j2534::J2534 &j2534,
+  void start(j2534::J2534 &j2534,
              const LogParameters &params,
              common::CarPlatform carPlatform,
              uint32_t cmId,

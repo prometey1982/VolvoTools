@@ -110,7 +110,7 @@ int main(int argc, const char *argv[]) {
           logger::FileLogWriter fileLogWriter(outputPath, params);
           ConsoleLogWriter consoleLogWriter{printCount};
           logger::LoggerApplication::instance().start(
-              baudrate, *j2534, params, carPlatform, cmId,
+              *j2534, params, carPlatform, cmId,
               {&fileLogWriter, &consoleLogWriter});
           while (logger::LoggerApplication::instance().isStarted()) {
             std::this_thread::sleep_for(std::chrono::seconds(1));

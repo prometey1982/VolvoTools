@@ -427,7 +427,7 @@ namespace logger {
 			_callbacks.end());
 	}
 
-	void Logger::start(unsigned long baudrate, const LogParameters& parameters) {
+	void Logger::start(const LogParameters& parameters) {
 		std::unique_lock<std::mutex> lock{ _mutex };
 		if (!_stopped) {
 			throw std::runtime_error("Logging already started");
