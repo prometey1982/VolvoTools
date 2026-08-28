@@ -433,6 +433,8 @@ namespace logger {
 			throw std::runtime_error("Logging already started");
 		}
 
+		stopImpl();
+
 		_parameters = parameters;
 
 		registerParameters();
@@ -449,16 +451,23 @@ namespace logger {
 			std::unique_lock<std::mutex> lock{ _mutex };
 			_stopped = true;
 		}
-		if (_loggingThread.joinable())
+		stopImpl();
+	}
+
+	void Logger::stopImpl()
+	{
+		if (_loggingThread.joinable()) {
 			_loggingThread.join();
+		}
 
 		{
 			std::unique_lock<std::mutex> lock{ _callbackMutex };
 			_callbackCond.notify_all();
 		}
 
-		if (_callbackThread.joinable())
+		if (_callbackThread.joinable()) {
 			_callbackThread.join();
+		}
 	}
 
 	void Logger::registerParameters() {

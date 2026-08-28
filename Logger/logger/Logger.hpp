@@ -33,6 +33,7 @@ namespace logger {
 		void stop();
 
 	private:
+		void stopImpl();
 		void registerParameters();
 
 		void logFunction();
