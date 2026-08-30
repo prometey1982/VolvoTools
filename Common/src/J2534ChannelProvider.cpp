@@ -8,7 +8,9 @@
 #include <j2534/J2534.hpp>
 #include <j2534/J2534Channel.hpp>
 
+#include <chrono>
 #include <stdexcept>
+#include <thread>
 
 namespace common {
 
@@ -52,6 +54,11 @@ J2534ChannelProvider::J2534ChannelProvider(j2534::J2534& j2534, CarPlatform carP
     , _carPlatform{ carPlatform }
     , _bridgeChannel{ openBridgeChannelIfNeeded(_j2534, _carPlatform) }
 {
+    // WORKAROUND: if bridge channel is opened then we need to wait some time
+    // to open relay.
+    if(_bridgeChannel) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
 }
 
 J2534ChannelProvider::~J2534ChannelProvider()
