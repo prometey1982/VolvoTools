@@ -390,11 +390,12 @@ namespace logger {
 		{
 		case common::CarPlatform::P1:
 		case common::CarPlatform::P2:
+		case common::CarPlatform::P2_250:
 		case common::CarPlatform::P80:
 			return LoggerType::LT_D2;
 		case common::CarPlatform::P3:
-        case common::CarPlatform::Haval_UDS:
-        case common::CarPlatform::Ford_UDS:
+		case common::CarPlatform::Haval_UDS:
+		case common::CarPlatform::Ford_UDS:
 			return LoggerType::LT_UDS;
 		default:
 			throw std::runtime_error("Unsupported car platform");
