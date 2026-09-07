@@ -122,8 +122,8 @@ namespace {
                                                               size_t endOffset)
     {
         std::vector<std::vector<CanFrame>> result;
-        const size_t chunkSize = 6;
-        const size_t maxFramesPerBatch = 10;
+        constexpr size_t chunkSize = 6;
+        constexpr size_t maxFramesPerBatch = 5;
 
         for (size_t i = beginOffset; i < endOffset; i += chunkSize) {
             const auto payloadSize = std::min(chunkSize, endOffset - i);
