@@ -175,8 +175,8 @@ namespace logger {
         UDSLoggerImpl(uint32_t canId)
             : LoggerImpl()
             , _canId{ canId }
-			, _didBase(0xF200)
-            , _didMaxDataSize{ 7 }
+            , _didBase(0xF300)
+            , _didMaxDataSize{ 120 }
 		{
 		}
 
