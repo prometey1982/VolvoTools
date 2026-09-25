@@ -177,6 +177,7 @@ namespace logger {
             , _canId{ canId }
             , _didBase(0xF300)
             , _didMaxDataSize{ 120 }
+            , _didMaxCount{ 30 }
 		{
 		}
 
@@ -189,12 +190,12 @@ namespace logger {
         size_t getFittingDidIndex(const LogParameter& logParameter) {
             uint16_t maxId = _didBase - 1;
             for(size_t i = 0; i < _didRequests.size(); ++i) {
-                if(_didRequests[i].freeSize >= logParameter.size()) {
+                if(_didRequests[i].freeSize >= logParameter.size() && _didRequests[i].freeCount > 0) {
                     return i;
                 }
                 maxId = std::max(maxId, _didRequests[i].didId);
             }
-            _didRequests.emplace_back(DidInfo(maxId + 1, _didMaxDataSize));
+            _didRequests.emplace_back(DidInfo(maxId + 1, _didMaxDataSize, _didMaxCount));
             return _didRequests.size() - 1;
         }
 
@@ -212,6 +213,7 @@ namespace logger {
                 size_t didIndex = getFittingDidIndex(param);
                 _didRequests[didIndex].paramIndexes.push_back(i);
                 _didRequests[didIndex].freeSize -= param.size();
+                --_didRequests[didIndex].freeCount;
             }
             for (const auto& didRequest: _didRequests) {
                 const auto did = didRequest.didId;
@@ -269,9 +271,10 @@ namespace logger {
 		}
 
         struct DidInfo {
-            DidInfo(uint16_t didId, size_t freeSize)
+            DidInfo(uint16_t didId, size_t freeSize, size_t freeCount)
                 : didId{ didId }
                 , freeSize{ freeSize }
+                , freeCount{ freeCount }
             {
             }
             DidInfo(const DidInfo&) = default;
@@ -280,11 +283,13 @@ namespace logger {
             uint16_t didId;
             std::vector<size_t> paramIndexes;
             size_t freeSize;
+            size_t freeCount;
         };
 
         const uint32_t _canId;
 		const uint16_t _didBase;
         const size_t _didMaxDataSize;
+        const size_t _didMaxCount;
         std::vector<DidInfo> _didRequests;
 	};
 
@@ -330,7 +335,27 @@ namespace logger {
                     }
                     size_t paramOffset = 0;
                     uint32_t value = 0;
-                    for(size_t j = 5; j < data.size(); ++j) {
+                    for(size_t j = 3; j < data.size(); ++j) {
+                        value += data[j] << (paramOffset * 8);
+                        ++paramOffset;
+                        if (paramOffset >= param.size()) {
+                            result.push_back(value);
+                            break;
+                        }
+                    }
+                }
+                catch(const std::exception& ex) {
+                    LOG_MODULE(ERROR) << ex.what();
+                }
+                catch(...) {
+                }
+            }
+            return result;
+        }
+
+        const uint32_t _canId;
+    };
+
                         value += data[j] << (paramOffset * 8);
                         ++paramOffset;
                         if (paramOffset >= param.size()) {
