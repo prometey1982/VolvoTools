@@ -356,6 +356,51 @@ namespace logger {
         const uint32_t _canId;
     };
 
+    class UDSHavalTCULoggerImpl : public LoggerImpl {
+    public:
+        UDSHavalTCULoggerImpl(uint32_t canId)
+            : LoggerImpl()
+            , _canId{ canId }
+        {
+        }
+
+    private:
+
+        virtual void
+        registerParameters(common::ICanChannel& channel,
+                           const LogParameters& parameters) override {
+
+            common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
+            if(diagSessionRequest.process(channel).empty()) {
+                return;
+            }
+        }
+
+        virtual std::vector<uint32_t>
+        requestMemory(common::ICanChannel& channel,
+                      const LogParameters& parameters) override {
+            std::vector<uint32_t> result;
+            constexpr uint8_t addrLength = 4;
+            constexpr uint8_t dataLength = 1;
+            constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
+            for (size_t i = 0; i < parameters.parameters().size(); ++i) {
+                try {
+                    const auto& param = parameters.parameters()[i];
+                    const auto formattedAddr = common::toVector(param.addr());
+                    const uint8_t kind = 0x01; // memory region
+                    common::UDSRequest addrRequest(
+                        _canId, { 0xF6, formattedAddr[0], formattedAddr[1], formattedAddr[2], formattedAddr[3], kind });
+                    addrRequest.process(channel);
+                    common::UDSRequest dataRequest(
+                        _canId, { 0xE8 });
+                    const auto data = dataRequest.process(channel);
+                    if(data.empty()) {
+                        continue;
+                    }
+                    size_t paramOffset = 0;
+                    uint32_t value = 0;
+                    LOG_MODULE(INFO) << common::dumpArray(data);
+                    for(size_t j = 3; j < data.size(); ++j) {
                         value += data[j] << (paramOffset * 8);
                         ++paramOffset;
                         if (paramOffset >= param.size()) {
@@ -404,7 +449,12 @@ namespace logger {
             return std::make_unique<UDSLoggerImpl>(ecuInfo.canId);
         }
         else if (carPlatform == CarPlatform::Haval_UDS) {
-            return std::make_unique<UDSSlowLoggerImpl>(ecuInfo.canId);
+            if(cmId == 0x10) {
+                return std::make_unique<UDSSlowLoggerImpl>(ecuInfo.canId);
+            }
+            else if(cmId == 0x18) {
+                return std::make_unique<UDSHavalTCULoggerImpl>(ecuInfo.canId);
+            }
         }
         throw std::runtime_error("Not implemented");
 	}
