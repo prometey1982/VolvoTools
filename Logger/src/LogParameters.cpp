@@ -4,6 +4,7 @@
 
 #include <csv.h>
 
+#include <filesystem>
 #include <fstream>
 #include <numeric>
 
@@ -41,7 +42,8 @@ namespace logger {
 	}
 
 	LogParameters::LogParameters(const std::string& path) {
-        std::ifstream stream(path);
+        std::filesystem::path fpath = std::filesystem::u8path(path);
+        std::ifstream stream(fpath);
         io::CSVReader<11> reader{ "log.params", stream };
         load(reader);
 	}
