@@ -371,9 +371,9 @@ namespace logger {
                            const LogParameters& parameters) override {
 
             common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
-            if(diagSessionRequest.process(channel).empty()) {
-                return;
-            }
+
+            const auto response = diagSessionRequest.process(channel);
+            LOG_MODULE(INFO) << common::dumpArray(response);
         }
 
         virtual std::vector<uint32_t>
@@ -387,13 +387,33 @@ namespace logger {
                 try {
                     const auto& param = parameters.parameters()[i];
                     const auto formattedAddr = common::toVector(param.addr());
-                    const uint8_t kind = 0x01; // memory region
+                    uint8_t kind = 0x01; // memory region
+                    if(param.addr() >= 0xA0240000 && param.addr() < 0xA0280000) {
+                        kind = 0x0;
+                    }
+                    else if(param.addr() >= 0x60000000 && param.addr() < 0x6001E000) {
+                        kind = 0x1;
+                    }
+                    else if(param.addr() >= 0x80104000 && param.addr() < 0x80240000) {
+                        kind = 0x2;
+                    }
+                    else if(param.addr() >= 0x80080000 && param.addr() < 0x800E0000) {
+                        kind = 0x3;
+                    }
+                    else if(param.addr() >= 0xA00E0000 && param.addr() < 0xA0100000) {
+                        kind = 0x4;
+                    }
+                    else if(param.addr() >= 0x60103000 && param.addr() < 0x60105000) {
+                        kind = 0x5;
+                    }
                     common::UDSRequest addrRequest(
                         _canId, { 0xF6, formattedAddr[0], formattedAddr[1], formattedAddr[2], formattedAddr[3], kind });
-                    addrRequest.process(channel);
+                    const auto addrReponse = addrRequest.process(channel);
+                    LOG_MODULE(INFO) << common::dumpArray(addrReponse);
                     common::UDSRequest dataRequest(
                         _canId, { 0xE8 });
                     const auto data = dataRequest.process(channel);
+                    LOG_MODULE(INFO) << common::dumpArray(data);
                     if(data.empty()) {
                         continue;
                     }
@@ -413,6 +433,7 @@ namespace logger {
                     LOG_MODULE(ERROR) << ex.what();
                 }
                 catch(...) {
+                    LOG_MODULE(ERROR) << "Unknown error";
                 }
             }
             return result;
@@ -578,6 +599,10 @@ namespace logger {
                     now - startTimepoint),
                     std::move(logRecord)));
                 errorCount = 0;
+            }
+            catch(const std::exception& ex) {
+                LOG_MODULE(ERROR) << ex.what();
+                ++errorCount;
             }
             catch(...) {
                 ++errorCount;
