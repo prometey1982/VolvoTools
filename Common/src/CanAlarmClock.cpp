@@ -24,18 +24,25 @@ CanAlarmClock::CanAlarmClock(j2534::J2534& j2534)
 
 void CanAlarmClock::start()
 {
-    std::array platforms{ common::CarPlatform::P2_250, common::CarPlatform::P2, common::CarPlatform::P2_UDS, common::CarPlatform::P3 };
+    std::array platforms{ common::CarPlatform::P2, common::CarPlatform::P2_250, common::CarPlatform::P2_UDS, common::CarPlatform::P3 };
     for(const auto& platform: platforms) {
         J2534ChannelProvider provider(_j2534, platform);
         try {
             auto channels{ provider.getAllChannels() };
-
+            {
             D2ProtocolCommonSteps::wakeUp(channels);
-
-            auto udsProvider = createCanIdProvider(ProtocolType::ISO15765, 11, 0, 0, 0x33);
-            auto funcCanId = udsProvider->getFuncCanId();
-            UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
             }
+            {
+                auto udsProvider = createCanIdProvider(ProtocolType::ISO15765, 29, 0, 0, 0x33);
+                auto funcCanId = udsProvider->getFuncCanId();
+                UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
+            }
+            {
+                auto udsProvider = createCanIdProvider(ProtocolType::ISO15765, 11, 0, 0, 0x33);
+                auto funcCanId = udsProvider->getFuncCanId();
+                UDSProtocolCommonSteps::wakeUp(channels, funcCanId);
+            }
+        }
         catch(const std::exception &ex)
         {
             LOG_MODULE(ERROR) << "carPlatform(" << to_underlying(platform) << "), " << ex.what();

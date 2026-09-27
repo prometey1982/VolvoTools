@@ -176,7 +176,14 @@ namespace {
     {
         LOG_MODULE(TRACE) << "wakeUp enter";
         for (size_t i = 0; i < channels.size(); ++i) {
-            channels[i]->send({D2Message::CanId, {0xFF, 0xC8, 0, 0, 0, 0, 0, 0}, true});
+            unsigned long msgId;
+            if (!channels[i]->startPeriodicMsg({D2Message::CanId, {0xFF, 0xC8, 0, 0, 0, 0, 0, 0}, true}, 20, msgId)) {
+                LOG_MODULE(ERROR) << "wakeUp error, failed to start periodic message on channel = " << i
+                                  << ", baudrate = " << channels[i]->getBaudrate();
+                continue;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            channels[i]->stopPeriodicMsg(msgId);
         }
         LOG_MODULE(TRACE) << "wakeUp exit";
     }

@@ -49,15 +49,15 @@ namespace common {
             for (size_t i = 0; i < channels.size(); ++i) {
                 unsigned long msgId;
                 if (!channels[i]->startPeriodicMsg({funcCanId, {0x11, static_cast<uint8_t>(idToWakeUp)}}, 20, msgId)) {
-                    LOG_MODULE(ERROR) << "wakeUp error, failed to start periodic message on channel = " << i;
-                    return;
+                        LOG_MODULE(ERROR) << "wakeUp error, failed to start periodic message on channel = " << i
+                                      << ", baudrate = " << channels[i]->getBaudrate();
+                    continue;
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(200));
                 channels[i]->stopPeriodicMsg(msgId);
             }
         }
         LOG_MODULE(TRACE) << "wakeUp exit";
-        return;
 	}
 
 	bool UDSProtocolCommonSteps::authorize(ICanChannel& channel, uint32_t canId,

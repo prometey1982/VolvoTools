@@ -56,6 +56,10 @@ bool PinCracker::start()
             LOG(ERROR) << ex.what();
             setState(State::Error, 0);
         }
+        catch(...) {
+            LOG(ERROR) << "Unknown error";
+            setState(State::Error, 0);
+        }
     });
     return true;
 }
