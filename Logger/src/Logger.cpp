@@ -360,74 +360,74 @@ namespace logger {
     public:
         UDSHavalTCULoggerImpl(uint32_t canId)
             : LoggerImpl()
-            , _canId{ canId }
+            , _canId{ 0x635 }
         {
         }
 
     private:
 
+        static std::string formatCanFrame(const common::CanFrame& frame)
+        {
+            std::stringstream ss;
+            ss << "id: 0x" << std::hex << frame.id << ", data: " << common::dumpArray(frame.data);
+            return ss.str();
+        }
+
+        std::vector<uint8_t> processRequest(
+            common::ICanChannel& channel, uint32_t canId, const std::vector<uint8_t>& data, const std::vector<uint8_t>& toCheck = {}) const
+        {
+            LOG_MODULE(INFO) << "send, id: 0x" << std::hex << canId << ", data: " << common::dumpArray(data);
+            channel.clearRx();
+            common::CanFrame frame(canId, data, false);
+            frame.data.resize(8);
+            channel.send(frame);
+            common::CanFrame received;
+            if(channel.receive(received, 1000)) {
+                const size_t checkSize = std::min(toCheck.size(), received.data.size());
+                for(size_t i = 0; i < checkSize; ++i) {
+                    if(received.data[i] != toCheck[i]) {
+                        LOG_MODULE(WARNING) << "wrong answer: " << formatCanFrame(frame)
+                                            << ", expected: " << common::dumpArray(toCheck);
+                        break;
+                    }
+                }
+                LOG_MODULE(INFO) << "received: " << formatCanFrame(received);
+                return std::vector<uint8_t>(received.data.begin() + checkSize, received.data.end());
+            }
+            else {
+                LOG_MODULE(WARNING) << "no answer";
+                throw std::runtime_error("No answer received");
+            }
+        }
+
         virtual void
         registerParameters(common::ICanChannel& channel,
-                           const LogParameters& parameters) override {
-
-            common::UDSRequest diagSessionRequest{_canId, { 0x10, 0x03 }};
-
-            const auto response = diagSessionRequest.process(channel);
-            LOG_MODULE(INFO) << common::dumpArray(response);
+                           const LogParameters& parameters) override
+        {
+            try {
+                processRequest(channel, 0x7E1, { 0x2, 0x10, 0x3 }, {});
+            }
+            catch(...)
+            {
+            }
+            processRequest(channel, _canId, { 0xFF }, {});
         }
 
         virtual std::vector<uint32_t>
         requestMemory(common::ICanChannel& channel,
-                      const LogParameters& parameters) override {
+                      const LogParameters& parameters) override
+        {
             std::vector<uint32_t> result;
-            constexpr uint8_t addrLength = 4;
-            constexpr uint8_t dataLength = 1;
-            constexpr uint8_t dataFormat = (dataLength << 4) + addrLength;
             for (size_t i = 0; i < parameters.parameters().size(); ++i) {
                 try {
                     const auto& param = parameters.parameters()[i];
                     const auto formattedAddr = common::toVector(param.addr());
-                    uint8_t kind = 0x01; // memory region
-                    if(param.addr() >= 0xA0240000 && param.addr() < 0xA0280000) {
-                        kind = 0x0;
-                    }
-                    else if(param.addr() >= 0x60000000 && param.addr() < 0x6001E000) {
-                        kind = 0x1;
-                    }
-                    else if(param.addr() >= 0x80104000 && param.addr() < 0x80240000) {
-                        kind = 0x2;
-                    }
-                    else if(param.addr() >= 0x80080000 && param.addr() < 0x800E0000) {
-                        kind = 0x3;
-                    }
-                    else if(param.addr() >= 0xA00E0000 && param.addr() < 0xA0100000) {
-                        kind = 0x4;
-                    }
-                    else if(param.addr() >= 0x60103000 && param.addr() < 0x60105000) {
-                        kind = 0x5;
-                    }
-                    common::UDSRequest addrRequest(
-                        _canId, { 0xF6, formattedAddr[0], formattedAddr[1], formattedAddr[2], formattedAddr[3], kind });
-                    const auto addrReponse = addrRequest.process(channel);
-                    LOG_MODULE(INFO) << common::dumpArray(addrReponse);
-                    common::UDSRequest dataRequest(
-                        _canId, { 0xE8 });
-                    const auto data = dataRequest.process(channel);
-                    LOG_MODULE(INFO) << common::dumpArray(data);
-                    if(data.empty()) {
-                        continue;
-                    }
-                    size_t paramOffset = 0;
-                    uint32_t value = 0;
-                    LOG_MODULE(INFO) << common::dumpArray(data);
-                    for(size_t j = 3; j < data.size(); ++j) {
-                        value += data[j] << (paramOffset * 8);
-                        ++paramOffset;
-                        if (paramOffset >= param.size()) {
-                            result.push_back(value);
-                            break;
-                        }
-                    }
+                    const auto data = processRequest(
+                        channel, _canId, { 0xF4, static_cast<uint8_t>(param.size()), 0x00, 0x00,
+                                  formattedAddr[3], formattedAddr[2], formattedAddr[1], formattedAddr[0] }, { 0xFF });
+
+                    const uint32_t value = common::encodeBigEndian(data);
+                    result.push_back(value);
                 }
                 catch(const std::exception& ex) {
                     LOG_MODULE(ERROR) << ex.what();
@@ -470,12 +470,7 @@ namespace logger {
             return std::make_unique<UDSLoggerImpl>(ecuInfo.canId);
         }
         else if (carPlatform == CarPlatform::Haval_UDS) {
-            if(cmId == 0x10) {
-                return std::make_unique<UDSSlowLoggerImpl>(ecuInfo.canId);
-            }
-            else if(cmId == 0x18) {
-                return std::make_unique<UDSHavalTCULoggerImpl>(ecuInfo.canId);
-            }
+            return std::make_unique<UDSSlowLoggerImpl>(ecuInfo.canId);
         }
         throw std::runtime_error("Not implemented");
 	}

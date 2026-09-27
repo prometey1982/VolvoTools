@@ -653,7 +653,18 @@ namespace common {
         return EncryptionType::None;
     }
 
-    static ECUInfo processEcuNode(const YAML::Node& node)
+    static ProtocolType getCanProtocol(const std::string& input)
+    {
+        if (toLower(input) == "can")
+            return ProtocolType::CAN;
+        else if (input == "15765-2")
+            return ProtocolType::ISO15765;
+        else if (input == "14230-3")
+            return ProtocolType::ISO14230;
+        return ProtocolType::NONE;
+    }
+
+    static ECUInfo processEcuNode(const YAML::Node& node, ProtocolType parentProtocol)
     {
         ECUInfo ecuInfo;
         ecuInfo.name = node["Name"].as<std::string>();
@@ -661,18 +672,13 @@ namespace common {
         ecuInfo.canId = std::stoi(getNonEmptyHexIntString(node["CANIdentifier"].as<std::string>("")), 0, 16);
         ecuInfo.compressionType = getEcuCompression(node);
         ecuInfo.encryptionType = getEcuEncryption(node);
+        if(const auto protocol = getCanProtocol(node["Protocol"].as<std::string>("")); protocol != ProtocolType::NONE) {
+            ecuInfo.protocol = protocol;
+        }
+        else {
+            ecuInfo.protocol = parentProtocol;
+        }
         return ecuInfo;
-    }
-
-    static ProtocolType getCanProtocol(const std::string& input)
-    {
-        if (input == "CAN")
-            return ProtocolType::CAN;
-        else if (input == "15765-2")
-            return ProtocolType::ISO15765;
-        else if (input == "14230-3")
-            return ProtocolType::ISO14230;
-        return ProtocolType::CAN;
     }
 
     static std::vector<ConfigurationInfo> loadConfigurationImpl(const YAML::Node& node)
@@ -692,11 +698,11 @@ namespace common {
                 if (nodes.IsDefined()) {
                     if (nodes.IsSequence()) {
                         for (const auto& node : bus["Node"]) {
-                            busConf.ecuInfo.emplace_back(processEcuNode(node));
+                            busConf.ecuInfo.emplace_back(processEcuNode(node, busConf.protocol));
                         }
                     }
                     else {
-                        busConf.ecuInfo.emplace_back(processEcuNode(nodes));
+                        busConf.ecuInfo.emplace_back(processEcuNode(nodes, busConf.protocol));
                     }
                 }
                 info.busInfo.emplace_back(std::move(busConf));

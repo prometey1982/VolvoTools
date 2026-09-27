@@ -2,6 +2,7 @@
 
 #include "compression/CompressionType.hpp"
 #include "encryption/EncryptionType.hpp"
+#include "ProtocolType.hpp"
 
 #include <string>
 
@@ -13,6 +14,7 @@ struct ECUInfo {
     std::string name;
     CompressionType compressionType;
     EncryptionType encryptionType;
+    ProtocolType protocol;
 };
 
 } // namespace common

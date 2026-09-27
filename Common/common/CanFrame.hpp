@@ -5,7 +5,7 @@
 
 namespace common {
 
-    struct CanFrame {
+struct CanFrame {
     uint32_t id = 0;
     std::vector<uint8_t> data;
     bool isExtendedId = false;

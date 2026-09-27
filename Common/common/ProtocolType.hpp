@@ -5,6 +5,7 @@
 namespace common {
 
 enum class ProtocolType : uint32_t {
+    NONE     = 0x0,
     CAN      = 0x5,
     ISO15765 = 0x6,
     ISO14230 = 0x4,

@@ -16,22 +16,22 @@ namespace common {
 
 namespace {
 
-std::unique_ptr<j2534::J2534Channel> createRawChannelByBusConf(j2534::J2534& j2534, BusConfiguration bus, uint32_t canId = 0)
+std::unique_ptr<j2534::J2534Channel> createRawChannelByBusConf(j2534::J2534& j2534, BusConfiguration bus, ECUInfo ecuInfo)
 {
-    if(bus.protocol == ProtocolType::CAN) {
+    if(ecuInfo.protocol == ProtocolType::CAN) {
         const unsigned long flags = (bus.canIdBitSize == 29)? CAN_29BIT_ID : 0;
         if(bus.baudrate != 125000) {
-            return openChannel(j2534, static_cast<unsigned long>(bus.protocol), flags, bus.baudrate);
+            return openChannel(j2534, static_cast<unsigned long>(ecuInfo.protocol), flags, bus.baudrate);
         }
         else {
             return openLowSpeedChannel(j2534, flags);
         }
     }
-    else if(bus.protocol == ProtocolType::ISO15765) {
-        return openUDSChannel(j2534, bus.baudrate, canId);
+    else if(ecuInfo.protocol == ProtocolType::ISO15765) {
+        return openUDSChannel(j2534, bus.baudrate, ecuInfo.canId);
     }
-    else if(bus.protocol == ProtocolType::ISO14230) {
-        return openTP20Channel(j2534, bus.baudrate, canId);
+    else if(ecuInfo.protocol == ProtocolType::ISO14230) {
+        return openTP20Channel(j2534, bus.baudrate, ecuInfo.canId);
     }
     throw std::runtime_error("Unsupported protocol");
 }
@@ -75,15 +75,13 @@ std::vector<std::unique_ptr<ICanChannel>> J2534ChannelProvider::getAllChannels(u
     std::vector<std::unique_ptr<ICanChannel>> result;
     const auto conf{ getConfigurationInfoByCarPlatform(_carPlatform) };
     for(const auto& bus: conf.busInfo) {
-        uint32_t canId{};
         for(const auto& ecu: bus.ecuInfo) {
             if(ecu.ecuId == ecuId) {
-                canId = ecu.canId;
+                auto rawChannel{ createRawChannelByBusConf(_j2534, bus, ecu) };
+                if (rawChannel) {
+                    result.emplace_back(std::make_unique<J2534ChannelAdapter>(std::move(rawChannel)));
+                }
             }
-        }
-        auto rawChannel{ createRawChannelByBusConf(_j2534, bus, canId) };
-        if (rawChannel) {
-            result.emplace_back(std::make_unique<J2534ChannelAdapter>(std::move(rawChannel)));
         }
     }
     return result;
@@ -92,7 +90,7 @@ std::vector<std::unique_ptr<ICanChannel>> J2534ChannelProvider::getAllChannels(u
 std::unique_ptr<ICanChannel> J2534ChannelProvider::getChannelForEcu(uint32_t ecuId) const
 {
     const auto ecuInfo{ getEcuInfoByEcuId(_carPlatform, ecuId) };
-    auto rawChannel{ createRawChannelByBusConf(_j2534, std::get<0>(ecuInfo), std::get<1>(ecuInfo).canId) };
+    auto rawChannel{ createRawChannelByBusConf(_j2534, std::get<0>(ecuInfo), std::get<1>(ecuInfo)) };
     if (rawChannel) {
         return std::make_unique<J2534ChannelAdapter>(std::move(rawChannel));
     }
