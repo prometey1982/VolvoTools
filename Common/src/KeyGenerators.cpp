@@ -1,5 +1,8 @@
 #include "common/KeyGenerators.hpp"
 
+#include <sstream>
+#include <stdexcept>
+
 namespace common {
 
 namespace {
@@ -47,6 +50,37 @@ uint32_t generateKeyVAG(uint32_t seed)
         }
     }
     return seed;
+}
+
+uint32_t generateKeyHaval(uint32_t seed, HavalKeyType keyType)
+{
+    uint32_t poly = 0;
+    switch(keyType) {
+    case HavalKeyType::ECM_03:
+        poly = 0x2045434D;
+        break;
+    case HavalKeyType::TCM_02:
+        poly = 0x4D424120;
+        break;
+    case HavalKeyType::TCM_03:
+        poly = 0xA919843D;
+        break;
+    default:
+        std::stringstream ss;
+        ss << "Unsupported keyType: " << static_cast<int>(keyType);
+        throw std::runtime_error(ss.str());
+    }
+
+    uint32_t x = seed;
+    constexpr size_t rounds = 35;
+    for(size_t i = 0; i < rounds; ++i) {
+        const bool carry = (x >> 31) & 1u;
+        x <<= 1;
+        if(carry) {
+            x ^= poly;
+        }
+    }
+    return x;
 }
 
 } // namespace common
