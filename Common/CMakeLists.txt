@@ -29,6 +29,7 @@ if (WIN32)
     )   
 endif()
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE -D_WIN32_WINNT=0x0601)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME} yaml-cpp::yaml-cpp j2534 Registry boost::boost intelhex easyloggingpp::easyloggingpp)
 

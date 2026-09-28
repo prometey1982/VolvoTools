@@ -5,7 +5,7 @@ project(VolvoFlasher VERSION 1.0.0 LANGUAGES CXX)
 find_package(Easyloggingpp REQUIRED)
 find_package(argparse REQUIRED)
  
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 aux_source_directory(${CMAKE_CURRENT_SOURCE_DIR}/src SUB_SOURCES)
@@ -28,4 +28,6 @@ if (WIN32)
        NOMINMAX 
     )   
 endif()
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE -D_WIN32_WINNT=0x0601)
 target_link_libraries(${PROJECT_NAME} Common j2534 Flasher argparse::argparse easyloggingpp::easyloggingpp)
