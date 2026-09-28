@@ -59,6 +59,15 @@ enum class RunMode
 	Test
 };
 
+unsigned long hexStringToUlong(const std::string& str)
+{
+    std::stringstream ss;
+    ss << str;
+    unsigned long result = 0;
+    ss >> std::hex >> result;
+    return result;
+}
+
 bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	unsigned long& baudrate, std::string& flashPath, uint64_t& pin,
 	uint8_t& ecuId, unsigned long& start, unsigned long& datasize,
@@ -67,8 +76,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	program.add_argument("-d", "--device").default_value(std::string{}).help("Device name");
 	program.add_argument("-b", "--baudrate").scan<'u', unsigned long>().default_value(500000u).help("CAN bus speed");
 	program.add_argument("-f", "--platform").default_value(std::string{ "P2" }).help("Car's platform, supported values: P80, P1, P1_UDS, P2, P2_250, P2_UDS, P3, SPA");
-	program.add_argument("-e", "--ecu").scan<'x', uint8_t>().default_value(0x7A).help("ECU id");
-	program.add_argument("-p", "--pin").scan<'x', uint64_t>().default_value(static_cast<uint64_t>(0)).help("PIN to unlock ECU");
+    program.add_argument("-e", "--ecu").default_value("7A").help("ECU id");
+    program.add_argument("-p", "--pin").default_value("0x0").help("PIN to unlock ECU");
 	program.add_argument("-v", "--verbose").default_value(false).implicit_value(true).nargs(0).help("Enable verbose (debug) logging");
 
 	argparse::ArgumentParser flash_command("flash", "1.0", argparse::default_arguments::help);
@@ -79,8 +88,8 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 	argparse::ArgumentParser read_command("read", "1.0", argparse::default_arguments::help);
 	read_command.add_description("Read BIN from ECU");
 	read_command.add_argument("-o", "--output").help("File to write");
-	read_command.add_argument("-s", "--start").scan<'x', unsigned long>().help("Begin address to read");
-	read_command.add_argument("-sz", "--size").scan<'x', unsigned long>().help("Datasize to read");
+    read_command.add_argument("-s", "--start").help("Begin address to read");
+    read_command.add_argument("-sz", "--size").help("Datasize to read");
 
 	argparse::ArgumentParser test_command("test", "1.0", argparse::default_arguments::help);
 	test_command.add_description("Test purposes");
@@ -105,9 +114,9 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			runMode = RunMode::Flash;
 		}
 		else if (program.is_subcommand_used(read_command)) {
-			flashPath = read_command.get("-o");
-			start = read_command.get<unsigned long>("-s");
-			datasize = read_command.get<unsigned long>("-sz");
+            flashPath = read_command.get("-o");
+            start = hexStringToUlong(read_command.get("-s"));
+            datasize = hexStringToUlong(read_command.get("-sz"));
 			runMode = RunMode::Read;
 		}
 		else if (program.is_subcommand_used(test_command)) {
@@ -125,10 +134,10 @@ bool getRunOptions(int argc, const char* argv[], std::string& deviceName,
 			return false;
 		}
 		deviceName = program.get("-d");
-		baudrate = program.get<unsigned>("-b");
-		ecuId = program.get<uint8_t>("-e");
-		carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
-		pin = program.get<uint64_t>("-p");
+        baudrate = program.get<unsigned>("-b");
+        ecuId = static_cast<uint8_t>(hexStringToUlong(program.get("-e")));
+        carPlatform = common::parseCarPlatform(program.get<std::string>("-f"));
+        pin = hexStringToUlong(program.get("-p"));
 		verbose = program.get<bool>("-v");
 		return true;
 	}
