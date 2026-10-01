@@ -18,20 +18,38 @@ namespace common {
                                              uint32_t funcCanId)
 	{
         LOG_MODULE(TRACE) << "fallAsleep enter";
-		for (size_t i = 0; i < channels.size(); ++i) {
-			unsigned long msgId;
-			if (!channels[i]->startPeriodicMsg({funcCanId, {0x10, 0x02}}, 5, msgId)) {
-				return false;
-			}
-			std::this_thread::sleep_for(std::chrono::seconds(2));
-			channels[i]->stopPeriodicMsg(msgId);
-		}
+        std::vector<std::optional<unsigned long>> msgIds(channels.size());
+        for (size_t i = 0; i < channels.size(); ++i) {
+            unsigned long msgId;
+            if (channels[i]->startPeriodicMsg({funcCanId, { 0x10, 0x82 } }, 5, msgId)) {
+                msgIds[i] = msgId;
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        for (size_t i = 0; i < channels.size(); ++i) {
+            if (msgIds[i].has_value()) {
+                channels[i]->stopPeriodicMsg(msgIds[i].value());
+            }
+        }
         LOG_MODULE(TRACE) << "fallAsleep exit";
         return true;
 	}
 
-	std::vector<unsigned long> UDSProtocolCommonSteps::keepAlive(ICanChannel& channel,
-                                                                   uint32_t funcCanId)
+    bool UDSProtocolCommonSteps::startProgrammingSession(ICanChannel& channel, uint32_t canId)
+    {
+        LOG_MODULE(TRACE) << "startProgrammingSession enter";
+        UDSRequest request(canId, { 0x10, 0x02 });
+        const auto response(request.process(channel));
+        if (response.empty()) {
+            LOG_MODULE(ERROR) << "startProgrammingSession failed";
+            return false;
+        }
+        LOG_MODULE(TRACE) << "startProgrammingSession exit";
+        return true;
+    }
+
+    std::vector<unsigned long> UDSProtocolCommonSteps::UDSProtocolCommonSteps::keepAlive(
+        ICanChannel& channel, uint32_t funcCanId)
 	{
 		std::vector<unsigned long> result;
 		unsigned long msgId;

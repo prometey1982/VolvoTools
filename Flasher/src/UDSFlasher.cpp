@@ -51,6 +51,15 @@ namespace flasher {
             }
         }
 
+        void startProgrammingSession()
+        {
+            _stateUpdater(FlasherState::ProgrammingSession);
+            auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
+            if (!common::UDSProtocolCommonSteps::startProgrammingSession(channel, _canIdProvider->getPhysCanId())) {
+                setFailed("Enter programming sesssion failed");
+            }
+        }
+
         void keepAlive()
         {
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
@@ -161,8 +170,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
     using FSM = M::PeerRoot<
         M::Composite<
             struct StartWork,
-            struct FallAsleep,
             struct KeepAlive,
+            struct FallAsleep,
+            struct StartProgrammingSession,
             struct Authorize,
             struct LoadBootloader,
             struct StartBootloader,
@@ -200,8 +210,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             auto plan = control.plan();
-            plan.change<FallAsleep, KeepAlive>();
-            plan.change<KeepAlive, Authorize>();
+            plan.change<KeepAlive, FallAsleep>();
+            plan.change<FallAsleep, StartProgrammingSession>();
+            plan.change<StartProgrammingSession, Authorize>();
             plan.change<Authorize, LoadBootloader>();
             plan.change<LoadBootloader, StartBootloader>();
             plan.change<StartBootloader, WriteFlash>();
@@ -229,6 +240,13 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().keepAlive();
+        }
+    };
+
+    struct StartProgrammingSession : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().startProgrammingSession();
         }
     };
 
