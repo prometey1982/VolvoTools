@@ -732,10 +732,13 @@ namespace common {
 
     void checkUDSError(uint8_t requestId, const uint8_t* data, size_t dataSize)
     {
-        if(dataSize < 7 || data[4] != 0x7F || data[5] != requestId) {
+        // data — полезная нагрузка UDS-ответа: 4-байтовый CAN-заголовок уже отброшен
+        // транспортом (J2534ChannelAdapter::passthruMsgToCanFrame), поэтому негативный
+        // ответ лежит с нулевого байта: [0]=0x7F, [1]=эхо сервиса, [2]=код ошибки (NRC).
+        if(dataSize < 3 || data[0] != 0x7F || data[1] != requestId) {
             return;
         }
-        throw UDSError(data[6]);
+        throw UDSError(data[2]);
     }
 
     CarPlatform parsePlatform(std::string input)
