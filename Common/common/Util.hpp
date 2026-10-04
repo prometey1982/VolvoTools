@@ -11,6 +11,7 @@
 #include <vector>
 #include <type_traits>
 #include <ios>
+#include <iomanip>
 
 class ICanChannel;
 
@@ -108,8 +109,9 @@ namespace common {
     std::string dumpArray(const T& vec)
     {
         std::stringstream ss;
+        ss << std::hex << std::setfill('0');
         for(const auto& i: vec) {
-            ss << std::hex << int(i) << " ";
+            ss << std::setw(2) << int(i) << " ";
         }
         return ss.str();
     }
