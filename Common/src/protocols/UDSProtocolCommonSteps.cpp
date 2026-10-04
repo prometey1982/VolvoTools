@@ -10,6 +10,7 @@
 #define LOG_MODULE_NAME "common"
 #include "common/LogHelper.hpp"
 
+#include <iomanip>
 #include <thread>
 
 namespace common {
@@ -82,41 +83,69 @@ namespace common {
 		const std::array<uint8_t, 5>& pin)
 	{
         LOG_SCOPE_DURATION(authorize);
-        LOG_MODULE(TRACE) << "authorize enter pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+        constexpr size_t attemptsCount = 5;
+        constexpr auto retryDelay = std::chrono::milliseconds(500);
+        const auto pinToString = [&pin]() {
+            std::stringstream stream;
+            stream << std::hex << std::setfill('0');
+            for(size_t i = 0; i < pin.size(); ++i) {
+                stream << std::setw(2) << static_cast<int>(pin[i]) << " ";
+            }
+            return stream.str();
+        };
+        LOG_MODULE(TRACE) << "authorize enter pin: " << pinToString();
         UDSRequest seedRequest(canId, { 0x27, 0x01 });
-        for(size_t i = 0; i < 5; ++i) {
+        for(size_t i = 0; i < attemptsCount; ++i) {
+            const char* phase = "seed";
             try {
                 channel.clearRx();
                 const auto seedResponse(seedRequest.process(channel));
-                if (seedResponse.size() < 5)
+                if (seedResponse.size() < 5) {
+                    LOG_MODULE(ERROR) << "authorize failed: short seed response "
+                                      << dumpArray(seedResponse) << ", pin: " << pinToString();
                     return false;
+                }
                 std::array<uint8_t, 3> seed = { seedResponse[2], seedResponse[3], seedResponse[4] };
                 uint32_t key = generateKeyVolvoFord(pin, seed);
                 channel.clearRx();
+                phase = "key";
                 UDSRequest keyRequest(canId, { 0x27, 0x02, (key >> 16) & 0xFF, (key >> 8) & 0xFF, key & 0xFF });
-                try {
-                    const auto keyResponse(keyRequest.process(channel));
-                    const bool result = keyResponse.size() >= 2 && keyResponse[1] == 0x02;
-                    if(!result) {
-                        LOG_MODULE(ERROR) << "authorize wrong pin, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
-                    }
-                    else {
-                        LOG_MODULE(INFO) << "authorize success, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
-                    }
-                    return result;
+                const auto keyResponse(keyRequest.process(channel));
+                const bool result = keyResponse.size() >= 2 && keyResponse[1] == 0x02;
+                if(!result) {
+                    LOG_MODULE(ERROR) << "authorize wrong pin, answer: " << dumpArray(keyResponse)
+                                      << ", pin: " << pinToString();
                 }
-                catch(UDSError& error) {
-                    if(error.getErrorCode() == UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
-                    }
-                    LOG_MODULE(ERROR) << "authorize error: " << error.what() << ", pin = "
-                               << std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+                else {
+                    LOG_MODULE(INFO) << "authorize success, pin: " << pinToString();
                 }
+                return result;
             }
-            catch (...) {
-                std::this_thread::sleep_for(std::chrono::seconds(5));
+            catch(const UDSError& error) {
+                // ЭБУ ответил негативно. Повторять тот же запрос имеет смысл только
+                // если он просит переждать (0x37) — остальные коды это детерминированный
+                // отказ (неверный ключ, исчерпаны попытки, запрет в этой сессии).
+                LOG_MODULE(ERROR) << "authorize failed on " << phase << " request: " << error.what()
+                                  << " (0x" << std::hex << static_cast<int>(error.getErrorCode()) << ")"
+                                  << ", pin: " << pinToString();
+                if (error.getErrorCode() != UDSError::ErrorCode::RequiredTimeDelayHasNotExpired) {
+                    return false;
+                }
+                std::this_thread::sleep_for(retryDelay);
+            }
+            catch(const std::exception& ex) {
+                // Транспортная ошибка (нет ответа, сбой отправки) — попытку повторяем.
+                LOG_MODULE(ERROR) << "authorize failed on " << phase << " request: " << ex.what()
+                                  << ", pin: " << pinToString();
+                std::this_thread::sleep_for(retryDelay);
+            }
+            catch(...) {
+                LOG_MODULE(ERROR) << "authorize failed on " << phase
+                                  << " request: unknown error, pin: " << pinToString();
+                std::this_thread::sleep_for(retryDelay);
             }
         }
-        LOG_MODULE(TRACE) << "authorization failed, pin: "<< std::hex << pin[0] << pin[1] << pin[2] << pin[3] << pin[4];
+        LOG_MODULE(TRACE) << "authorization failed, pin: " << pinToString();
         return false;
 	}
 
