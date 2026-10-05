@@ -39,23 +39,29 @@ VBFChunk createChunk(const std::vector<uint8_t>& data, uint32_t offset, size_t s
 
 VBF createVBFForME7(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x8000, 0x6000),
-                 createChunk(data, 0x10000, data.size() - 0x10000)}};
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x8000, 0x6000 }, { 0x10000, data.size() - 0x10000 } } },
+        {createChunk(data, 0x8000, 0x6000),
+         createChunk(data, 0x10000, data.size() - 0x10000)}};
 }
 
 VBF createVBFForME9P1(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x20000, 0x70000),
-                 createChunk(data, 0xA0000, data.size() - 0xA0000)}};
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x20000, 0x70000 }, { 0xA0000, data.size() - 0xA0000 } } },
+        {createChunk(data, 0x20000, 0x70000),
+         createChunk(data, 0xA0000, data.size() - 0xA0000)}};
 }
 
 VBF createVBFForME9P3(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x20000, 0x70000),
-                 createChunk(data, 0xA0000, 0x120000),
-                 createChunk(data, 0x1C2000, 0x1E000),
-                 createChunk(data, 0x1E0000, 0x20000)
-                }};
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x20000, 0x70000 }, { 0xA0000, 0x120000 },
+                               { 0x1C2000, 0x1E000 }, { 0x1E0000, 0x20000 } } },
+        {createChunk(data, 0x20000, 0x70000),
+         createChunk(data, 0xA0000, 0x120000),
+         createChunk(data, 0x1C2000, 0x1E000),
+         createChunk(data, 0x1E0000, 0x20000)}};
 }
 
 VBF createVBFForDensoP3(std::vector<uint8_t>& data)
@@ -73,29 +79,31 @@ VBF createVBFForDensoP3(std::vector<uint8_t>& data)
 
 VBF createVBFForDensoP3Restyling(std::vector<uint8_t>& data)
 {
-    return {{}, {createChunk(data, 0x8000, 0x2000),
-                 createChunk(data, 0xA000, 0x2000),
-                 createChunk(data, 0xE000, 0x2000),
-                 createChunk(data, 0x10000, 0x10000),
-                 createChunk(data, 0x20000, 0x10000),
-                 createChunk(data, 0x30000, 0x10000),
-                 createChunk(data, 0x40000, 0x10000),
-                 createChunk(data, 0x50000, 0x10000),
-                 createChunk(data, 0x60000, 0x10000),
-                 createChunk(data, 0x70000, 0x10000),
-                 createChunk(data, 0x80000, 0x10000),
-                 createChunk(data, 0x90000, 0x10000),
-                 createChunk(data, 0xA0000, 0x20000),
-                 createChunk(data, 0xC0000, 0x20000),
-                 createChunk(data, 0xE0000, 0x20000),
-                 createChunk(data, 0x100000, 0x20000),
-                 createChunk(data, 0x120000, 0x20000),
-                 createChunk(data, 0x140000, 0x20000),
-                 createChunk(data, 0x160000, 0x20000),
-                 createChunk(data, 0x180000, 0x20000),
-                 createChunk(data, 0x1A0000, 0x20000),
-                 createChunk(data, 0x1C0000, 0x20000),
-                 createChunk(data, 0x1E0000, 0x20000),
+    return {
+        VBFHeader{ .eraseBlocks{ { 0x8000, 0x18000 }, { 0x20000, 0x1E0000 } } },
+        {createChunk(data, 0x8000, 0x2000),
+         createChunk(data, 0xA000, 0x2000),
+         createChunk(data, 0xE000, 0x2000),
+         createChunk(data, 0x10000, 0x10000),
+         createChunk(data, 0x20000, 0x10000),
+         createChunk(data, 0x30000, 0x10000),
+         createChunk(data, 0x40000, 0x10000),
+         createChunk(data, 0x50000, 0x10000),
+         createChunk(data, 0x60000, 0x10000),
+         createChunk(data, 0x70000, 0x10000),
+         createChunk(data, 0x80000, 0x10000),
+         createChunk(data, 0x90000, 0x10000),
+         createChunk(data, 0xA0000, 0x20000),
+         createChunk(data, 0xC0000, 0x20000),
+         createChunk(data, 0xE0000, 0x20000),
+         createChunk(data, 0x100000, 0x20000),
+         createChunk(data, 0x120000, 0x20000),
+         createChunk(data, 0x140000, 0x20000),
+         createChunk(data, 0x160000, 0x20000),
+         createChunk(data, 0x180000, 0x20000),
+         createChunk(data, 0x1A0000, 0x20000),
+         createChunk(data, 0x1C0000, 0x20000),
+         createChunk(data, 0x1E0000, 0x20000),
 //                 createChunk(data, 0x200000, 0x20000),
 //                 createChunk(data, 0x220000, 0x20000),
 //                 createChunk(data, 0x240000, 0x20000),

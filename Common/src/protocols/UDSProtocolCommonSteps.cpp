@@ -263,11 +263,11 @@ namespace common {
         return false;
 	}
 
-    bool UDSProtocolCommonSteps::eraseChunk(ICanChannel& channel, uint32_t canId, const VBFChunk& chunk)
+    bool UDSProtocolCommonSteps::eraseChunk(ICanChannel& channel, uint32_t canId, const EraseBlock& block)
     {
-        LOG_MODULE(TRACE) << "eraseChunk enter chunk: " << std::hex << chunk.writeOffset;
-        const auto eraseAddr = toVector(chunk.writeOffset);
-        const auto eraseSize = toVector(static_cast<uint32_t>(chunk.data.size()));
+        LOG_MODULE(TRACE) << "eraseChunk enter chunk: " << std::hex << block.startAddr;
+        const auto eraseAddr = toVector(block.startAddr);
+        const auto eraseSize = toVector(block.length);
         for(size_t i = 0; i < 1; ++i) {
             if (!channel.send({canId, {0x31, 0x01, 0xff, 0x00,
                                        eraseAddr[0], eraseAddr[1], eraseAddr[2], eraseAddr[3],
@@ -279,10 +279,10 @@ namespace common {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 continue;
             }
-            LOG_MODULE(TRACE) << "eraseChunk completed, offset = " << std::hex << chunk.writeOffset;
+            LOG_MODULE(TRACE) << "eraseChunk completed, offset = " << std::hex << block.startAddr;
             return true;
         }
-        LOG_MODULE(ERROR) << "Failed to erase chunk: " << std::hex << chunk.writeOffset;
+        LOG_MODULE(ERROR) << "Failed to erase chunk: " << std::hex << block.startAddr;
         return false;
     }
 
