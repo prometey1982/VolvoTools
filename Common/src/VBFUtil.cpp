@@ -103,7 +103,7 @@ VBF createVBFForDensoP3Restyling(std::vector<uint8_t>& data)
          createChunk(data, 0x180000, 0x20000),
          createChunk(data, 0x1A0000, 0x20000),
          createChunk(data, 0x1C0000, 0x20000),
-         createChunk(data, 0x1E0000, 0x20000),
+         createChunk(data, 0x1E0000, 0x1FF00),
 //                 createChunk(data, 0x200000, 0x20000),
 //                 createChunk(data, 0x220000, 0x20000),
 //                 createChunk(data, 0x240000, 0x20000),

@@ -274,7 +274,7 @@ namespace common {
                                        eraseSize[0], eraseSize[1], eraseSize[2], eraseSize[3]}})) {
                 continue;
             }
-            const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00, 0x00 }, {}, 10) };
+            const auto result{ readMessageCheckAndGet(channel, { 0x71, 0x01, 0xff, 0x00 }, {}, 10) };
             if(result.empty()) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 continue;

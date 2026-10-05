@@ -17,7 +17,7 @@ public:
     ~ScopedTimer() {
         auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now() - _start).count();
-        CLOG(INFO, _module) << _name << " took " << ms << " ms";
+        CLOG(INFO, _module) << _name << " took " << std::dec << ms << " ms";
     }
 private:
     const char* _name;
