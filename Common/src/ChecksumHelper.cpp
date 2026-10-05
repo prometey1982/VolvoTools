@@ -37,16 +37,16 @@ void setValueBE(std::vector<uint8_t>& data, size_t index, uint32_t value)
     data[index + 1] = static_cast<uint8_t>(value >> 24);
 }
 
-const std::map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>> CheckBounds = {
+const std::map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>> CheckBoundsME7 = {
     { 512 * 1024, { { 0x1F810, 0x1FA00 } } },
     { 1024 * 1024, { { 0x1F810, 0x1FC00 } } },
     { 2048 * 1024, { { 0xA0000, 0xA0360 }, { 0x1C91E0, 0x1C9240 } } },
     };
 
-bool checkOrUpdateME(std::vector<uint8_t>& data, bool update)
+bool checkOrUpdateME7(std::vector<uint8_t>& data, bool update)
 {
-    const auto boundsIt{CheckBounds.find(data.size())};
-    if(boundsIt == CheckBounds.cend()) {
+    const auto boundsIt{CheckBoundsME7.find(data.size())};
+    if(boundsIt == CheckBoundsME7.cend()) {
         return false;
     }
     for(const auto& bound: boundsIt->second) {
@@ -88,19 +88,55 @@ bool checkOrUpdateME(std::vector<uint8_t>& data, bool update)
 
 }
 
+ChecksumHelper::ChecksumHelper(
+    const common::CarPlatform carPlatform,
+    const uint8_t ecuId,
+    const std::string& additionalData)
+    : _carPlatform(carPlatform)
+    , _ecuId(ecuId)
+    , _additionalData(additionalData)
+{
+}
+
 bool ChecksumHelper::isSupported(const std::vector<uint8_t>& data) const
 {
-    return CheckBounds.find(data.size()) != CheckBounds.cend();
+    switch(_carPlatform) {
+    case common::CarPlatform::P80:
+    case common::CarPlatform::P1:
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P2_250:
+        if(_ecuId == 0x7A) {
+            return CheckBoundsME7.find(data.size()) != CheckBoundsME7.cend();
+        }
+    }
+    return false;
 }
 
-bool ChecksumHelper::checkME(std::vector<uint8_t>& data) const
+bool ChecksumHelper::check(std::vector<uint8_t>& data) const
 {
-    return checkOrUpdateME(data, false);
+    switch(_carPlatform) {
+    case common::CarPlatform::P80:
+    case common::CarPlatform::P1:
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P2_250:
+        if(_ecuId == 0x7A) {
+            return checkOrUpdateME7(data, false);
+        }
+    }
+    return false;
 }
 
-void ChecksumHelper::updateME(std::vector<uint8_t>& data) const
+void ChecksumHelper::update(std::vector<uint8_t>& data) const
 {
-    checkOrUpdateME(data, true);
+    switch(_carPlatform) {
+    case common::CarPlatform::P80:
+    case common::CarPlatform::P1:
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P2_250:
+        if(_ecuId == 0x7A) {
+            checkOrUpdateME7(data, true);
+        }
+    }
 }
 
 }

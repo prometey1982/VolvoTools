@@ -14,13 +14,17 @@ namespace common {
 
 namespace {
 
-void updateChecksumME(std::vector<uint8_t>& data)
+void updateChecksum(std::vector<uint8_t>& data, CarPlatform carPlatform,
+                    uint8_t ecuId, const std::string& additionalData = {})
 {
-    util::ChecksumHelper helper;
-    for(size_t i = 0; i < 5 && !helper.checkME(data); ++i) {
-        helper.updateME(data);
+    util::ChecksumHelper helper(carPlatform, ecuId, additionalData);
+    if(!helper.isSupported(data)) {
+        return;
     }
-    if(!helper.checkME(data)) {
+    for(size_t i = 0; i < 5 && !helper.check(data); ++i) {
+        helper.update(data);
+    }
+    if(!helper.check(data)) {
         throw std::runtime_error("Failed to check and update checksum");
     }
 }
@@ -35,22 +39,18 @@ VBFChunk createChunk(const std::vector<uint8_t>& data, uint32_t offset, size_t s
 
 VBF createVBFForME7(std::vector<uint8_t>& data)
 {
-    updateChecksumME(data);
     return {{}, {createChunk(data, 0x8000, 0x6000),
                  createChunk(data, 0x10000, data.size() - 0x10000)}};
 }
 
 VBF createVBFForME9P1(std::vector<uint8_t>& data)
 {
-    updateChecksumME(data);
     return {{}, {createChunk(data, 0x20000, 0x70000),
                  createChunk(data, 0xA0000, data.size() - 0xA0000)}};
 }
 
 VBF createVBFForME9P3(std::vector<uint8_t>& data)
 {
-    // TODO: need to detect checksum areas correctly.
-    //updateChecksum(data);
     return {{}, {createChunk(data, 0x20000, 0x70000),
                  createChunk(data, 0xA0000, 0x120000),
                  createChunk(data, 0x1C2000, 0x1E000),
@@ -73,8 +73,6 @@ VBF createVBFForDensoP3(std::vector<uint8_t>& data)
 
 VBF createVBFForDensoP3Restyling(std::vector<uint8_t>& data)
 {
-    // TODO: need to detect checksum areas correctly.
-    //updateChecksum(data);
     return {{}, {createChunk(data, 0x8000, 0x2000),
                  createChunk(data, 0xA000, 0x2000),
                  createChunk(data, 0xE000, 0x2000),
@@ -127,7 +125,6 @@ VBF createVBFForVAGMED91(std::vector<uint8_t>& data)
 
 VBF createVBFForVAGMED912(std::vector<uint8_t>& data)
 {
-    updateChecksumME(data);
     return { {}, {createChunk(data, 0x20000, 0x70000),
                  createChunk(data, 0xA0000, data.size() - 0xA0000)} };
 }
@@ -181,6 +178,7 @@ VBF createVBFForDEMGen3(std::vector<uint8_t>& data)
 VBF createVbfFromBinary(CarPlatform carPlatform, uint8_t ecuId,
                                 const std::string& additionalData, std::vector<uint8_t>&& data)
 {
+    updateChecksum(data, carPlatform, ecuId, additionalData);
     switch(carPlatform) {
     case CarPlatform::P80:
     case CarPlatform::P2:
