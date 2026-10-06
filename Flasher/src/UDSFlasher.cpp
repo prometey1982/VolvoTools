@@ -6,6 +6,7 @@
 #include <common/CommonData.hpp>
 #include <common/CanIdProvider.hpp>
 #include <common/protocols/UDSMessage.hpp>
+#include "common/protocols/UDSRequest.hpp"
 #include <common/protocols/UDSProtocolCommonSteps.hpp>
 
 #define LOG_MODULE_NAME "flasher"
@@ -16,7 +17,86 @@
 #define HFSM2_ENABLE_ALL
 #include <common/hfsm2/machine.hpp>
 
+#include <algorithm>
+
 namespace flasher {
+
+namespace {
+
+/// Полуинтервал [begin, end) в адресном пространстве ЭБУ.
+struct BlockRange
+{
+    uint64_t begin;
+    uint64_t end;
+};
+
+/// Диапазон, который разрешено стирать: из VBF либо 1:1 с блоком прошивки.
+BlockRange toRange(const common::DataBlock& block)
+{
+    return { block.startAddr, static_cast<uint64_t>(block.startAddr) + block.length };
+}
+
+BlockRange toRange(const common::VBFChunk& chunk)
+{
+    return { chunk.writeOffset, static_cast<uint64_t>(chunk.writeOffset) + chunk.data.size() };
+}
+
+std::vector<BlockRange> toBlockRanges(const std::vector<common::DataBlock>& blocks)
+{
+    std::vector<BlockRange> result;
+    result.reserve(blocks.size());
+    for(const auto& block: blocks) {
+        result.push_back(toRange(block));
+    }
+    return result;
+}
+
+std::vector<BlockRange> toBlockRanges(const std::vector<common::VBFChunk>& chunks)
+{
+    std::vector<BlockRange> result;
+    result.reserve(chunks.size());
+    for(const auto& chunk: chunks) {
+        result.push_back(toRange(chunk));
+    }
+    return result;
+}
+
+bool intersects(const BlockRange& lhs, const BlockRange& rhs)
+{
+    return lhs.begin < rhs.end && rhs.begin < lhs.end;
+}
+
+/// Участки диапазона, не покрытые ни одним блоком прошивки: после стирания их нечем восстановить.
+std::vector<BlockRange> uncoveredRanges(const BlockRange& candidate,
+                                        const std::vector<BlockRange>& chunkRanges)
+{
+    std::vector<BlockRange> covered;
+    for(const auto& chunkRange: chunkRanges) {
+        const BlockRange clipped{ std::max(chunkRange.begin, candidate.begin),
+                                  std::min(chunkRange.end, candidate.end) };
+        if(clipped.begin < clipped.end) {
+            covered.push_back(clipped);
+        }
+    }
+    std::sort(covered.begin(), covered.end(), [](const BlockRange& lhs, const BlockRange& rhs) {
+        return lhs.begin < rhs.begin;
+    });
+
+    std::vector<BlockRange> result;
+    uint64_t coveredTill = candidate.begin;
+    for(const auto& range: covered) {
+        if(coveredTill < range.begin) {
+            result.push_back({ coveredTill, range.begin });
+        }
+        coveredTill = std::max(coveredTill, range.end);
+    }
+    if(coveredTill < candidate.end) {
+        result.push_back({ coveredTill, candidate.end });
+    }
+    return result;
+}
+
+} // namespace
 
     class UDSFlasherImpl {
     public:
@@ -26,7 +106,8 @@ namespace flasher {
                        const UDSFlasherConfig& config,
                        std::unique_ptr<common::CanIdProvider> canIdProvider,
                        const std::function<void(FlasherState)>& stateUpdater,
-                       const std::function<void(size_t)>& progressUpdater)
+                       const std::function<void(size_t)>& progressUpdater,
+                       const std::function<void(size_t)>& maxProgressUpdater)
             : _channels{ channels }
             , _carPlatform{ carPlatform }
             , _ecuId{ ecuId }
@@ -35,6 +116,10 @@ namespace flasher {
             , _isFailed{ false }
             , _stateUpdater{ stateUpdater }
             , _progressUpdater{ progressUpdater }
+            , _eraseCandidates{ buildEraseCandidates(_config.flash) }
+            , _blocksToErase{ _eraseCandidates }
+            , _blocksToWrite(_config.flash.chunks.size(), true)
+            , _maxProgressUpdater{ maxProgressUpdater }
         {
         }
 
@@ -98,19 +183,124 @@ namespace flasher {
             }
         }
 
+        /// Считает контрольные суммы блоков прошивки и определяет, что нужно стереть и записать.
+        /// Наборы выбираются итеративно: стирание диапазона уничтожает лежащие в нём блоки, их
+        /// приходится дописывать, а это может потребовать стирания новых диапазонов. Итерации
+        /// идут до стабилизации наборов, после чего план применяется целиком.
+        void calculateBlocksToWrite()
+        {
+            _stateUpdater(FlasherState::CheckFlash);
+            auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
+            const auto canId = _canIdProvider->getPhysCanId();
+            const auto& chunks = _config.flash.chunks;
+
+            if (!canFlashPartially()) {
+                applyFullRewrite();
+                return;
+            }
+
+            // Шаг 1. Опрос ЭБУ: какие блоки уже совпадают. Блок, контрольную сумму которого
+            // получить не удалось, считаем требующим записи — не проверили, значит пишем.
+            std::vector<bool> writeNeeded(chunks.size(), false);
+            size_t differing = 0;
+            size_t failed = 0;
+            for(size_t i = 0; i < chunks.size(); ++i) {
+                const auto& chunk = chunks[i];
+                const common::DataBlock block{ chunk.writeOffset, static_cast<uint32_t>(chunk.data.size()) };
+                uint16_t crc = 0;
+                if (!common::UDSProtocolCommonSteps::getChunkCRC16(channel, canId, block, crc)) {
+                    ++failed;
+                    writeNeeded[i] = true;
+                    LOG_MODULE(DEBUG) << "flash block " << std::hex << chunk.writeOffset
+                                      << " - crc request failed, will write";
+                    continue;
+                }
+                if (crc != (chunk.crc & 0xFFFF)) {
+                    ++differing;
+                    writeNeeded[i] = true;
+                    LOG_MODULE(DEBUG) << "flash block " << std::hex << chunk.writeOffset
+                                      << " - crc 0x" << static_cast<uint32_t>(crc)
+                                      << " != expected 0x" << (chunk.crc & 0xFFFF) << ", will write";
+                }
+                else {
+                    LOG_MODULE(DEBUG) << "flash block " << std::hex << chunk.writeOffset
+                                      << " - crc 0x" << static_cast<uint32_t>(crc) << " matches, skip";
+                }
+            }
+            LOG_MODULE(INFO) << "flash check finished: " << std::dec << chunks.size() << " blocks, "
+                             << differing << " differ, " << failed << " crc requests failed";
+            if (chunks.size() > 1 && differing + failed == chunks.size()) {
+                LOG_MODULE(WARNING) << "all " << chunks.size()
+                                    << " blocks differ from the image on the ECU,"
+                                    << " full erase and write will be done";
+            }
+
+            const auto chunkRanges = toBlockRanges(chunks);
+            const auto eraseRanges = toBlockRanges(_eraseCandidates);
+            std::vector<bool> eraseNeeded(_eraseCandidates.size(), false);
+
+            // Шаг 2. Итеративное расширение наборов до неподвижной точки.
+            const size_t maxIterations = chunks.size() + _eraseCandidates.size() + 1;
+            size_t iterations = 0;
+            bool changed = true;
+            while (changed) {
+                if (++iterations > maxIterations) {
+                    LOG_MODULE(ERROR) << "flash plan did not converge in " << maxIterations << " iterations";
+                    applyFullRewrite();
+                    return;
+                }
+                changed = false;
+                // 2a. Записываемый блок требует стирания всех перекрытых им диапазонов.
+                for(size_t i = 0; i < chunks.size(); ++i) {
+                    if (!writeNeeded[i]) {
+                        continue;
+                    }
+                    for(size_t j = 0; j < _eraseCandidates.size(); ++j) {
+                        if (!eraseNeeded[j] && intersects(chunkRanges[i], eraseRanges[j])) {
+                            eraseNeeded[j] = true;
+                            changed = true;
+                        }
+                    }
+                }
+                // 2b. Всё, что попало в стираемый диапазон, будет уничтожено — надо записать.
+                for(size_t j = 0; j < _eraseCandidates.size(); ++j) {
+                    if (!eraseNeeded[j]) {
+                        continue;
+                    }
+                    for(size_t i = 0; i < chunks.size(); ++i) {
+                        if (!writeNeeded[i] && intersects(chunkRanges[i], eraseRanges[j])) {
+                            writeNeeded[i] = true;
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            // Перекрывающиеся блок и диапазон всегда либо оба в плане, либо оба вне его: иначе
+            // часть блока останется нестёртой либо стёртое не будет восстановлено.
+            for(size_t i = 0; i < chunks.size(); ++i) {
+                for(size_t j = 0; j < _eraseCandidates.size(); ++j) {
+                    if (writeNeeded[i] != eraseNeeded[j] && intersects(chunkRanges[i], eraseRanges[j])) {
+                        LOG_MODULE(ERROR) << "flash plan invariant is broken for block " << std::hex
+                                          << chunks[i].writeOffset << " and erase range 0x"
+                                          << _eraseCandidates[j].startAddr;
+                        applyFullRewrite();
+                        return;
+                    }
+                }
+            }
+
+            applyPlan(writeNeeded, eraseNeeded);
+        }
+
         void eraseFlash()
         {
             _stateUpdater(FlasherState::EraseFlash);
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-            std::vector<common::EraseBlock> eraseBlocks(_config.flash.header.eraseBlocks);
-            if(eraseBlocks.empty()) {
-                std::transform(_config.flash.chunks.cbegin(), _config.flash.chunks.cend(),
-                               std::back_inserter(eraseBlocks), [](const common::VBFChunk& chunk) {
-                                   return common::EraseBlock(chunk.writeOffset, static_cast<uint32_t>(chunk.data.size()));
-                               });
-            }
-            for(const auto& chunk: eraseBlocks) {
-                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canIdProvider->getPhysCanId(), chunk)) {
+            for(const auto& block: _blocksToErase) {
+                LOG_MODULE(DEBUG) << "erase range " << std::hex << block.startAddr
+                                  << ", size " << block.length;
+                if (!common::UDSProtocolCommonSteps::eraseChunk(channel, _canIdProvider->getPhysCanId(), block)) {
                     setFailed("Flash erasing failed");
                     break;
                 }
@@ -119,9 +309,15 @@ namespace flasher {
 
         void writeFlash()
         {
+            _stateUpdater(FlasherState::WriteFlash);
             auto& channel{ common::getChannelByEcuId(_carPlatform, _ecuId, _channels) };
-            for(const auto& chunk: _config.flash.chunks) {
-                _stateUpdater(FlasherState::WriteFlash);
+            for(size_t i = 0; i < _config.flash.chunks.size(); ++i) {
+                const auto& chunk = _config.flash.chunks[i];
+                if (!_blocksToWrite[i]) {
+                    LOG_MODULE(DEBUG) << "flash block " << std::hex << chunk.writeOffset
+                                      << " is up to date, skip writing";
+                    continue;
+                }
                 if (!common::UDSProtocolCommonSteps::transferChunk(channel, _canIdProvider->getPhysCanId(), chunk,
                                                                     _progressUpdater)) {
                     setFailed("Flash writing failed");
@@ -170,6 +366,103 @@ namespace flasher {
             _errorMessage = message;
         }
 
+        /// Диапазоны, которые разрешено стирать. Если VBF их не объявил, по договорённости
+        /// гранулярность стирания совпадает с блоками прошивки — 1:1 по адресу и длине.
+        static std::vector<common::DataBlock> buildEraseCandidates(const common::VBF& flash)
+        {
+            if (!flash.header.eraseBlocks.empty()) {
+                return flash.header.eraseBlocks;
+            }
+            std::vector<common::DataBlock> result;
+            result.reserve(flash.chunks.size());
+            for(const auto& chunk: flash.chunks) {
+                result.emplace_back(chunk.writeOffset, static_cast<uint32_t>(chunk.data.size()));
+            }
+            return result;
+        }
+
+        /// Частичная прошивка требует известных границ стираемых диапазонов: иначе непонятно,
+        /// что именно уничтожит стирание. Диапазон нулевой длины (синтаксис "erase = 0x...;" в VBF)
+        /// такой границей не является.
+        bool canFlashPartially() const
+        {
+            if (_eraseCandidates.empty()) {
+                LOG_MODULE(WARNING) << "no erase ranges declared, writing everything";
+                return false;
+            }
+            for(const auto& candidate: _eraseCandidates) {
+                if (candidate.length == 0) {
+                    LOG_MODULE(WARNING) << "erase range 0x" << std::hex << candidate.startAddr
+                                        << " has zero length, writing everything";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// Консервативный вариант: стереть все объявленные диапазоны и записать все блоки.
+        /// Исходное состояние и откат, если план построить не удалось.
+        void applyFullRewrite()
+        {
+            _blocksToWrite.assign(_config.flash.chunks.size(), true);
+            _blocksToErase = _eraseCandidates;
+            _maxProgressUpdater(FlasherBase::getProgressFromVBF(_config.bootloader)
+                                + FlasherBase::getProgressFromVBF(_config.flash));
+        }
+
+        /// Применяет посчитанный план: что стирать, что писать и какой теперь максимум прогресса.
+        void applyPlan(const std::vector<bool>& writeNeeded, const std::vector<bool>& eraseNeeded)
+        {
+            const auto& chunks = _config.flash.chunks;
+            _blocksToWrite = writeNeeded;
+            _blocksToErase.clear();
+            size_t bytesToErase = 0;
+            for(size_t j = 0; j < _eraseCandidates.size(); ++j) {
+                if (eraseNeeded[j]) {
+                    _blocksToErase.push_back(_eraseCandidates[j]);
+                    bytesToErase += _eraseCandidates[j].length;
+                }
+            }
+            std::sort(_blocksToErase.begin(), _blocksToErase.end(),
+                      [](const common::DataBlock& lhs, const common::DataBlock& rhs) {
+                          return lhs.startAddr < rhs.startAddr;
+                      });
+
+            size_t blocksToWrite = 0;
+            size_t bytesToWrite = 0;
+            for(size_t i = 0; i < chunks.size(); ++i) {
+                if (writeNeeded[i]) {
+                    ++blocksToWrite;
+                    bytesToWrite += chunks[i].data.size();
+                }
+            }
+            LOG_MODULE(INFO) << "flash plan: erase " << std::dec << _blocksToErase.size() << " of "
+                             << _eraseCandidates.size() << " ranges (" << bytesToErase << " bytes), write "
+                             << blocksToWrite << " of " << chunks.size() << " blocks ("
+                             << bytesToWrite << " bytes)";
+            logUncoveredAreas(eraseNeeded);
+            // Максимум прогресса зависит от плана: писать будем только выбранные блоки.
+            _maxProgressUpdater(FlasherBase::getProgressFromVBF(_config.bootloader) + bytesToWrite);
+        }
+
+        /// Участки стираемых диапазонов, не покрытые блоками прошивки: после стирания их нечем
+        /// восстановить. Это ожидаемая ситуация (например, последний блок Denso restyling короче
+        /// своего диапазона), поэтому только сообщаем.
+        void logUncoveredAreas(const std::vector<bool>& eraseNeeded) const
+        {
+            const auto chunkRanges = toBlockRanges(_config.flash.chunks);
+            for(size_t j = 0; j < _eraseCandidates.size(); ++j) {
+                if (!eraseNeeded[j]) {
+                    continue;
+                }
+                for(const auto& uncovered: uncoveredRanges(toRange(_eraseCandidates[j]), chunkRanges)) {
+                    LOG_MODULE(INFO) << "erase range 0x" << std::hex << _eraseCandidates[j].startAddr
+                                     << " is not covered by flash blocks: [0x" << uncovered.begin
+                                     << ", 0x" << uncovered.end << ") will stay erased";
+                }
+            }
+        }
+
     private:
         const std::vector<std::unique_ptr<common::ICanChannel>>& _channels;
         common::CarPlatform _carPlatform;
@@ -180,6 +473,14 @@ namespace flasher {
         std::string _errorMessage;
         const std::function<void(FlasherState)> _stateUpdater;
         const std::function<void(size_t)> _progressUpdater;
+        /// Диапазоны, которые разрешено стирать (из VBF или 1:1 с блоками прошивки).
+        const std::vector<common::DataBlock> _eraseCandidates;
+        /// Выбранные к стиранию диапазоны по возрастанию адреса, подмножество _eraseCandidates.
+        std::vector<common::DataBlock> _blocksToErase;
+        /// По каждому блоку прошивки: нужно ли его писать. По умолчанию — все, консервативно.
+        std::vector<bool> _blocksToWrite;
+        /// Пересчёт максимума прогресса: после проверки писать нужно меньше блоков.
+        const std::function<void(size_t)> _maxProgressUpdater;
     };
 
 using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
@@ -192,6 +493,7 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             struct Authorize,
             struct LoadBootloader,
             struct StartBootloader,
+            struct CheckFlash,
             struct EraseFlash,
             struct WriteFlash,
             struct CheckValidApplication>,
@@ -232,7 +534,8 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
             plan.change<StartProgrammingSession, Authorize>();
             plan.change<Authorize, LoadBootloader>();
             plan.change<LoadBootloader, StartBootloader>();
-            plan.change<StartBootloader, EraseFlash>();
+            plan.change<StartBootloader, CheckFlash>();
+            plan.change<CheckFlash, EraseFlash>();
             plan.change<EraseFlash, WriteFlash>();
             plan.change<WriteFlash, CheckValidApplication>();
         }
@@ -286,6 +589,13 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         void enter(PlanControl& control)
         {
             control.context().startBootloader();
+        }
+    };
+
+    struct CheckFlash : public BaseState {
+        void enter(PlanControl& control)
+        {
+            control.context().calculateBlocksToWrite();
         }
     };
 
@@ -365,6 +675,9 @@ using M = hfsm2::MachineT<hfsm2::Config::ContextT<UDSFlasherImpl&>>;
         },
             [this](size_t progress) {
                 incCurrentProgress(progress);
+            },
+            [this](size_t maxProgress) {
+                setMaximumProgress(maxProgress);
             });
 
         setMaximumProgress(impl.getMaximumProgress());

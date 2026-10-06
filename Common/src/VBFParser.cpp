@@ -11,7 +11,7 @@
 #include <iostream>
 #include <utility>
 
-BOOST_FUSION_ADAPT_STRUCT(common::EraseBlock,
+BOOST_FUSION_ADAPT_STRUCT(common::DataBlock,
 	(uint32_t, startAddr)
 	(uint32_t, length)
 )
@@ -117,8 +117,8 @@ namespace common {
 		x3::rule<class vbf_header, VBFHeader> const vbf_header = "vbf_header";
 		x3::rule<class uint_rule, uint32_t> const uint_literal = "uint_literal";
 		x3::rule<class uint8_rule, uint8_t> const uint8_literal = "uint8_literal";
-		x3::rule<class full_erase_block, EraseBlock> const full_erase_block = "full_erase_block";
-		x3::rule<class erase_block_list, std::vector<EraseBlock>> const erase_block_list = "erase_block_list";
+        x3::rule<class full_erase_block, DataBlock> const full_erase_block = "full_erase_block";
+        x3::rule<class erase_block_list, std::vector<DataBlock>> const erase_block_list = "erase_block_list";
 		x3::rule<class checksum_block, ChecksumBlock> const checksum_block = "checksum_block";
 		x3::rule<class checksum_block_list, std::vector<ChecksumBlock>> const checksum_block_list = "checksum_block_list";
 
@@ -170,7 +170,7 @@ namespace common {
 					x3::_val(ctx).swPartNumber = x3::_attr(ctx);
 					})] >> ';')
 				| (x3::lit("erase") >> '=' >> uint_literal[([](auto& ctx) {
-					x3::_val(ctx).eraseBlocks.push_back(EraseBlock(x3::_attr(ctx), 0));
+                    x3::_val(ctx).eraseBlocks.push_back(DataBlock(x3::_attr(ctx), 0));
 					})] >> ';')
 				| (x3::lit("erase") >> '=' >> erase_block_list[on_erase_list] >> ';')
 				| (x3::lit("sw_version") >> '=' >> unquoted_string[([](auto& ctx) {

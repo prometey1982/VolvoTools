@@ -249,6 +249,9 @@ public:
 		case FlasherState::RequestDownload:
 			std::cout << "Request download";
 			break;
+		case FlasherState::CheckFlash:
+            std::cout << "Checking flash";
+            break;
 		case FlasherState::EraseFlash:
             std::cout << "Flash erasing";
             break;

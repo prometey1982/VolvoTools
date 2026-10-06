@@ -45,7 +45,7 @@ namespace common {
 		UNKNOWN
 	};
 
-	struct EraseBlock
+    struct DataBlock
 	{
 		uint32_t startAddr;
 		uint32_t length;
@@ -69,7 +69,7 @@ namespace common {
 		FrameFormat frameFormat{ FrameFormat::UNKNOWN };
 		uint32_t call{};
 		uint32_t fileChecksum{};
-		std::vector<EraseBlock> eraseBlocks;
+        std::vector<DataBlock> eraseBlocks;
 		std::vector<ChecksumBlock> checksumTable;
 		FlashStrategy flashStrategy{ FlashStrategy::INPLACE };
 		SessionType sessionType{ SessionType::PROGRAMMING };

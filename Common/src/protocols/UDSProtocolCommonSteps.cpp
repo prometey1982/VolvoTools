@@ -263,7 +263,7 @@ namespace common {
         return false;
 	}
 
-    bool UDSProtocolCommonSteps::eraseChunk(ICanChannel& channel, uint32_t canId, const EraseBlock& block)
+    bool UDSProtocolCommonSteps::eraseChunk(ICanChannel& channel, uint32_t canId, const DataBlock& block)
     {
         LOG_MODULE(TRACE) << "eraseChunk enter chunk: " << std::hex << block.startAddr;
         const auto eraseAddr = toVector(block.startAddr);
@@ -313,7 +313,41 @@ namespace common {
             LOG_MODULE(ERROR) << "checkValidApplication error, ex = " << ex.what();
             return false;
         }
-        LOG_MODULE(TRACE) << "checkValidApplication finshed";
+        LOG_MODULE(TRACE) << "checkValidApplication completed";
+        return true;
+    }
+
+    bool UDSProtocolCommonSteps::getChunkCRC16(ICanChannel& channel, uint32_t canId,
+                                               const DataBlock& block, uint16_t& crc)
+    {
+        LOG_MODULE(TRACE) << "getChunkCRC16 enter, addr = " << std::hex << block.startAddr;;
+        const auto dataAddr = common::toVector(block.startAddr);
+        const auto dataLength = common::toVector(block.length);
+        // Ответ на предыдущий запрос не должен приниматься за ответ на этот.
+        channel.clearRx();
+        UDSRequest request(canId, {0x31, 0x01, 0xFF, 0x01,
+                                   dataAddr[0], dataAddr[1], dataAddr[2], dataAddr[3],
+                                   dataLength[0], dataLength[1], dataLength[2], dataLength[3]});
+        try {
+            const auto response = request.process(channel);
+            // Ответ рутины: 71 01 <routineId hi,lo> <ширина контрольной суммы в битах> <данные>.
+            // [4] = 0x10 = 16 бит, дальше CRC16 (big-endian). У рутины стирания 0xFF00 на этом
+            // месте 0x00 (ноль бит данных) — см. ожидаемый ответ в eraseChunk.
+            // Формат не совпал — не угадываем: false, блок уйдёт в запись (консервативно).
+            if (response.size() < 7 || response[0] != 0x71 || response[1] != 0x01 ||
+                response[2] != 0xFF || response[3] != 0x01 || response[4] != 0x10) {
+                LOG_MODULE(ERROR) << "getChunkCRC16 unexpected response: " << dumpArray(response);
+                return false;
+            }
+            crc = static_cast<uint16_t>((response[5] << 8) | response[6]);
+            LOG_MODULE(DEBUG) << "getChunkCRC16 response: " << dumpArray(response)
+                              << "-> crc 0x" << std::hex << static_cast<uint32_t>(crc);
+        }
+        catch(const std::exception& ex) {
+            LOG_MODULE(ERROR) << "getChunkCRC16 error, ex = " << ex.what();
+            return false;
+        }
+        LOG_MODULE(TRACE) << "getChunkCRC16 finshed";
         return true;
     }
 

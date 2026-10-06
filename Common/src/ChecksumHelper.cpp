@@ -86,6 +86,33 @@ bool checkOrUpdateME7(std::vector<uint8_t>& data, bool update)
     return true;
 }
 
+bool checkOrUpdateDensoECM2MB(std::vector<uint8_t>& data, bool update)
+{
+    constexpr size_t checksumAddr = 0x1FFC00;
+    constexpr size_t blocksCount = 16;
+    constexpr size_t recordSize = 12;
+    constexpr uint32_t densoMagic = 0x5AA5A55A;
+    for(size_t i = 0; i < blocksCount; ++i) {
+        const uint32_t startAddr = getValueBE(data, checksumAddr + i * recordSize);
+        const uint32_t endAddr = getValueBE(data, checksumAddr + i * recordSize + 4);
+        const uint32_t checksum = getValueBE(data, checksumAddr + i * recordSize + 8);
+        uint32_t calculatedChecksum = 0;
+        for(size_t addr = startAddr; addr < endAddr; addr += 4) {
+            calculatedChecksum += getValueBE(data, addr);
+        }
+        calculatedChecksum = densoMagic - calculatedChecksum;
+        if(update) {
+            setValueBE(data, checksumAddr + i * recordSize + 8, calculatedChecksum);
+        }
+        else {
+            if(calculatedChecksum != checksum) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
 }
 
 ChecksumHelper::ChecksumHelper(
@@ -108,6 +135,12 @@ bool ChecksumHelper::isSupported(const std::vector<uint8_t>& data) const
         if(_ecuId == 0x7A) {
             return CheckBoundsME7.find(data.size()) != CheckBoundsME7.cend();
         }
+        break;
+    case common::CarPlatform::P3:
+        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
+            return true;
+        }
+        break;
     }
     return false;
 }
@@ -122,6 +155,12 @@ bool ChecksumHelper::check(std::vector<uint8_t>& data) const
         if(_ecuId == 0x7A) {
             return checkOrUpdateME7(data, false);
         }
+        break;
+    case common::CarPlatform::P3:
+        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
+            return checkOrUpdateDensoECM2MB(data, false);
+        }
+        break;
     }
     return false;
 }
@@ -136,6 +175,12 @@ void ChecksumHelper::update(std::vector<uint8_t>& data) const
         if(_ecuId == 0x7A) {
             checkOrUpdateME7(data, true);
         }
+        break;
+    case common::CarPlatform::P3:
+        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
+            checkOrUpdateDensoECM2MB(data, true);
+        }
+        break;
     }
 }
 

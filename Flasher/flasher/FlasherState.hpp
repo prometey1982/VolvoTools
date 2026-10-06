@@ -13,6 +13,7 @@ enum class FlasherState {
     RequestDownload,
     EraseFlash,
     WriteFlash,
+    CheckFlash,
     ReadFlash,
     WakeUp,
     CloseChannels,
