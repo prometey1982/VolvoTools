@@ -23,7 +23,7 @@ uint32_t getValueBE(const std::vector<uint8_t>& data, size_t index)
 
 void setValueLE(std::vector<uint8_t>& data, size_t index, uint32_t value)
 {
-    data[index] = static_cast<uint8_t>(value);
+    data[index + 0] = static_cast<uint8_t>(value);
     data[index + 1] = static_cast<uint8_t>(value >> 8);
     data[index + 2] = static_cast<uint8_t>(value >> 16);
     data[index + 3] = static_cast<uint8_t>(value >> 24);
@@ -31,10 +31,10 @@ void setValueLE(std::vector<uint8_t>& data, size_t index, uint32_t value)
 
 void setValueBE(std::vector<uint8_t>& data, size_t index, uint32_t value)
 {
-    data[index + 4] = static_cast<uint8_t>(value);
-    data[index + 3] = static_cast<uint8_t>(value >> 8);
-    data[index + 2] = static_cast<uint8_t>(value >> 16);
-    data[index + 1] = static_cast<uint8_t>(value >> 24);
+    data[index + 3] = static_cast<uint8_t>(value);
+    data[index + 2] = static_cast<uint8_t>(value >> 8);
+    data[index + 1] = static_cast<uint8_t>(value >> 16);
+    data[index + 0] = static_cast<uint8_t>(value >> 24);
 }
 
 const std::map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>> CheckBoundsME7 = {
@@ -86,23 +86,24 @@ bool checkOrUpdateME7(std::vector<uint8_t>& data, bool update)
     return true;
 }
 
-bool checkOrUpdateDensoECM2MB(std::vector<uint8_t>& data, bool update)
+bool checkOrUpdateDensoECMImpl(
+    std::vector<uint8_t>& data, const size_t checksumAddr, bool update)
 {
-    constexpr size_t checksumAddr = 0x1FFC00;
     constexpr size_t blocksCount = 16;
     constexpr size_t recordSize = 12;
     constexpr uint32_t densoMagic = 0x5AA5A55A;
     for(size_t i = 0; i < blocksCount; ++i) {
-        const uint32_t startAddr = getValueBE(data, checksumAddr + i * recordSize);
-        const uint32_t endAddr = getValueBE(data, checksumAddr + i * recordSize + 4);
-        const uint32_t checksum = getValueBE(data, checksumAddr + i * recordSize + 8);
+        const size_t baseAddr = checksumAddr + i * recordSize;
+        const uint32_t startAddr = getValueBE(data, baseAddr);
+        const uint32_t endAddr = getValueBE(data, baseAddr + 4);
+        const uint32_t checksum = getValueBE(data, baseAddr + 8);
         uint32_t calculatedChecksum = 0;
         for(size_t addr = startAddr; addr < endAddr; addr += 4) {
             calculatedChecksum += getValueBE(data, addr);
         }
         calculatedChecksum = densoMagic - calculatedChecksum;
         if(update) {
-            setValueBE(data, checksumAddr + i * recordSize + 8, calculatedChecksum);
+            setValueBE(data, baseAddr + 8, calculatedChecksum);
         }
         else {
             if(calculatedChecksum != checksum) {
@@ -111,6 +112,45 @@ bool checkOrUpdateDensoECM2MB(std::vector<uint8_t>& data, bool update)
         }
     }
     return true;
+}
+
+bool checkOrUpdateDensoECM2MB(std::vector<uint8_t>& data, bool update)
+{
+    constexpr size_t checksumAddr = 0x1FFC00;
+    return checkOrUpdateDensoECMImpl(data, checksumAddr, update);
+}
+
+bool checkOrUpdateDensoECM1MB(std::vector<uint8_t>& data, bool update)
+{
+    constexpr size_t checksumAddr = 0xFFF00;
+    return checkOrUpdateDensoECMImpl(data, checksumAddr, update);
+}
+
+bool checkOrUpdateImpl(
+    common::CarPlatform carPlatform, uint8_t ecuId, const std::string& additionalData,
+    std::vector<uint8_t>& data, bool update)
+{
+    switch(carPlatform) {
+    case common::CarPlatform::P80:
+    case common::CarPlatform::P1:
+    case common::CarPlatform::P2:
+    case common::CarPlatform::P2_250:
+        if(ecuId == 0x7A) {
+            return checkOrUpdateME7(data, update);
+        }
+        break;
+    case common::CarPlatform::P3:
+        if(ecuId == 0x10) {
+            if(additionalData == "denso_p3_restyling") {
+                return checkOrUpdateDensoECM2MB(data, update);
+            }
+            else if(additionalData == "denso_p3") {
+                return checkOrUpdateDensoECM1MB(data, update);
+            }
+        }
+        break;
+    }
+    return false;
 }
 
 }
@@ -137,7 +177,7 @@ bool ChecksumHelper::isSupported(const std::vector<uint8_t>& data) const
         }
         break;
     case common::CarPlatform::P3:
-        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
+        if(_ecuId == 0x10 && (_additionalData == "denso_p3_restyling" || _additionalData == "denso_p3")) {
             return true;
         }
         break;
@@ -147,41 +187,12 @@ bool ChecksumHelper::isSupported(const std::vector<uint8_t>& data) const
 
 bool ChecksumHelper::check(std::vector<uint8_t>& data) const
 {
-    switch(_carPlatform) {
-    case common::CarPlatform::P80:
-    case common::CarPlatform::P1:
-    case common::CarPlatform::P2:
-    case common::CarPlatform::P2_250:
-        if(_ecuId == 0x7A) {
-            return checkOrUpdateME7(data, false);
-        }
-        break;
-    case common::CarPlatform::P3:
-        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
-            return checkOrUpdateDensoECM2MB(data, false);
-        }
-        break;
-    }
-    return false;
+    return checkOrUpdateImpl(_carPlatform, _ecuId, _additionalData, data, false);
 }
 
 void ChecksumHelper::update(std::vector<uint8_t>& data) const
 {
-    switch(_carPlatform) {
-    case common::CarPlatform::P80:
-    case common::CarPlatform::P1:
-    case common::CarPlatform::P2:
-    case common::CarPlatform::P2_250:
-        if(_ecuId == 0x7A) {
-            checkOrUpdateME7(data, true);
-        }
-        break;
-    case common::CarPlatform::P3:
-        if(_ecuId == 0x10 && _additionalData == "denso_p3_restyling") {
-            checkOrUpdateDensoECM2MB(data, true);
-        }
-        break;
-    }
+    checkOrUpdateImpl(_carPlatform, _ecuId, _additionalData, data, true);
 }
 
 }
