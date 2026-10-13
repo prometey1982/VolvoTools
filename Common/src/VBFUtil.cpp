@@ -2,6 +2,7 @@
 
 #include "common/protocols/D2ECUType.hpp"
 #include "common/ChecksumHelper.hpp"
+#include "common/Crc.hpp"
 #include "common/VBFParser.hpp"
 #include "common/Util.hpp"
 #include "common/utility.hpp"

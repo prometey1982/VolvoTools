@@ -1,6 +1,7 @@
 #include "flasher/SBLProviderCommon.hpp"
 
 #include "common/protocols/D2ECUType.hpp"
+#include "common/Crc.hpp"
 #include "common/VBFParser.hpp"
 #include "common/SBL.hpp"
 #include "common/Util.hpp"

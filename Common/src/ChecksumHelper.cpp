@@ -1,5 +1,7 @@
 #include "common/ChecksumHelper.hpp"
 
+#include "common/Crc.hpp"
+
 #include <map>
 
 namespace util {
@@ -126,6 +128,53 @@ bool checkOrUpdateDensoECM1MB(std::vector<uint8_t>& data, bool update)
     return checkOrUpdateDensoECMImpl(data, checksumAddr, update);
 }
 
+bool checkOrUpdateTF80P2(std::vector<uint8_t>& data, bool update)
+{
+    // checksum_array_7FFF0: {u32 count; u32 desc[count]; u32 0xFFFFFFFF}
+    // Прошивка обходит блоки по count: 0xA5A4 "mov.l @r2,r6" (checksum_check),
+    // 0xA6A0 "mov.l @r1,r3" (checksum_step_crc_A688), 0xA67E (checksum_reset_A666).
+    // Терминатор 0xFFFFFFFF код не читает, поэтому на него не опираемся.
+    constexpr size_t tableAddr = 0x7FFF0;
+    constexpr size_t descSize = 0x10;
+    constexpr uint32_t maxBlocksCount = 8;
+    if(data.size() < tableAddr + 8) {
+        return false;
+    }
+    const uint32_t blocksCount = getValueBE(data, tableAddr);
+    if(blocksCount < 1 || blocksCount > maxBlocksCount) {
+        return false;
+    }
+    if(tableAddr + 4 + static_cast<size_t>(blocksCount) * 4 > data.size()) {
+        return false;
+    }
+    for(size_t i = 0; i < blocksCount; ++i) {
+        const size_t blockAddr = getValueBE(data, tableAddr + 4 + i * 4);
+        if(blockAddr > data.size() - descSize) {
+            return false;
+        }
+        const uint32_t startAddr = getValueBE(data, blockAddr + 4);
+        const uint32_t endAddr = getValueBE(data, blockAddr + 8);
+        const size_t crcAddr = blockAddr + 12;
+        // end — последний байт диапазона включительно (док CHECKSUM.md §3.2, §6)
+        if(endAddr >= data.size() || endAddr <= startAddr) {
+            return false;
+        }
+        // CRC-поле обязано лежать вне своего диапазона (§7), иначе пересчёт сам себя обесценит
+        if(startAddr <= crcAddr + 3 && crcAddr <= endAddr) {
+            return false;
+        }
+        const uint16_t calculatedChecksum =
+            common::crc16XModemLE(data.data() + startAddr, endAddr - startAddr + 1);
+        if(update) {
+            setValueBE(data, crcAddr, calculatedChecksum);
+        }
+        else if(calculatedChecksum != (getValueBE(data, crcAddr) & 0xFFFF)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool checkOrUpdateImpl(
     common::CarPlatform carPlatform, uint8_t ecuId, const std::string& additionalData,
     std::vector<uint8_t>& data, bool update)
@@ -137,6 +186,9 @@ bool checkOrUpdateImpl(
     case common::CarPlatform::P2_250:
         if(ecuId == 0x7A) {
             return checkOrUpdateME7(data, update);
+        }
+        else if(ecuId == 0x6E && additionalData == "tf80_p2") {
+            return checkOrUpdateTF80P2(data, update);
         }
         break;
     case common::CarPlatform::P3:
@@ -174,6 +226,9 @@ bool ChecksumHelper::isSupported(const std::vector<uint8_t>& data) const
     case common::CarPlatform::P2_250:
         if(_ecuId == 0x7A) {
             return CheckBoundsME7.find(data.size()) != CheckBoundsME7.cend();
+        }
+        else if(_ecuId == 0x6E && _additionalData == "tf80_p2") {
+            return true;
         }
         break;
     case common::CarPlatform::P3:

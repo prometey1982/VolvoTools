@@ -103,8 +103,6 @@ namespace common {
 
     void initLogger(const std::string& logFilename, bool enableConsole = false, bool debugMode = false);
 
-    uint16_t crc16(const uint8_t* data_p, size_t length);
-
     template<typename T>
     std::string dumpArray(const T& vec)
     {
