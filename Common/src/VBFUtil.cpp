@@ -18,7 +18,7 @@ namespace {
 void updateChecksum(std::vector<uint8_t>& data, CarPlatform carPlatform,
                     uint8_t ecuId, const std::string& additionalData = {})
 {
-    util::ChecksumHelper helper(carPlatform, ecuId, additionalData);
+    util::ChecksumHelper helper(carPlatform, ecuId, toLower(additionalData));
     if(!helper.isSupported(data)) {
         return;
     }
