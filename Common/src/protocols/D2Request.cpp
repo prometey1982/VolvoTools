@@ -71,7 +71,12 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
     bool isError = false;
     size_t echoRegionSize = 0;
     bool echoComplete = false;
-    uint8_t expectedSeriesId = 0x09;
+    // База нумерации кадров серии. Зависит от флага серии (bit4) в первом кадре:
+    //   0x08 -> кадры 0x09..0x0F, 0x08 (формат, который отдают ЭБУ при чтении памяти);
+    //   0x10 -> кадры 0x11..0x17, 0x10 (формат, которым CEM отдаёт текстовые ответы,
+    //           например VIN на B9FB).
+    uint8_t seriesBase = 0x08;
+    uint8_t expectedSeriesId = 1;
     size_t frameCount = 0;
     std::vector<uint8_t> result;
 
@@ -91,6 +96,12 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
         }
 
         const uint8_t header = response.data[0];
+        // bit4 (0x10) — флаг серии: кадр является частью многофреймового ответа и
+        // продолжение следует. Реальные ответы CEM (VIN на B9FB, лог VIDA) выставляют
+        // его: первый кадр 0x97 (= first + series + 7 байт), серия 0x11..0x17,0x10.
+        // Без флага серии младший ниббл кодирует 8 + длину (как в наших запросах:
+        // 0xCB = first+last+3); с флагом серии в первом/последнем кадре — длину напрямую.
+        const bool hasSeriesFlag = (header & 0x10) != 0;
         bool endSeries = false;
         size_t frameDataSize = 0;
 
@@ -102,39 +113,58 @@ std::vector<uint8_t> D2Request::process(ICanChannel& channel, size_t timeout, si
                 (response.data[2] != 0x7F && response.data[2] != requestId[0] + 0x40)) {
                 continue;
             }
-            // Заголовок первого фрейма: 0x88..0x8F (серия) / 0xC8..0xCF (single-frame).
-            if ((header & 0x0F) < 0x08) {
+            // Заголовок первого фрейма: 0x88..0x8F / 0xC8..0xCF без флага серии,
+            // 0x90..0x97 / 0xD0..0xD7 — с флагом.
+            if (hasSeriesFlag ? ((header & 0x0F) > 0x07) : ((header & 0x0F) < 0x08)) {
                 LOG_MODULE(ERROR) << "Invalid header of first D2 response frame";
                 throw std::runtime_error("Invalid header of first D2 response frame");
             }
             isError = (response.data[2] == 0x7F);
             echoRegionSize = isError ? 3 : requestIdSize + 1;
             echoComplete = false;
-            expectedSeriesId = 0x09;
+            seriesBase = hasSeriesFlag ? 0x10 : 0x08;
+            expectedSeriesId = 1;
             state = ParseState::WaitSeries;
-            endSeries = (header & 0x40) != 0;   // single-frame ответ
+            // Ответ заканчивается кадром «последний» БЕЗ флага серии: одиночный ответ
+            // (0xC8..0xCF) или последний кадр серии (0x48..0x4F). Кадр 0x55
+            // (last + series) концом не является — за ним идёт продолжение.
+            endSeries = ((header & 0x40) != 0) && !hasSeriesFlag;
             frameDataSize = response.data.size() - 1;
         }
         else if (header & 0x40) {
-            // Последний фрейм серии: 0x48..0x4F, длина данных = header - 0x48.
-            if (header < 0x48 || header > 0x4F) {
-                LOG_MODULE(ERROR) << "Wrong data length in series";
-                throw std::runtime_error("Wrong data length in series");
+            if (hasSeriesFlag) {
+                // Конец подблока, серия продолжается: 0x50..0x57, длина = младший ниббл.
+                frameDataSize = header & 0x0F;
             }
-            frameDataSize = header - 0x48;
+            else {
+                // Последний фрейм серии: 0x48..0x4F, длина данных = header - 0x48.
+                if (header < 0x48 || header > 0x4F) {
+                    LOG_MODULE(ERROR) << "Wrong data length in series";
+                    throw std::runtime_error("Wrong data length in series");
+                }
+                frameDataSize = header - 0x48;
+                endSeries = true;
+            }
             if (response.data.size() < 1 + frameDataSize) {
                 LOG_MODULE(ERROR) << "Wrong data length in series";
                 throw std::runtime_error("Wrong data length in series");
             }
-            endSeries = true;
+        }
+        else if ((header & 0x80) != 0) {
+            // Повтор первого кадра внутри серии (реальный ответ CEM: после кадра 0x55
+            // приходит ещё раз 0x8F с тем же эхом и 0xFF-паддингом). Это дубль уже
+            // принятого ответа — пропускаем, не сбрасывая накопленные данные.
+            LOG_MODULE(DEBUG) << "Duplicated first frame in D2 response, skipped";
+            continue;
         }
         else {
-            // Серийный кадр: seriesId обязан идти по порядку 0x09→0x0A→…→0x0F→0x08→…
-            if (header != expectedSeriesId) {
+            // Серийный кадр: seriesId обязан идти по порядку в базе, заданной первым
+            // кадром: 0x09→0x0A→…→0x0F→0x08→… либо 0x11→0x12→…→0x17→0x10→…
+            if (header != static_cast<uint8_t>(seriesBase | expectedSeriesId)) {
                 LOG_MODULE(ERROR) << "Unexpected seriesId in D2 response";
                 throw std::runtime_error("Unexpected seriesId in D2 response");
             }
-            expectedSeriesId = 0x08 + ((header - 0x08 + 1) & 0x07);
+            expectedSeriesId = (expectedSeriesId + 1) & 0x07;
             frameDataSize = response.data.size() - 1;
         }
 
