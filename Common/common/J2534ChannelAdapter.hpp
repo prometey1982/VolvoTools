@@ -12,7 +12,11 @@ namespace common {
 
 class J2534ChannelAdapter final : public ICanChannel {
 public:
-    explicit J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel);
+    // isExtendedId — формат CAN ID, которым открыт канал (29-битная шина).
+    // J2534Channel не хранит connect-флаги, поэтому признак 29-бит передаётся
+    // из J2534ChannelProvider, чтобы каждая отправка несла CAN_29BIT_ID в TxFlags.
+    explicit J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel,
+                                 bool isExtendedId = false);
     ~J2534ChannelAdapter() override;
 
     bool send(const CanFrame& frame, unsigned long timeout = 1000) override;
@@ -48,6 +52,7 @@ private:
     std::unique_ptr<j2534::J2534Channel> _channel;
     unsigned long _protocolId;
     unsigned long _txFlags;
+    bool _isExtendedId;
 };
 
 } // namespace common

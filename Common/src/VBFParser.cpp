@@ -120,6 +120,7 @@ namespace common {
         x3::rule<class full_erase_block, DataBlock> const full_erase_block = "full_erase_block";
         x3::rule<class erase_block_list, std::vector<DataBlock>> const erase_block_list = "erase_block_list";
 		x3::rule<class checksum_block, ChecksumBlock> const checksum_block = "checksum_block";
+		x3::rule<class checksum_flat_block, ChecksumBlock> const checksum_flat_block = "checksum_flat_block";
 		x3::rule<class checksum_block_list, std::vector<ChecksumBlock>> const checksum_block_list = "checksum_block_list";
 
 		auto const quoted_string = x3::lexeme['"' >> *(x3::char_ - '"' - x3::eol) >> '"'];
@@ -146,7 +147,15 @@ namespace common {
 		auto const checksum_block_def =
 			('{' >> uint_literal >> ',' >> uint_literal >> ',' >> uint_literal >> '}');
 
-		auto const checksum_block_list_def = '{' >> -(checksum_block % ',') >> '}';
+		// VBF CONVERT 2.1 (vbf_version 1.x) writes the checksum table as a flat list of
+		// "start, end, checksum" triples without braces around every triple, e.g.
+		//   checksum_table={0x000a0000,0x0019ffff,0xd9,
+		//                   0x000a1041,0x001a1040,0xed};
+		// Newer files use one braced group per triple. Both forms are accepted.
+		auto const checksum_flat_block_def =
+			(uint_literal >> ',' >> uint_literal >> ',' >> uint_literal);
+
+		auto const checksum_block_list_def = '{' >> -((checksum_block | checksum_flat_block) % ',') >> '}';
 
 		auto const on_checksum_list = [](auto& ctx) {
 			auto blocks = x3::_attr(ctx);
@@ -157,7 +166,7 @@ namespace common {
 		auto const description_def = x3::lit("description") >> '=' >> '{' >> (quoted_string % ',') >> '}' >> ';';
 
 		auto const vbf_header_def = 
-			x3::lit("vbf_version") >> '=' >> x3::float_[([](auto& ctx) {
+			x3::lit("vbf_version") >> '=' >> x3::double_[([](auto& ctx) {
 			x3::_val(ctx).vbfVersion = x3::_attr(ctx);
 				})] >> ';' >>
 			x3::lit("header") >> '{' >> *(description[([](auto& ctx) {
@@ -227,7 +236,7 @@ namespace common {
 
 		BOOST_SPIRIT_DEFINE(description, vbf_header, uint_literal, uint8_literal,
 							full_erase_block, erase_block_list,
-							checksum_block, checksum_block_list);
+							checksum_block, checksum_flat_block, checksum_block_list);
 
 		template<typename T>
 		T parseVBFHeader(T begin, T end, VBFHeader& data)
@@ -242,31 +251,64 @@ namespace common {
 		template<typename T>
 		uint32_t getUint32(T& iter)
 		{
-			uint8_t byte4 = *iter++;
-			uint8_t byte3 = *iter++;
-			uint8_t byte2 = *iter++;
-			uint8_t byte1 = *iter++;
-			return (byte4 << 24) + (byte3 << 16) + (byte2 << 8) + byte1;
+			const uint32_t byte4 = static_cast<uint8_t>(*iter++);
+			const uint32_t byte3 = static_cast<uint8_t>(*iter++);
+			const uint32_t byte2 = static_cast<uint8_t>(*iter++);
+			const uint32_t byte1 = static_cast<uint8_t>(*iter++);
+			return (byte4 << 24) | (byte3 << 16) | (byte2 << 8) | byte1;
 		}
 
 		template<typename T>
 		uint16_t getUint16(T& iter)
 		{
-			uint8_t byte2 = *iter++;
-			uint8_t byte1 = *iter++;
-			return (byte2 << 8) + byte1;
+			const uint16_t byte2 = static_cast<uint8_t>(*iter++);
+			const uint16_t byte1 = static_cast<uint8_t>(*iter++);
+			return static_cast<uint16_t>((byte2 << 8) | byte1);
+		}
+
+		// Every block of the binary part is "start address (4) + length (4) + data + checksum",
+		// where the trailing checksum is 1 byte for vbf_version 1.x files and a 16-bit CRC for 2.x.
+		size_t getBlockChecksumSize(const VBFHeader& header)
+		{
+			return header.vbfVersion >= 2 ? 2 : 1;
+		}
+
+		std::string toHexString(uint32_t value)
+		{
+			constexpr char digits[] = "0123456789ABCDEF";
+			std::string result(8, '0');
+			for(size_t i = 0; i < result.size(); ++i) {
+				result[result.size() - 1 - i] = digits[(value >> (4 * i)) & 0xF];
+			}
+			return "0x" + result;
 		}
 
 		template<typename T>
 		std::vector<VBFChunk> parseVBFBody(const VBFHeader& header, T begin, T end)
 		{
+			constexpr size_t blockHeaderSize = 2 * sizeof(uint32_t);
+			const size_t checksumSize = getBlockChecksumSize(header);
+			const size_t minBlockSize = blockHeaderSize + checksumSize;
+
 			std::vector<VBFChunk> result;
-			while (begin < end) {
-				uint32_t writeOffset = getUint32(begin);
-				uint32_t dataSize = getUint32(begin);
+			// Trailing bytes that cannot hold a whole block are not a part of the payload.
+			while (static_cast<size_t>(end - begin) >= minBlockSize) {
+				const uint32_t writeOffset = getUint32(begin);
+				const uint32_t dataSize = getUint32(begin);
+				const size_t available = static_cast<size_t>(end - begin);
+				if (dataSize > available - checksumSize) {
+					throw std::runtime_error("Failed to parse VBF body: block #" + std::to_string(result.size())
+						+ " at " + toHexString(writeOffset) + " declares " + std::to_string(dataSize)
+						+ " bytes of data, but only " + std::to_string(available) + " bytes are left");
+				}
 				std::vector<uint8_t> data{ begin, begin + dataSize };
 				begin += dataSize;
-				uint16_t crc = header.vbfVersion >= 2 ? getUint16(begin) : static_cast<uint8_t>(*begin++);
+				uint16_t crc = 0;
+				if (checksumSize == sizeof(uint16_t)) {
+					crc = getUint16(begin);
+				} else {
+					crc = static_cast<uint8_t>(*begin++);
+				}
 				result.emplace_back(writeOffset, std::move(data), crc);
 			}
 			return result;

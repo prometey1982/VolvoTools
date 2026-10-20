@@ -28,7 +28,9 @@ common::VBF SBLProviderCommon::getSBL(common::CarPlatform carPlatform, uint32_t 
     case common::CarPlatform::P2_250:
         if(ecuId == to_underlying(common::D2ECUType::ECM_ME)) {
             if(additionalInfo == "me9_p1") {
-                return parser.parse(common::SBLData::P1_ME9_SBL);
+                return common::VBF(
+                    common::VBFHeader{ .call = 0x7F81D0 },
+                    { makeChunk(common::SBLData::P1_ME9_SBL, 0x7F81D0) });
             }
             else {
                 return common::VBF(

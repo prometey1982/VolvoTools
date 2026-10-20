@@ -9,6 +9,7 @@ find_package(Easyloggingpp REQUIRED)
 add_executable(CommonTests
     D2MessageTest.cpp
     D2RequestTest.cpp
+    VBFParserTest.cpp
 )
 target_link_libraries(CommonTests Common Boost::unit_test_framework easyloggingpp::easyloggingpp)
 target_include_directories(CommonTests PRIVATE

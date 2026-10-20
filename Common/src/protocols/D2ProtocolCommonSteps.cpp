@@ -29,14 +29,14 @@ namespace {
     bool writeMessagesAndCheckAnswer(ICanChannel& channel,
                                      const CanFrame& message,
                                      const std::vector<uint8_t>& toCheck,
-                                     size_t count = 5)
+                                     size_t count = 1)
     {
         if (!channel.send(message)) {
             throw std::runtime_error("write msgs error");
         }
         for (size_t i = 0; i < count; ++i) {
             CanFrame received;
-            if (!channel.receive(received, 1000)) {
+            if (!channel.receive(received, 10000)) {
                 continue;
             }
             if (received.data.size() < 1 + toCheck.size()) {
@@ -60,14 +60,14 @@ namespace {
     bool writeMessagesAndCheckAnswer(ICanChannel& channel,
                                      const CanFrame& message,
                                      const std::vector<std::vector<uint8_t>>& toChecks,
-                                     size_t count = 10)
+                                     size_t count = 1)
     {
         if (!channel.send(message)) {
             throw std::runtime_error("write msgs error");
         }
         for (size_t i = 0; i < count; ++i) {
             CanFrame received;
-            if (!channel.receive(received, 3000)) {
+            if (!channel.receive(received, 10000)) {
                 continue;
             }
             for (const auto& toCheck : toChecks) {
@@ -94,7 +94,7 @@ namespace {
         LOG_MODULE(TRACE) << "move to addr: " << std::hex << writeOffset;
         const auto addrBytes = toVector(writeOffset);
         const auto msg = makeBootloaderFrame(ecuId, {0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3]});
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < 3; ++i) {
             if (writeMessagesAndCheckAnswer(channel, msg, { 0x9C, addrBytes[0], addrBytes[1], addrBytes[2], addrBytes[3] }))
                 return;
             std::this_thread::sleep_for(std::chrono::seconds(1));

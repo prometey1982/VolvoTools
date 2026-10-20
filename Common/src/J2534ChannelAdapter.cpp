@@ -13,12 +13,14 @@ namespace {
 void canFrameToPassthruMsg(const common::CanFrame& frame,
                             unsigned long protocolId,
                             unsigned long txFlags,
+                            bool isExtendedChannel,
                             PASSTHRU_MSG& msg) {
     const bool isUds = (protocolId == ISO15765 || protocolId == ISO15765_PS);
+    const bool isExtendedId = frame.isExtendedId || isExtendedChannel;
     std::memset(&msg, 0, sizeof(msg));
     msg.ProtocolID = protocolId;
     msg.RxStatus = 0;
-    msg.TxFlags = txFlags | (frame.isExtendedId ? CAN_29BIT_ID : 0) | (isUds ? ISO15765_FRAME_PAD : 0);
+    msg.TxFlags = txFlags | (isExtendedId ? CAN_29BIT_ID : 0) | (isUds ? ISO15765_FRAME_PAD : 0);
     msg.Timestamp = 0;
     msg.ExtraDataIndex = 0;
     // WORKAROUND: DiCE hangsup if DataSize < 12 bytes
@@ -50,10 +52,12 @@ common::CanFrame passthruMsgToCanFrame(const PASSTHRU_MSG& msg) {
 
 namespace common {
 
-J2534ChannelAdapter::J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel)
+J2534ChannelAdapter::J2534ChannelAdapter(std::unique_ptr<j2534::J2534Channel> channel,
+                                         bool isExtendedId)
     : _channel{ std::move(channel) }
     , _protocolId{ _channel->getProtocolId() }
     , _txFlags{ _channel->getTxFlags() }
+    , _isExtendedId{ isExtendedId }
 {
 }
 
@@ -67,7 +71,7 @@ J2534ChannelAdapter::~J2534ChannelAdapter() = default;
 bool J2534ChannelAdapter::send(const CanFrame& frame, unsigned long timeout) {
     PASSTHRU_MSG msg;
 
-    canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
+    canFrameToPassthruMsg(frame, _protocolId, _txFlags, _isExtendedId, msg);
     unsigned long numMsgs = 1;
     auto rc = _channel->writeMsgs({ msg }, numMsgs, timeout);
     if (rc != STATUS_NOERROR) {
@@ -81,7 +85,7 @@ bool J2534ChannelAdapter::send(const std::vector<CanFrame>& frames, unsigned lon
     msgs.reserve(frames.size());
     for (const auto& frame : frames) {
         PASSTHRU_MSG msg;
-        canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
+        canFrameToPassthruMsg(frame, _protocolId, _txFlags, _isExtendedId, msg);
         msgs.push_back(msg);
     }
     unsigned long numMsgs = static_cast<unsigned long>(msgs.size());
@@ -134,7 +138,7 @@ bool J2534ChannelAdapter::startPeriodicMsg(const CanFrame& frame,
                                             unsigned long intervalMs,
                                             unsigned long& msgId) {
     PASSTHRU_MSG msg;
-    canFrameToPassthruMsg(frame, _protocolId, _txFlags, msg);
+    canFrameToPassthruMsg(frame, _protocolId, _txFlags, _isExtendedId, msg);
     return _channel->startPeriodicMsg(msg, msgId, intervalMs) == STATUS_NOERROR;
 }
 
@@ -148,13 +152,13 @@ bool J2534ChannelAdapter::startMsgFilter(unsigned long filterType,
                                           const CanFrame* flowControl,
                                           unsigned long& filterId) {
     PASSTHRU_MSG maskMsg;
-    canFrameToPassthruMsg(mask, _protocolId, _txFlags, maskMsg);
+    canFrameToPassthruMsg(mask, _protocolId, _txFlags, _isExtendedId, maskMsg);
     PASSTHRU_MSG patternMsg;
-    canFrameToPassthruMsg(pattern, _protocolId, _txFlags, patternMsg);
+    canFrameToPassthruMsg(pattern, _protocolId, _txFlags, _isExtendedId, patternMsg);
     PASSTHRU_MSG flowMsg;
     PASSTHRU_MSG* flowPtr = nullptr;
     if (flowControl) {
-        canFrameToPassthruMsg(*flowControl, _protocolId, _txFlags, flowMsg);
+        canFrameToPassthruMsg(*flowControl, _protocolId, _txFlags, _isExtendedId, flowMsg);
         flowPtr = &flowMsg;
     }
     return _channel->startMsgFilter(filterType, &maskMsg, &patternMsg, flowPtr, filterId) == STATUS_NOERROR;

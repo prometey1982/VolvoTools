@@ -593,3 +593,56 @@ BOOST_AUTO_TEST_CASE(SendMessagesDelay)
     D2Request req{0x50, {0xB9, 0xFB}};
     BOOST_CHECK_NO_THROW(req.process(mock, 1000, 50));
 }
+
+// ---------------------------------------------------------------------------
+// 13. Реальный ответ CEM на B9FB (VIN) из лога VIDA
+//
+// Формат отличается от синтетического: первый кадр 0x97 (first + флаг серии,
+// длина 7), серия 0x11..0x17,0x10, конец — 0x4C (last без флага серии).
+// Кадр 0x55 (last + флаг серии) и повтор первого 0x8F концом ответа не являются.
+// ---------------------------------------------------------------------------
+
+BOOST_AUTO_TEST_CASE(RealCemVinResponseFromVidaLog)
+{
+    MockICanChannel mock;
+    const auto frame = [](std::initializer_list<uint8_t> data) {
+        return CanFrame{0xFFFFE, std::vector<uint8_t>(data), true};
+    };
+    // Эхо: 0x50 (CEM) + 0xF9 (0xB9|0x40) + 0xFB, затем метаданные 57 00 31 82 17 96
+    mock.receiveQueue.push(frame({0x97, 0x50, 0xF9, 0xFB, 0x57, 0x00, 0x31, 0x82}));
+    mock.receiveQueue.push(frame({0x11, 0x17, 0x96, 0x30, 0x30, 0x32, 0x0D, 0x0A}));  // "002\r\n"
+    mock.receiveQueue.push(frame({0x12, 0x59, 0x56, 0x31, 0x4D, 0x4B, 0x36, 0x38}));  // "YV1MK68"
+    mock.receiveQueue.push(frame({0x13, 0x35, 0x39, 0x37, 0x32, 0x30, 0x30, 0x36}));  // "5972006"
+    mock.receiveQueue.push(frame({0x14, 0x36, 0x37, 0x35, 0x0D, 0x0A, 0x32, 0x38}));  // "675\r\n28"
+    mock.receiveQueue.push(frame({0x15, 0x30, 0x35, 0x31, 0x39, 0x34, 0x31, 0x34}));
+    mock.receiveQueue.push(frame({0x16, 0x0D, 0x0A, 0x35, 0x33, 0x33, 0x0D, 0x0A}));
+    mock.receiveQueue.push(frame({0x17, 0x30, 0x30, 0x36, 0x36, 0x37, 0x35, 0x0D}));
+    mock.receiveQueue.push(frame({0x10, 0x0A, 0x32, 0x32, 0x0D, 0x0A, 0x32, 0x30}));
+    // Конец подблока, но не ответа: last + флаг серии, 5 байт паддинга.
+    mock.receiveQueue.push(frame({0x55, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00}));
+    // Повтор первого кадра (дубль), должен быть пропущен.
+    mock.receiveQueue.push(frame({0x8F, 0x50, 0xF9, 0xFB, 0xFF, 0xFF, 0xFF, 0xFF}));
+    // Последний кадр: last без флага серии, 4 байта паддинга.
+    mock.receiveQueue.push(frame({0x4C, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00}));
+
+    D2Request req{0x50, {0xB9, 0xFB}};
+    const auto result = req.process(mock, 1000);
+
+    // 4 байта метаданных + 8 кадров серии по 7 байт + 5 (0x55) + 4 (0x4C).
+    BOOST_REQUIRE_EQUAL(result.size(), 4 + 8 * 7 + 5 + 4);
+
+    // VIN — вторая строка текста, начинается с 11-го байта потока.
+    const std::string vin(result.begin() + 11, result.begin() + 28);
+    BOOST_CHECK_EQUAL(vin, "YV1MK685972006675");
+}
+
+BOOST_AUTO_TEST_CASE(LastFrameWithSeriesFlagIsNotTheEnd)
+{
+    MockICanChannel mock;
+    // Только 0x55 (last + series) — ответ не закончен, приём упрётся в таймаут.
+    mock.receiveQueue.push(CanFrame{0xFFFFE, {0x97, 0x50, 0xF9, 0xFB, 0x01}, true});
+    mock.receiveQueue.push(CanFrame{0xFFFFE, {0x55, 0x02, 0x03, 0x04, 0x05, 0x06}, true});
+
+    D2Request req{0x50, {0xB9, 0xFB}};
+    BOOST_CHECK_THROW(req.process(mock, 1000), std::runtime_error);
+}

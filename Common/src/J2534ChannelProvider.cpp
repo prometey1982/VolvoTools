@@ -1,5 +1,6 @@
 #include "common/J2534ChannelProvider.hpp"
 #include "common/J2534ChannelAdapter.hpp"
+#include "common/CanIdProvider.hpp"
 #include "common/ProtocolType.hpp"
 
 #include "common/CommonData.hpp"
@@ -28,7 +29,15 @@ std::unique_ptr<j2534::J2534Channel> createRawChannelByBusConf(j2534::J2534& j25
         }
     }
     else if(ecuInfo.protocol == ProtocolType::ISO15765) {
-        return openUDSChannel(j2534, bus.baudrate, ecuInfo.canId);
+        // Для 29-битных шин CANIdentifier в data.yaml отсутствует (там только Address),
+        // поэтому физический ID запроса строим через CanIdProvider: 0x18DA{ps}F1.
+        // Для 11-битных шин результат совпадает с CANIdentifier из data.yaml.
+        uint32_t canId{ ecuInfo.canId };
+        if (bus.canIdBitSize == 11 || bus.canIdBitSize == 29) {
+            canId = createCanIdProvider(
+                ecuInfo.protocol, bus.canIdBitSize, ecuInfo.ecuId, ecuInfo.canId)->getPhysCanId();
+        }
+        return openUDSChannel(j2534, bus.baudrate, canId, bus.canIdBitSize);
     }
     else if(ecuInfo.protocol == ProtocolType::ISO14230) {
         return openTP20Channel(j2534, bus.baudrate, ecuInfo.canId);
@@ -79,7 +88,8 @@ std::vector<std::unique_ptr<ICanChannel>> J2534ChannelProvider::getAllChannels(u
             if(ecu.ecuId == ecuId) {
                 auto rawChannel{ createRawChannelByBusConf(_j2534, bus, ecu) };
                 if (rawChannel) {
-                    result.emplace_back(std::make_unique<J2534ChannelAdapter>(std::move(rawChannel)));
+                    result.emplace_back(std::make_unique<J2534ChannelAdapter>(
+                        std::move(rawChannel), bus.canIdBitSize == 29));
                 }
             }
         }
@@ -90,9 +100,10 @@ std::vector<std::unique_ptr<ICanChannel>> J2534ChannelProvider::getAllChannels(u
 std::unique_ptr<ICanChannel> J2534ChannelProvider::getChannelForEcu(uint32_t ecuId) const
 {
     const auto ecuInfo{ getEcuInfoByEcuId(_carPlatform, ecuId) };
-    auto rawChannel{ createRawChannelByBusConf(_j2534, std::get<0>(ecuInfo), std::get<1>(ecuInfo)) };
+    const auto& bus{ std::get<0>(ecuInfo) };
+    auto rawChannel{ createRawChannelByBusConf(_j2534, bus, std::get<1>(ecuInfo)) };
     if (rawChannel) {
-        return std::make_unique<J2534ChannelAdapter>(std::move(rawChannel));
+        return std::make_unique<J2534ChannelAdapter>(std::move(rawChannel), bus.canIdBitSize == 29);
     }
     return {};
 }

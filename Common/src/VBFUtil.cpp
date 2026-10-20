@@ -49,9 +49,9 @@ VBF createVBFForME7(std::vector<uint8_t>& data)
 VBF createVBFForME9P1(std::vector<uint8_t>& data)
 {
     return {
-        VBFHeader{ .eraseBlocks{ { 0x20000, 0x70000 }, { 0xA0000, static_cast<uint32_t>(data.size()) - 0xA0000 } } },
+        VBFHeader{ .eraseBlocks{ { 0x20000, 0x0 } } },
         {createChunk(data, 0x20000, 0x70000),
-         createChunk(data, 0xA0000, data.size() - 0xA0000)}};
+         createChunk(data, 0xA0000, 0x150000)}};
 }
 
 VBF createVBFForME9P3(std::vector<uint8_t>& data)
